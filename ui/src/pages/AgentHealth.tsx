@@ -461,7 +461,7 @@ export default function AgentHealth({ companyId }: { companyId: string }) {
         />
         <MetricCard
           title="Avg Recovery"
-          value={timelineData?.summary.avg_recovery_time_seconds ? formatRecoveryTime(timelineData.summary.avg_recovery_time_seconds) : '—'}
+          value={timelineData?.metrics.avg_recovery_minutes ? formatRecoveryTime(timelineData.metrics.avg_recovery_minutes) : '—'}
           subtitle="Time to recovery"
           icon={<Clock className="h-5 w-5" />}
           color="blue"
@@ -488,7 +488,7 @@ export default function AgentHealth({ companyId }: { companyId: string }) {
           <h3 className="text-lg font-semibold text-zinc-100">Incident Timeline</h3>
           <div className="flex items-center gap-2 text-xs text-zinc-500">
             <Clock className="h-3 w-3" />
-            {timelineData ? `${timelineData.summary.total_incidents} incidents` : 'Loading...'}
+            {timelineData ? `${timelineData.metrics.total_incidents} incidents` : 'Loading...'}
           </div>
         </div>
         <div className="space-y-2">
@@ -542,10 +542,10 @@ export default function AgentHealth({ companyId }: { companyId: string }) {
               Avg Recovery Time
             </div>
             <p className="mt-2 text-2xl font-bold text-zinc-100">
-              {formatRecoveryTime(timelineData?.summary.avg_recovery_time_seconds || null)}
+              {formatRecoveryTime(timelineData?.metrics.avg_recovery_minutes || null)}
             </p>
             <p className="mt-1 text-xs text-zinc-500">
-              Max: {formatRecoveryTime(timelineData?.summary.max_recovery_time_seconds || null)}
+              Max: {formatRecoveryTime(timelineData?.metrics.avg_recovery_minutes || null)}
             </p>
           </div>
 

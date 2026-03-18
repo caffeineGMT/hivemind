@@ -273,6 +273,13 @@ export interface IncidentMetrics {
 export interface IncidentTimeline {
   timeline: IncidentTimelineEntry[];
   metrics: IncidentMetrics;
+  summary: {
+    total_incidents: number;
+    total_crashes: number;
+    recovered_crashes: number;
+    avg_recovery_time_seconds: number | null;
+    max_recovery_time_seconds: number | null;
+  };
 }
 
 // ── Fetch helpers ──────────────────────────────────────────────────
