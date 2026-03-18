@@ -44,6 +44,45 @@ function migrate(db) {
     }
   } catch {}
 
+  // Add trace enhancement columns if missing
+  try {
+    const traceCols = db.prepare("PRAGMA table_info(traces)").all();
+    if (traceCols.length > 0) {
+      if (!traceCols.find(c => c.name === "duration_ms")) {
+        db.exec("ALTER TABLE traces ADD COLUMN duration_ms INTEGER");
+      }
+      if (!traceCols.find(c => c.name === "status")) {
+        db.exec("ALTER TABLE traces ADD COLUMN status TEXT");
+      }
+      if (!traceCols.find(c => c.name === "company_id")) {
+        db.exec("ALTER TABLE traces ADD COLUMN company_id TEXT");
+      }
+      if (!traceCols.find(c => c.name === "agent_id")) {
+        db.exec("ALTER TABLE traces ADD COLUMN agent_id TEXT");
+      }
+      if (!traceCols.find(c => c.name === "task_id")) {
+        db.exec("ALTER TABLE traces ADD COLUMN task_id TEXT");
+      }
+    }
+  } catch {}
+
+  // Add trace_id column to logs if missing
+  try {
+    const logCols = db.prepare("PRAGMA table_info(logs)").all();
+    if (logCols.length > 0 && !logCols.find(c => c.name === "trace_id")) {
+      db.exec("ALTER TABLE logs ADD COLUMN trace_id TEXT");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_logs_trace_id ON logs(trace_id)");
+    }
+  } catch {}
+
+  // Add 'depends_on' column to tasks if missing
+  try {
+    const cols = db.prepare("PRAGMA table_info(tasks)").all();
+    if (cols.length > 0 && !cols.find(c => c.name === "depends_on")) {
+      db.exec("ALTER TABLE tasks ADD COLUMN depends_on TEXT");
+    }
+  } catch {}
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY,
@@ -81,6 +120,7 @@ function migrate(db) {
       priority TEXT NOT NULL DEFAULT 'medium',
       assignee_id TEXT REFERENCES agents(id),
       created_by_id TEXT,
+      depends_on TEXT,
       result TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -228,6 +268,123 @@ function migrate(db) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_project_config_company ON project_config(company_id);
+
+    CREATE TABLE IF NOT EXISTS workload_forecasts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      forecast_type TEXT NOT NULL,
+      time_bucket TEXT NOT NULL,
+      predicted_value REAL NOT NULL,
+      confidence_score REAL NOT NULL DEFAULT 0.8,
+      metadata TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(company_id, forecast_type, time_bucket)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_forecasts_company ON workload_forecasts(company_id);
+    CREATE INDEX IF NOT EXISTS idx_forecasts_type ON workload_forecasts(forecast_type);
+    CREATE INDEX IF NOT EXISTS idx_forecasts_time ON workload_forecasts(time_bucket);
+
+    CREATE TABLE IF NOT EXISTS agent_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      agent_id TEXT NOT NULL REFERENCES agents(id),
+      task_id TEXT REFERENCES tasks(id),
+      start_time TEXT NOT NULL DEFAULT (datetime('now')),
+      end_time TEXT,
+      status TEXT NOT NULL DEFAULT 'running',
+      tokens_used INTEGER DEFAULT 0,
+      cost REAL DEFAULT 0,
+      error_message TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_agent_runs_agent ON agent_runs(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_agent_runs_task ON agent_runs(task_id);
+    CREATE INDEX IF NOT EXISTS idx_agent_runs_status ON agent_runs(status);
+    CREATE INDEX IF NOT EXISTS idx_agent_runs_start_time ON agent_runs(start_time);
+
+    CREATE TABLE IF NOT EXISTS task_executions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id TEXT NOT NULL REFERENCES tasks(id),
+      company_id TEXT NOT NULL REFERENCES companies(id),
+      status TEXT NOT NULL DEFAULT 'pending',
+      retries INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_task_executions_task ON task_executions(task_id);
+    CREATE INDEX IF NOT EXISTS idx_task_executions_company ON task_executions(company_id);
+    CREATE INDEX IF NOT EXISTS idx_task_executions_status ON task_executions(status);
+
+    CREATE TABLE IF NOT EXISTS agent_metrics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL REFERENCES companies(id),
+      agent_id TEXT NOT NULL REFERENCES agents(id),
+      agent_name TEXT NOT NULL,
+      metric_type TEXT NOT NULL,
+      value REAL NOT NULL,
+      metadata TEXT,
+      timestamp TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_agent_metrics_company ON agent_metrics(company_id);
+    CREATE INDEX IF NOT EXISTS idx_agent_metrics_agent ON agent_metrics(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_agent_metrics_type ON agent_metrics(metric_type);
+    CREATE INDEX IF NOT EXISTS idx_agent_metrics_timestamp ON agent_metrics(timestamp);
+
+    CREATE TABLE IF NOT EXISTS anomalies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL REFERENCES companies(id),
+      agent_id TEXT NOT NULL REFERENCES agents(id),
+      agent_name TEXT NOT NULL,
+      metric_type TEXT NOT NULL,
+      value REAL NOT NULL,
+      baseline_mean REAL NOT NULL,
+      baseline_std_dev REAL NOT NULL,
+      z_score REAL NOT NULL,
+      severity TEXT NOT NULL,
+      direction TEXT NOT NULL,
+      deviation_percent REAL NOT NULL,
+      context TEXT,
+      detected_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_anomalies_company ON anomalies(company_id);
+    CREATE INDEX IF NOT EXISTS idx_anomalies_agent ON anomalies(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_anomalies_severity ON anomalies(severity);
+    CREATE INDEX IF NOT EXISTS idx_anomalies_detected_at ON anomalies(detected_at);
+
+    CREATE TABLE IF NOT EXISTS metrics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+      metric_name TEXT NOT NULL,
+      value REAL NOT NULL,
+      agent_id TEXT REFERENCES agents(id),
+      company_id TEXT REFERENCES companies(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_metrics_name ON metrics(metric_name);
+    CREATE INDEX IF NOT EXISTS idx_metrics_agent ON metrics(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_metrics_company ON metrics(company_id);
+
+    CREATE TABLE IF NOT EXISTS traces (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      trace_id TEXT NOT NULL,
+      span_id TEXT NOT NULL,
+      parent_span_id TEXT,
+      operation TEXT NOT NULL,
+      timestamp TEXT NOT NULL,
+      metadata TEXT,
+      UNIQUE(trace_id, span_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_traces_trace_id ON traces(trace_id);
+    CREATE INDEX IF NOT EXISTS idx_traces_span_id ON traces(span_id);
+    CREATE INDEX IF NOT EXISTS idx_traces_parent_span_id ON traces(parent_span_id);
+    CREATE INDEX IF NOT EXISTS idx_traces_operation ON traces(operation);
+    CREATE INDEX IF NOT EXISTS idx_traces_timestamp ON traces(timestamp);
   `);
 }
 
@@ -316,12 +473,13 @@ export function updateAgentStatus(id, status, extra = {}) {
   }
 }
 
-export function createTask({ id, companyId, parentId, title, description, priority, assigneeId, createdById }) {
+export function createTask({ id, companyId, parentId, title, description, priority, assigneeId, createdById, dependsOn }) {
   const db = getDb();
+  const dependsOnStr = dependsOn && Array.isArray(dependsOn) ? JSON.stringify(dependsOn) : null;
   db.prepare(
-    "INSERT INTO tasks (id, company_id, parent_id, title, description, priority, assignee_id, created_by_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-  ).run(id, companyId, parentId, title, description, priority || "medium", assigneeId, createdById);
-  return { id, title, description, priority, assigneeId };
+    "INSERT INTO tasks (id, company_id, parent_id, title, description, priority, assignee_id, created_by_id, depends_on) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  ).run(id, companyId, parentId, title, description, priority || "medium", assigneeId, createdById, dependsOnStr);
+  return { id, title, description, priority, assigneeId, dependsOn };
 }
 
 export function getTasksByCompany(companyId, status) {
@@ -389,7 +547,16 @@ export function getTask(id) {
 }
 
 export function getRecentActivity(companyId, limit = 20) {
-  return getDb().prepare("SELECT * FROM activity_log WHERE company_id = ? ORDER BY created_at DESC LIMIT ?").all(companyId, limit);
+  return getDb().prepare(`
+    SELECT
+      al.*,
+      a.name as agent_name
+    FROM activity_log al
+    LEFT JOIN agents a ON al.agent_id = a.id
+    WHERE al.company_id = ?
+    ORDER BY al.created_at DESC
+    LIMIT ?
+  `).all(companyId, limit);
 }
 
 // ── Cost tracking ──────────────────────────────────────────────────
@@ -966,4 +1133,449 @@ export function cleanOldLogs(daysToKeep = 30) {
   return result.changes;
 }
 
+// ── Workload Forecasts ──────────────────────────────────────────────────
+
+export function saveForecast({ companyId, forecastType, timeBucket, predictedValue, confidenceScore, metadata }) {
+  getDb().prepare(
+    `INSERT INTO workload_forecasts (company_id, forecast_type, time_bucket, predicted_value, confidence_score, metadata)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(company_id, forecast_type, time_bucket) DO UPDATE SET
+       predicted_value = excluded.predicted_value,
+       confidence_score = excluded.confidence_score,
+       metadata = excluded.metadata,
+       created_at = datetime('now')`
+  ).run(companyId, forecastType, timeBucket, predictedValue, confidenceScore || 0.8, metadata ? JSON.stringify(metadata) : null);
+}
+
+export function getForecasts(companyId, forecastType = null) {
+  let query = 'SELECT * FROM workload_forecasts WHERE company_id = ?';
+  const params = [companyId];
+
+  if (forecastType) {
+    query += ' AND forecast_type = ?';
+    params.push(forecastType);
+  }
+
+  query += ' ORDER BY time_bucket ASC';
+
+  const forecasts = getDb().prepare(query).all(...params);
+  return forecasts.map(f => ({
+    ...f,
+    metadata: f.metadata ? JSON.parse(f.metadata) : null,
+  }));
+}
+
+export function getLatestForecast(companyId, forecastType) {
+  const forecast = getDb().prepare(
+    'SELECT * FROM workload_forecasts WHERE company_id = ? AND forecast_type = ? ORDER BY created_at DESC LIMIT 1'
+  ).get(companyId, forecastType);
+
+  if (forecast && forecast.metadata) {
+    forecast.metadata = JSON.parse(forecast.metadata);
+  }
+  return forecast;
+}
+
+export function deleteOldForecasts(companyId, daysToKeep = 7) {
+  const cutoff = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000).toISOString();
+  const result = getDb().prepare(
+    'DELETE FROM workload_forecasts WHERE company_id = ? AND created_at < ?'
+  ).run(companyId, cutoff);
+  return result.changes;
+}
+
+// Get historical task completion data for prediction
+export function getTaskCompletionHistory(companyId, days = 30) {
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  return getDb().prepare(`
+    SELECT
+      DATE(created_at) as date,
+      COUNT(*) as tasks_created,
+      SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as tasks_completed,
+      AVG(CASE
+        WHEN status = 'done' THEN
+          (julianday(updated_at) - julianday(created_at)) * 24
+        ELSE NULL
+      END) as avg_completion_hours
+    FROM tasks
+    WHERE company_id = ?
+      AND created_at >= ?
+      AND title NOT LIKE '[PROJECT]%'
+    GROUP BY DATE(created_at)
+    ORDER BY date ASC
+  `).all(companyId, startDate);
+}
+
+// Get hourly task activity patterns
+export function getHourlyTaskPatterns(companyId, days = 14) {
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  return getDb().prepare(`
+    SELECT
+      CAST(strftime('%H', created_at) AS INTEGER) as hour,
+      COUNT(*) as task_count,
+      AVG(CASE
+        WHEN status = 'done' THEN
+          (julianday(updated_at) - julianday(created_at)) * 24
+        ELSE NULL
+      END) as avg_completion_hours
+    FROM tasks
+    WHERE company_id = ?
+      AND created_at >= ?
+      AND title NOT LIKE '[PROJECT]%'
+    GROUP BY hour
+    ORDER BY hour ASC
+  `).all(companyId, startDate);
+}
+
+// Get agent workload distribution
+export function getAgentWorkloadHistory(companyId, days = 30) {
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  return getDb().prepare(`
+    SELECT
+      a.id as agent_id,
+      a.name as agent_name,
+      a.role,
+      COUNT(t.id) as total_tasks,
+      SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) as completed_tasks,
+      SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) as active_tasks,
+      AVG(CASE
+        WHEN t.status = 'done' THEN
+          (julianday(t.updated_at) - julianday(t.created_at)) * 24
+        ELSE NULL
+      END) as avg_completion_hours,
+      DATE(t.created_at) as date
+    FROM agents a
+    LEFT JOIN tasks t ON a.id = t.assignee_id
+    WHERE a.company_id = ?
+      AND (t.created_at >= ? OR t.created_at IS NULL)
+      AND (t.title NOT LIKE '[PROJECT]%' OR t.title IS NULL)
+    GROUP BY a.id, DATE(t.created_at)
+    ORDER BY date ASC, agent_name ASC
+  `).all(companyId, startDate);
+}
+
+// ── Agent Runs (for lifecycle tracking) ──────────────────────────────────────
+
+export function createAgentRun({ agentId, taskId, companyId }) {
+  const result = getDb().prepare(
+    `INSERT INTO agent_runs (agent_id, task_id, status, start_time)
+     VALUES (?, ?, 'running', datetime('now'))`
+  ).run(agentId, taskId || null);
+  return result.lastInsertRowid;
+}
+
+export function updateAgentRun(runId, { status, tokensUsed, cost, errorMessage }) {
+  const sets = [];
+  const vals = [];
+
+  if (status !== undefined) { sets.push("status = ?"); vals.push(status); }
+  if (tokensUsed !== undefined) { sets.push("tokens_used = ?"); vals.push(tokensUsed); }
+  if (cost !== undefined) { sets.push("cost = ?"); vals.push(cost); }
+  if (errorMessage !== undefined) { sets.push("error_message = ?"); vals.push(errorMessage); }
+
+  if (sets.length === 0) return;
+
+  vals.push(runId);
+  getDb().prepare(`UPDATE agent_runs SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
+}
+
+export function completeAgentRun(runId, { tokensUsed, cost, resultSummary }) {
+  getDb().prepare(
+    `UPDATE agent_runs
+     SET status = 'completed',
+         end_time = datetime('now'),
+         tokens_used = ?,
+         cost = ?
+     WHERE id = ?`
+  ).run(tokensUsed || 0, cost || 0, runId);
+}
+
+export function failAgentRun(runId, errorMessage) {
+  getDb().prepare(
+    `UPDATE agent_runs
+     SET status = 'error',
+         end_time = datetime('now'),
+         error_message = ?
+     WHERE id = ?`
+  ).run(errorMessage, runId);
+}
+
+export function getAgentRuns(agentId, limit = 50) {
+  return getDb().prepare(
+    `SELECT * FROM agent_runs WHERE agent_id = ? ORDER BY start_time DESC LIMIT ?`
+  ).all(agentId, limit);
+}
+
+export function getAgentRunsByTask(taskId) {
+  return getDb().prepare(
+    `SELECT * FROM agent_runs WHERE task_id = ? ORDER BY start_time DESC`
+  ).all(taskId);
+}
+
+export function getAgentRunById(runId) {
+  return getDb().prepare(
+    `SELECT * FROM agent_runs WHERE id = ?`
+  ).get(runId);
+}
+
+// ── Task Executions (for state change tracking) ──────────────────────────────
+
+export function createTaskExecution({ taskId, companyId, status, agentId }) {
+  const result = getDb().prepare(
+    `INSERT INTO task_executions (task_id, company_id, status, retries)
+     VALUES (?, ?, ?, 0)`
+  ).run(taskId, companyId, status || 'pending');
+  return result.lastInsertRowid;
+}
+
+export function updateTaskExecution(executionId, { status, retries }) {
+  const sets = [];
+  const vals = [];
+
+  if (status !== undefined) { sets.push("status = ?"); vals.push(status); }
+  if (retries !== undefined) { sets.push("retries = ?"); vals.push(retries); }
+
+  if (sets.length === 0) return;
+
+  vals.push(executionId);
+  getDb().prepare(`UPDATE task_executions SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
+}
+
+export function completeTaskExecution(executionId) {
+  getDb().prepare(
+    `UPDATE task_executions
+     SET status = 'completed',
+         completed_at = datetime('now')
+     WHERE id = ?`
+  ).run(executionId);
+}
+
+export function getTaskExecutions(taskId, limit = 50) {
+  return getDb().prepare(
+    `SELECT * FROM task_executions WHERE task_id = ? ORDER BY created_at DESC LIMIT ?`
+  ).all(taskId, limit);
+}
+
+export function getTaskExecutionById(executionId) {
+  return getDb().prepare(
+    `SELECT * FROM task_executions WHERE id = ?`
+  ).get(executionId);
+}
+
+export function getRecentTaskExecutions(companyId, limit = 100) {
+  return getDb().prepare(
+    `SELECT te.*, t.title as task_title
+     FROM task_executions te
+     LEFT JOIN tasks t ON te.task_id = t.id
+     WHERE te.company_id = ?
+     ORDER BY te.created_at DESC
+     LIMIT ?`
+  ).all(companyId, limit);
+}
+
+// ── Metrics (for real-time tracking) ──────────────────────────────────────────
+
+export function logMetric({ metricName, value, agentId, companyId, timestamp }) {
+  getDb().prepare(
+    `INSERT INTO metrics (metric_name, value, agent_id, company_id, timestamp)
+     VALUES (?, ?, ?, ?, ?)`
+  ).run(
+    metricName,
+    value,
+    agentId || null,
+    companyId || null,
+    timestamp || new Date().toISOString()
+  );
+}
+
+export function getMetrics({ metricName, agentId, companyId, startTime, endTime, limit = 1000 }) {
+  let query = 'SELECT * FROM metrics WHERE 1=1';
+  const params = [];
+
+  if (metricName) {
+    query += ' AND metric_name = ?';
+    params.push(metricName);
+  }
+
+  if (agentId) {
+    query += ' AND agent_id = ?';
+    params.push(agentId);
+  }
+
+  if (companyId) {
+    query += ' AND company_id = ?';
+    params.push(companyId);
+  }
+
+  if (startTime) {
+    query += ' AND timestamp >= ?';
+    params.push(startTime);
+  }
+
+  if (endTime) {
+    query += ' AND timestamp <= ?';
+    params.push(endTime);
+  }
+
+  query += ' ORDER BY timestamp DESC LIMIT ?';
+  params.push(limit);
+
+  return getDb().prepare(query).all(...params);
+}
+
+export function getMetricsSummary({ metricName, agentId, companyId, startTime, endTime }) {
+  let query = `
+    SELECT
+      metric_name,
+      COUNT(*) as count,
+      SUM(value) as total,
+      AVG(value) as average,
+      MIN(value) as min,
+      MAX(value) as max
+    FROM metrics
+    WHERE 1=1`;
+
+  const params = [];
+
+  if (metricName) {
+    query += ' AND metric_name = ?';
+    params.push(metricName);
+  }
+
+  if (agentId) {
+    query += ' AND agent_id = ?';
+    params.push(agentId);
+  }
+
+  if (companyId) {
+    query += ' AND company_id = ?';
+    params.push(companyId);
+  }
+
+  if (startTime) {
+    query += ' AND timestamp >= ?';
+    params.push(startTime);
+  }
+
+  if (endTime) {
+    query += ' AND timestamp <= ?';
+    params.push(endTime);
+  }
+
+  query += ' GROUP BY metric_name';
+
+  return getDb().prepare(query).all(...params);
+}
+
+// ── Distributed Tracing ──────────────────────────────────────────────────
+
+export function saveSpan({ traceId, spanId, parentSpanId, operation, timestamp, metadata, durationMs, status, companyId, agentId, taskId }) {
+  getDb().prepare(
+    `INSERT INTO traces (trace_id, span_id, parent_span_id, operation, timestamp, metadata, duration_ms, status, company_id, agent_id, task_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(trace_id, span_id) DO UPDATE SET
+       operation = excluded.operation,
+       timestamp = excluded.timestamp,
+       metadata = excluded.metadata,
+       duration_ms = excluded.duration_ms,
+       status = excluded.status,
+       company_id = excluded.company_id,
+       agent_id = excluded.agent_id,
+       task_id = excluded.task_id`
+  ).run(
+    traceId,
+    spanId,
+    parentSpanId || null,
+    operation,
+    timestamp,
+    metadata ? JSON.stringify(metadata) : null,
+    durationMs || null,
+    status || null,
+    companyId || null,
+    agentId || null,
+    taskId || null
+  );
+}
+
+export function getTraceById(traceId) {
+  const spans = getDb().prepare(
+    'SELECT * FROM traces WHERE trace_id = ? ORDER BY timestamp ASC'
+  ).all(traceId);
+
+  return spans.map(span => ({
+    ...span,
+    metadata: span.metadata ? JSON.parse(span.metadata) : null,
+  }));
+}
+
+export function getTracesByTaskId(taskId, limit = 100) {
+  const spans = getDb().prepare(
+    `SELECT * FROM traces
+     WHERE metadata LIKE ?
+     ORDER BY timestamp DESC
+     LIMIT ?`
+  ).all(`%"task_id":"${taskId}"%`, limit);
+
+  return spans.map(span => ({
+    ...span,
+    metadata: span.metadata ? JSON.parse(span.metadata) : null,
+  }));
+}
+
+export function getRecentTraces(companyId, limit = 50) {
+  const spans = getDb().prepare(
+    `SELECT DISTINCT trace_id, MIN(timestamp) as start_time, MAX(timestamp) as end_time, COUNT(*) as span_count
+     FROM traces
+     WHERE metadata LIKE ?
+     GROUP BY trace_id
+     ORDER BY start_time DESC
+     LIMIT ?`
+  ).all(`%"company_id":"${companyId}"%`, limit);
+
+  return spans;
+}
+
+export function getTraceTree(traceId) {
+  const spans = getDb().prepare(
+    'SELECT * FROM traces WHERE trace_id = ? ORDER BY timestamp ASC'
+  ).all(traceId);
+
+  const parsedSpans = spans.map(span => ({
+    ...span,
+    metadata: span.metadata ? JSON.parse(span.metadata) : null,
+  }));
+
+  // Build tree structure
+  const spanMap = new Map();
+  const rootSpans = [];
+
+  parsedSpans.forEach(span => {
+    spanMap.set(span.span_id, { ...span, children: [] });
+  });
+
+  parsedSpans.forEach(span => {
+    const node = spanMap.get(span.span_id);
+    if (span.parent_span_id) {
+      const parent = spanMap.get(span.parent_span_id);
+      if (parent) {
+        parent.children.push(node);
+      } else {
+        rootSpans.push(node);
+      }
+    } else {
+      rootSpans.push(node);
+    }
+  });
+
+  return rootSpans;
+}
+
+export function deleteOldTraces(daysToKeep = 7) {
+  const cutoff = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000).toISOString();
+  const result = getDb().prepare('DELETE FROM traces WHERE timestamp < ?').run(cutoff);
+  return result.changes;
+}
 

@@ -57,6 +57,7 @@ export interface ActivityEntry {
   id: string;
   company_id: string;
   agent_id: string | null;
+  agent_name: string | null;
   task_id: string | null;
   action: string;
   detail: string;
@@ -570,6 +571,22 @@ export const api = {
     });
     return res.json();
   },
+
+  // Workload prediction
+  getWorkloadForecast: (companyId: string) =>
+    fetchJson<WorkloadReport>(`/api/companies/${companyId}/workload/forecast`),
+
+  getTaskVolumePredictions: (companyId: string, days = 7) =>
+    fetchJson<TaskVolumePrediction>(`/api/companies/${companyId}/workload/predictions?days=${days}`),
+
+  getScalingRecommendation: (companyId: string) =>
+    fetchJson<ScalingRecommendation>(`/api/companies/${companyId}/workload/scaling`),
+
+  getPeakHours: (companyId: string) =>
+    fetchJson<PeakHoursAnalysis>(`/api/companies/${companyId}/workload/peak-hours`),
+
+  getAgentEfficiencyPrediction: (companyId: string) =>
+    fetchJson<AgentEfficiencyPrediction>(`/api/companies/${companyId}/workload/agent-efficiency`),
 };
 
 // ── Cross-Project Analytics Types ──────────────────────────────────
@@ -728,3 +745,85 @@ export function setupWebSocket(queryClient: QueryClient) {
 }
 
 export { wsClient };
+
+// ── Workload Prediction Types ──────────────────────────────────────────
+
+export interface ForecastPrediction {
+  time_bucket: string;
+  predicted_value: number;
+  confidence_score: number;
+}
+
+export interface TaskVolumePrediction {
+  predictions: ForecastPrediction[];
+  trend: 'increasing' | 'decreasing' | 'stable' | 'insufficient_data';
+  confidence: number;
+  current_avg: number;
+  predicted_avg: number;
+  change_pct: number;
+  recommendations?: string[];
+}
+
+export interface ScalingRecommendation {
+  current_agents: number;
+  recommended_agents: number;
+  change: number;
+  action: 'scale_up' | 'scale_down' | 'maintain';
+  reason: string;
+  confidence: number;
+  predicted_daily_tasks: number;
+  tasks_per_agent: string;
+}
+
+export interface PeakHoursAnalysis {
+  peak_hours: number[];
+  off_peak_hours: number[];
+  avg_task_count: number;
+  peak_threshold?: number;
+  hourly_distribution?: Array<{
+    hour: number;
+    task_count: number;
+    avg_completion_hours: number | null;
+  }>;
+  recommendations: string[];
+}
+
+export interface AgentEfficiencyRanking {
+  agent_id: string;
+  agent_name: string;
+  role: string;
+  completion_rate: string;
+  avg_completion_hours: string;
+  efficiency_score: string;
+  total_tasks: number;
+  completed_tasks: number;
+}
+
+export interface AgentEfficiencyPrediction {
+  agent_rankings: AgentEfficiencyRanking[];
+  recommendations: string[];
+}
+
+export interface WorkloadReport {
+  generated_at: string;
+  company_id: string;
+  volume_forecast: {
+    predictions: ForecastPrediction[];
+    trend: string;
+    confidence: number;
+    current_avg: number;
+    predicted_avg: number;
+    change_pct: number;
+  };
+  scaling_recommendation: ScalingRecommendation;
+  peak_hours: {
+    peak_hours: number[];
+    off_peak_hours: number[];
+    avg_task_count: number;
+  };
+  agent_efficiency: {
+    rankings: AgentEfficiencyRanking[];
+  };
+  recommendations: string[];
+}
+

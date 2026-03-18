@@ -21,7 +21,7 @@ import {
   Line,
 } from 'recharts';
 import { api } from '../api';
-import { TrendingUp, Zap, DollarSign, CheckCircle2, Target, Award } from 'lucide-react';
+import { TrendingUp, Zap, DollarSign, CheckCircle2, Target, Award, Activity, TrendingDown, Minus, AlertTriangle, Clock } from 'lucide-react';
 
 interface AgentPerformanceProps {
   companyId: string;
@@ -50,6 +50,13 @@ export default function AgentPerformance({ companyId }: AgentPerformanceProps) {
   const { data: agents, isLoading: agentsLoading } = useQuery({
     queryKey: ['agents', companyId],
     queryFn: () => api.getAgents(companyId),
+  });
+
+  // Fetch workload forecast
+  const { data: workloadForecast, isLoading: forecastLoading } = useQuery({
+    queryKey: ['workload-forecast', companyId],
+    queryFn: () => api.getWorkloadForecast(companyId),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   const isLoading = costsLoading || tasksLoading || agentsLoading;
@@ -237,9 +244,173 @@ export default function AgentPerformance({ companyId }: AgentPerformanceProps) {
       <div>
         <h1 className="text-2xl font-bold text-white">Agent Performance Analytics</h1>
         <p className="text-sm text-zinc-400 mt-1">
-          Cost breakdown, efficiency metrics, and productivity analysis
+          Cost breakdown, efficiency metrics, productivity analysis, and workload predictions
         </p>
       </div>
+
+      {/* Workload Prediction & Scaling Recommendations */}
+      {workloadForecast && workloadForecast.scaling_recommendation && (
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Activity size={20} className="text-amber-500" />
+            <h2 className="text-lg font-semibold text-white">Workload Prediction & Scaling</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Current vs Predicted Task Volume */}
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+              <div className="text-sm text-zinc-400 mb-2">Task Volume Trend</div>
+              <div className="flex items-baseline gap-2">
+                <div className="text-2xl font-bold text-white">
+                  {Math.round(workloadForecast.volume_forecast.predicted_avg)}
+                </div>
+                <div className="text-sm text-zinc-500">tasks/day</div>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                {workloadForecast.volume_forecast.trend === 'increasing' && (
+                  <TrendingUp size={16} className="text-amber-500" />
+                )}
+                {workloadForecast.volume_forecast.trend === 'decreasing' && (
+                  <TrendingDown size={16} className="text-green-500" />
+                )}
+                {workloadForecast.volume_forecast.trend === 'stable' && (
+                  <Minus size={16} className="text-blue-500" />
+                )}
+                <span className={`text-xs font-medium ${
+                  workloadForecast.volume_forecast.trend === 'increasing' ? 'text-amber-400' :
+                  workloadForecast.volume_forecast.trend === 'decreasing' ? 'text-green-400' : 'text-blue-400'
+                }`}>
+                  {workloadForecast.volume_forecast.trend}
+                </span>
+                <span className="text-xs text-zinc-500">
+                  ({workloadForecast.volume_forecast.change_pct > 0 ? '+' : ''}
+                  {workloadForecast.volume_forecast.change_pct.toFixed(1)}%)
+                </span>
+              </div>
+            </div>
+
+            {/* Scaling Recommendation */}
+            <div className={`rounded-lg border p-4 ${
+              workloadForecast.scaling_recommendation.action === 'scale_up'
+                ? 'border-amber-900/50 bg-amber-950/20'
+                : workloadForecast.scaling_recommendation.action === 'scale_down'
+                ? 'border-green-900/50 bg-green-950/20'
+                : 'border-blue-900/50 bg-blue-950/20'
+            }`}>
+              <div className="text-sm text-zinc-400 mb-2">Agent Count Recommendation</div>
+              <div className="flex items-baseline gap-2">
+                <div className="text-2xl font-bold text-white">
+                  {workloadForecast.scaling_recommendation.recommended_agents}
+                </div>
+                <div className="text-sm text-zinc-500">
+                  {workloadForecast.scaling_recommendation.change !== 0 && (
+                    <span className={workloadForecast.scaling_recommendation.change > 0 ? 'text-amber-400' : 'text-green-400'}>
+                      ({workloadForecast.scaling_recommendation.change > 0 ? '+' : ''}
+                      {workloadForecast.scaling_recommendation.change})
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className={`text-xs mt-2 font-medium ${
+                workloadForecast.scaling_recommendation.action === 'scale_up' ? 'text-amber-400' :
+                workloadForecast.scaling_recommendation.action === 'scale_down' ? 'text-green-400' : 'text-blue-400'
+              }`}>
+                {workloadForecast.scaling_recommendation.action === 'scale_up' && 'Scale up recommended'}
+                {workloadForecast.scaling_recommendation.action === 'scale_down' && 'Scale down possible'}
+                {workloadForecast.scaling_recommendation.action === 'maintain' && 'Current capacity optimal'}
+              </div>
+            </div>
+
+            {/* Peak Hours */}
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+              <div className="text-sm text-zinc-400 mb-2">Peak Activity Hours</div>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {workloadForecast.peak_hours.peak_hours.length > 0 ? (
+                  workloadForecast.peak_hours.peak_hours.map((hour) => (
+                    <span key={hour} className="px-2 py-1 text-xs rounded bg-amber-500/20 text-amber-400 font-medium">
+                      {hour}:00
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-zinc-500">No peak hours detected</span>
+                )}
+              </div>
+            </div>
+
+            {/* Confidence Score */}
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+              <div className="text-sm text-zinc-400 mb-2">Forecast Confidence</div>
+              <div className="text-2xl font-bold text-white">
+                {(workloadForecast.volume_forecast.confidence * 100).toFixed(0)}%
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-zinc-800 overflow-hidden">
+                <div
+                  className={`h-full transition-all ${
+                    workloadForecast.volume_forecast.confidence > 0.7 ? 'bg-green-500' :
+                    workloadForecast.volume_forecast.confidence > 0.5 ? 'bg-amber-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${workloadForecast.volume_forecast.confidence * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Recommendations */}
+          {workloadForecast.recommendations && workloadForecast.recommendations.length > 0 && (
+            <div className="rounded-lg border border-amber-900/30 bg-amber-950/10 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle size={16} className="text-amber-500" />
+                <h3 className="text-sm font-semibold text-amber-400">Recommendations</h3>
+              </div>
+              <ul className="space-y-2">
+                {workloadForecast.recommendations.map((rec, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-sm text-zinc-300">
+                    <span className="text-amber-500 mt-1">•</span>
+                    <span>{rec}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* 7-Day Volume Forecast Chart */}
+          {workloadForecast.volume_forecast.predictions.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-white mb-4">7-Day Task Volume Forecast</h3>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={workloadForecast.volume_forecast.predictions.map(p => ({
+                  date: new Date(p.time_bucket).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                  tasks: Math.round(p.predicted_value),
+                }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#71717a"
+                    tick={{ fill: '#71717a', fontSize: 12 }}
+                  />
+                  <YAxis stroke="#71717a" tick={{ fill: '#71717a' }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#18181b',
+                      border: '1px solid #27272a',
+                      borderRadius: '8px',
+                    }}
+                    labelStyle={{ color: '#a1a1aa' }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="tasks"
+                    stroke="#f59e0b"
+                    strokeWidth={2}
+                    dot={{ fill: '#f59e0b', r: 4 }}
+                    name="Predicted Tasks"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Overall Stats */}
       {overallStats && (
@@ -444,10 +615,11 @@ export default function AgentPerformance({ companyId }: AgentPerformanceProps) {
                   borderRadius: '8px',
                 }}
                 labelStyle={{ color: '#a1a1aa' }}
-                formatter={(value: any, name?: string) => {
-                  if (name === 'x') return [`${value} tasks`, 'Tasks'];
-                  if (name === 'y') return [`$${value.toFixed(4)}`, 'Cost'];
-                  return value;
+                formatter={(value: any) => {
+                  if (typeof value === 'number') {
+                    return [`$${value.toFixed(4)}`];
+                  }
+                  return [value];
                 }}
               />
               <Scatter data={scatterData} fill="#f59e0b">

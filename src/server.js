@@ -9,6 +9,7 @@ import fs from "node:fs";
 import { WebSocketServer } from "ws";
 import * as projectConfig from "./project-config.js";
 import crypto from "node:crypto";
+import { startAnomalyDetector, stopAnomalyDetector, runAnomalyCheck } from "./anomaly-detector.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -81,6 +82,12 @@ export function createServer(port = 3100) {
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", version: "0.1.0" });
+  });
+
+  // Anomaly detection: manual trigger + recent alerts
+  app.get("/api/anomalies", (req, res) => {
+    const alerts = runAnomalyCheck();
+    res.json({ alerts, checkedAt: new Date().toISOString() });
   });
 
   app.get("/api/companies", (req, res) => {
@@ -472,6 +479,78 @@ export function createServer(port = 3100) {
     } catch (err) {
       console.error("[circuit-breaker] Error resetting:", err);
       res.status(500).json({ error: "Failed to reset circuit breaker" });
+    }
+  });
+
+  // Self-healing engine status
+  app.get("/api/self-healing/status", async (req, res) => {
+    try {
+      const selfHealing = await import("./self-healing.js");
+      const status = selfHealing.getSelfHealingStatus();
+      res.json(status);
+    } catch (err) {
+      console.error("[self-healing] Error fetching status:", err);
+      res.status(500).json({ error: "Failed to fetch self-healing status" });
+    }
+  });
+
+  // Self-healing remediation history
+  app.get("/api/self-healing/remediation-history", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit || '50', 10);
+      const selfHealing = await import("./self-healing.js");
+      const history = selfHealing.getRemediationHistory(limit);
+      res.json({ history, total: history.length });
+    } catch (err) {
+      console.error("[self-healing] Error fetching remediation history:", err);
+      res.status(500).json({ error: "Failed to fetch remediation history" });
+    }
+  });
+
+  // Manually trigger self-healing rules (for testing/debugging)
+  app.post("/api/self-healing/trigger", async (req, res) => {
+    try {
+      const selfHealing = await import("./self-healing.js");
+      const results = await selfHealing.triggerRules();
+
+      db.logActivity({
+        companyId: req.body.companyId || null,
+        action: "self_healing_manual_trigger",
+        detail: "Self-healing rules manually triggered by user",
+      });
+
+      res.json({
+        success: true,
+        message: "Self-healing rules executed",
+        results: results.map(r => ({
+          rule: r.ruleName,
+          detected: r.detected,
+          remediated: r.remediated,
+          details: r.details
+        }))
+      });
+    } catch (err) {
+      console.error("[self-healing] Error triggering rules:", err);
+      res.status(500).json({ error: "Failed to trigger self-healing rules" });
+    }
+  });
+
+  // Reset self-healing rule state
+  app.post("/api/self-healing/reset", async (req, res) => {
+    try {
+      const selfHealing = await import("./self-healing.js");
+      selfHealing.resetRuleState();
+
+      db.logActivity({
+        companyId: req.body.companyId || null,
+        action: "self_healing_state_reset",
+        detail: "Self-healing rule state manually reset by user",
+      });
+
+      res.json({ success: true, message: "Self-healing rule state reset" });
+    } catch (err) {
+      console.error("[self-healing] Error resetting state:", err);
+      res.status(500).json({ error: "Failed to reset self-healing state" });
     }
   });
 
@@ -1338,6 +1417,178 @@ export function createServer(port = 3100) {
     } catch (err) {
       console.error("[recovery] Error resetting recovery state:", err);
       res.status(500).json({ error: "Failed to reset recovery state" });
+    }
+  });
+
+  // ── Workload Prediction & Scaling API ──────────────────────────────────────────
+
+  app.get("/api/companies/:id/workload/forecast", async (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+
+      const { generateWorkloadReport } = await import("./analytics/workload-predictor.js");
+      const report = generateWorkloadReport(company.id);
+
+      res.json(report);
+    } catch (err) {
+      console.error("[workload] Error generating forecast:", err);
+      res.status(500).json({ error: "Failed to generate workload forecast" });
+    }
+  });
+
+  app.get("/api/companies/:id/workload/predictions", async (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+
+      const { predictTaskVolume } = await import("./analytics/workload-predictor.js");
+      const days = parseInt(req.query.days || "7", 10);
+      const prediction = predictTaskVolume(company.id, days);
+
+      res.json(prediction);
+    } catch (err) {
+      console.error("[workload] Error predicting task volume:", err);
+      res.status(500).json({ error: "Failed to predict task volume" });
+    }
+  });
+
+  app.get("/api/companies/:id/workload/scaling", async (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+
+      const { recommendAgentScaling } = await import("./analytics/workload-predictor.js");
+      const recommendation = recommendAgentScaling(company.id);
+
+      res.json(recommendation);
+    } catch (err) {
+      console.error("[workload] Error calculating scaling recommendation:", err);
+      res.status(500).json({ error: "Failed to calculate scaling recommendation" });
+    }
+  });
+
+  app.get("/api/companies/:id/workload/peak-hours", async (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+
+      const { analyzePeakHours } = await import("./analytics/workload-predictor.js");
+      const analysis = analyzePeakHours(company.id);
+
+      res.json(analysis);
+    } catch (err) {
+      console.error("[workload] Error analyzing peak hours:", err);
+      res.status(500).json({ error: "Failed to analyze peak hours" });
+    }
+  });
+
+  app.get("/api/companies/:id/workload/agent-efficiency", async (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+
+      const { predictAgentEfficiency } = await import("./analytics/workload-predictor.js");
+      const efficiency = predictAgentEfficiency(company.id);
+
+      res.json(efficiency);
+    } catch (err) {
+      console.error("[workload] Error predicting agent efficiency:", err);
+      res.status(500).json({ error: "Failed to predict agent efficiency" });
+    }
+  });
+
+  // ── Automated Recovery Playbooks API ───────────────────────────────────────
+
+  // List all available playbooks
+  app.get("/api/playbooks", async (req, res) => {
+    try {
+      const { listPlaybooks } = await import("./automation/playbooks.js");
+      const playbooks = listPlaybooks();
+      res.json({ playbooks });
+    } catch (err) {
+      console.error("[playbooks] Error listing playbooks:", err);
+      res.status(500).json({ error: "Failed to list playbooks" });
+    }
+  });
+
+  // Get playbook execution history for a company
+  app.get("/api/companies/:id/playbooks/history", async (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+
+      const { getPlaybookHistory } = await import("./automation/playbooks.js");
+      const limit = parseInt(req.query.limit || "50", 10);
+      const history = getPlaybookHistory(company.id, limit);
+
+      res.json({ history });
+    } catch (err) {
+      console.error("[playbooks] Error fetching history:", err);
+      res.status(500).json({ error: "Failed to fetch playbook history" });
+    }
+  });
+
+  // Get playbook execution statistics
+  app.get("/api/companies/:id/playbooks/stats", async (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+
+      const { getPlaybookStats } = await import("./automation/playbooks.js");
+      const stats = getPlaybookStats(company.id);
+
+      res.json(stats);
+    } catch (err) {
+      console.error("[playbooks] Error fetching stats:", err);
+      res.status(500).json({ error: "Failed to fetch playbook stats" });
+    }
+  });
+
+  // Reload playbook configuration
+  app.post("/api/playbooks/reload", async (req, res) => {
+    try {
+      const { reloadPlaybooks } = await import("./automation/playbooks.js");
+      const result = reloadPlaybooks();
+
+      res.json({
+        success: true,
+        playbooks_loaded: result.playbooks.length,
+        message: "Playbook configuration reloaded"
+      });
+    } catch (err) {
+      console.error("[playbooks] Error reloading playbooks:", err);
+      res.status(500).json({ error: "Failed to reload playbooks" });
+    }
+  });
+
+  // Test playbook matching for a given context (debugging)
+  app.post("/api/playbooks/test-match", async (req, res) => {
+    try {
+      const { testPlaybookMatch } = await import("./automation/playbooks.js");
+      const context = req.body;
+      const result = testPlaybookMatch(context);
+
+      res.json(result);
+    } catch (err) {
+      console.error("[playbooks] Error testing playbook match:", err);
+      res.status(500).json({ error: "Failed to test playbook match" });
+    }
+  });
+
+  // Run playbook health check (check for stuck tasks, scan failures)
+  app.post("/api/companies/:id/playbooks/health-check", async (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+
+      const { performHealthCheck } = await import("./automation/playbook-integration.js");
+      const result = await performHealthCheck(company.id);
+
+      res.json(result);
+    } catch (err) {
+      console.error("[playbooks] Error performing health check:", err);
+      res.status(500).json({ error: "Failed to perform health check" });
     }
   });
 
