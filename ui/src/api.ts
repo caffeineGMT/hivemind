@@ -104,4 +104,13 @@ export const api = {
 
   getAgentLog: (agentName: string) =>
     fetchJson<{ agentName: string; log: string }>(`/api/logs/${agentName}`),
+
+  nudge: async (companyId: string, message: string) => {
+    const res = await fetch(`/api/companies/${companyId}/nudge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+    return res.json();
+  },
 };

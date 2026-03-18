@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Users, Play, CheckCircle2, Clock } from 'lucide-react';
+import { useState } from 'react';
+import { Users, Play, CheckCircle2, Clock, Send } from 'lucide-react';
 import { api } from '../api';
 import MetricCard from '../components/MetricCard';
 import ProgressBar from '../components/ProgressBar';
@@ -7,6 +8,19 @@ import ProjectCard from '../components/ProjectCard';
 import ActivityRow from '../components/ActivityRow';
 
 export default function Dashboard({ companyId }: { companyId: string }) {
+  const [nudgeMsg, setNudgeMsg] = useState('');
+  const [nudgeSending, setNudgeSending] = useState(false);
+
+  const handleNudge = async () => {
+    if (!nudgeMsg.trim()) return;
+    setNudgeSending(true);
+    try {
+      await api.nudge(companyId, nudgeMsg);
+      setNudgeMsg('');
+    } catch {}
+    setNudgeSending(false);
+  };
+
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard', companyId],
     queryFn: () => api.getDashboard(companyId),
@@ -35,6 +49,26 @@ export default function Dashboard({ companyId }: { companyId: string }) {
       <div>
         <h2 className="text-xl font-bold text-zinc-100">Dashboard</h2>
         <p className="mt-1 text-sm text-zinc-500">Company overview and progress</p>
+      </div>
+
+      {/* Nudge input */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={nudgeMsg}
+          onChange={(e) => setNudgeMsg(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleNudge()}
+          placeholder="Nudge the CEO — e.g. &quot;Focus on the dashboard first&quot;"
+          className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition focus:border-amber-600/50 focus:ring-1 focus:ring-amber-600/20"
+        />
+        <button
+          onClick={handleNudge}
+          disabled={nudgeSending || !nudgeMsg.trim()}
+          className="flex items-center gap-2 rounded-lg bg-amber-600/80 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-amber-500 disabled:opacity-40 disabled:hover:bg-amber-600/80"
+        >
+          <Send className="h-4 w-4" />
+          {nudgeSending ? 'Sending...' : 'Nudge'}
+        </button>
       </div>
 
       {/* Progress bar */}

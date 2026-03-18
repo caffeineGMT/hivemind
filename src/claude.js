@@ -9,7 +9,7 @@ function buildClaudeEnv() {
   // Allow spawning claude from within a claude session
   delete env.CLAUDECODE;
   delete env.CLAUDE_CODE_ENTRY_POINT;
-  // Meta-specific env vars needed for auth (set by the bash wrapper normally)
+  // Meta-specific env vars needed for auth
   if (process.platform === "darwin") {
     env.ANTHROPIC_BASE_URL = env.ANTHROPIC_BASE_URL || "http://plugboard.x2p.facebook.net";
     env.CPE_RUST_X2P_SUPPORTS_VPNLESS = "1";
@@ -17,14 +17,11 @@ function buildClaudeEnv() {
     env.HTTP_PROXY = env.HTTP_PROXY || "http://localhost:10054";
     env.HTTPS_PROXY = env.HTTPS_PROXY || "http://localhost:10054";
     env.X2P_AGENT_PROXY_ADDRESS = "localhost:10054";
-
-    // CAT injection for x2p auth
     const cat = "eyJ2ZXJpZmllciI6ICJtZXRhbWF0ZV9wbGF0Zm9ybS5wbHVnYm9hcmQiLCAidG9rZW5UaW1lb3V0U2Vjb25kcyI6IDMwMCwgImlzTG93Qm94IjogdHJ1ZX0=";
     env.ANTHROPIC_CUSTOM_HEADERS = `x-x2pagentd-inject-cat: ${cat}`;
   }
   env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
   env.DISABLE_AUTOUPDATER = "1";
-  // Clear AWS/GCloud vars that could interfere
   for (const key of Object.keys(env)) {
     if (/^(AWS|BEDROCK|GCLOUD|GOOGLE|VERTEX)/i.test(key)) delete env[key];
   }
@@ -32,12 +29,62 @@ function buildClaudeEnv() {
 }
 
 /**
- * Spawn a full Claude Code session — every agent gets the same capabilities.
- * Uses `-p --dangerously-skip-permissions` for full tool access (Read, Write,
- * Edit, Bash, Grep, Glob — everything). Output streams to a log file in
- * real-time so you can watch each agent work via the dashboard.
- *
- * Returns a handle to monitor the process.
+ * Parse a stream-json event into a human-readable log line.
+ */
+function formatStreamEvent(line) {
+  try {
+    const evt = JSON.parse(line);
+
+    // Skip system/hook events
+    if (evt.type === "system") return null;
+
+    if (evt.type === "assistant" && evt.message?.content) {
+      for (const block of evt.message.content) {
+        if (block.type === "text" && block.text) {
+          return `💬 ${block.text}`;
+        }
+        if (block.type === "tool_use") {
+          const input = block.input || {};
+          const summary = formatToolInput(block.name, input);
+          return `🔧 ${block.name}: ${summary}`;
+        }
+      }
+    }
+
+    if (evt.type === "user" && evt.message?.content) {
+      for (const block of Array.isArray(evt.message.content) ? evt.message.content : [evt.message.content]) {
+        if (block.type === "tool_result" && typeof block.content === "string") {
+          const short = block.content.slice(0, 200);
+          return `  ✅ ${short}`;
+        }
+      }
+    }
+
+    if (evt.type === "result") {
+      return `🏁 Result: ${evt.result || "done"} (${evt.duration_ms}ms, ${evt.num_turns} turns)`;
+    }
+  } catch {}
+  return null;
+}
+
+function formatToolInput(name, input) {
+  switch (name) {
+    case "Write": return `Write ${input.file_path}`;
+    case "Edit": return `Edit ${input.file_path}`;
+    case "Read": return `Read ${input.file_path}`;
+    case "Bash": return `$ ${(input.command || "").slice(0, 120)}`;
+    case "Glob": return `Glob ${input.pattern}`;
+    case "Grep": return `Grep "${(input.pattern || "").slice(0, 60)}"`;
+    case "ToolSearch": return `ToolSearch: ${input.query}`;
+    default: return JSON.stringify(input).slice(0, 120);
+  }
+}
+
+/**
+ * Spawn a full Claude Code session with streaming output.
+ * Uses --print --output-format stream-json --permission-mode bypassPermissions --verbose
+ * Every agent gets full tool access (Read, Write, Edit, Bash, Grep, Glob).
+ * Output streams to a log file in real-time as human-readable events.
  */
 export function claudeSession(agentId, prompt, opts = {}) {
   const { cwd, logFile, maxTurns = 50, timeout } = opts;
@@ -46,14 +93,23 @@ export function claudeSession(agentId, prompt, opts = {}) {
   const logPath = logFile || path.join(LOGS_DIR, `${agentId}.log`);
   const logStream = fs.createWriteStream(logPath, { flags: "a" });
 
-  // Full session: -p for non-interactive, --dangerously-skip-permissions for all tools
-  // NO --output-format json — we want streaming text output visible in logs
-  const args = [...CLAUDE.args, "-p", prompt, "--dangerously-skip-permissions"];
+  // Full session with streaming: --print for non-interactive input,
+  // --output-format stream-json for real-time events,
+  // --permission-mode bypassPermissions for full tool access,
+  // --verbose required for stream-json
+  const args = [
+    ...CLAUDE.args,
+    "--print",
+    "--output-format", "stream-json",
+    "--permission-mode", "bypassPermissions",
+    "--verbose",
+    "-",
+  ];
   if (opts.model) args.push("--model", opts.model);
   if (maxTurns) args.push("--max-turns", String(maxTurns));
 
   const ts = new Date().toISOString();
-  logStream.write(`\n${"=".repeat(60)}\n[${ts}] Agent: ${agentId}\nCWD: ${cwd}\nCmd: ${CLAUDE.cmd} ${args.slice(0, 3).join(" ")} ...\n${"=".repeat(60)}\n\n`);
+  logStream.write(`\n${"=".repeat(60)}\n[${ts}] Agent: ${agentId}\nCWD: ${cwd}\n${"=".repeat(60)}\n\n`);
 
   const proc = spawn(CLAUDE.cmd, args, {
     cwd: cwd || process.cwd(),
@@ -64,15 +120,39 @@ export function claudeSession(agentId, prompt, opts = {}) {
 
   let stdout = "";
   let stderr = "";
+  let lastResult = null;
+  let buffer = "";
 
   proc.stdout.on("data", d => {
-    stdout += d;
-    logStream.write(d);
+    const chunk = d.toString();
+    stdout += chunk;
+    buffer += chunk;
+
+    // Process complete lines
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || ""; // Keep incomplete last line in buffer
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const formatted = formatStreamEvent(line);
+      if (formatted) {
+        logStream.write(formatted + "\n");
+      }
+      // Capture the final result event
+      try {
+        const evt = JSON.parse(line);
+        if (evt.type === "result") lastResult = evt;
+      } catch {}
+    }
   });
+
   proc.stderr.on("data", d => {
     stderr += d;
     logStream.write(`[stderr] ${d}`);
   });
+
+  // Send prompt via stdin
+  proc.stdin.write(prompt);
   proc.stdin.end();
 
   const handle = {
@@ -86,7 +166,6 @@ export function claudeSession(agentId, prompt, opts = {}) {
     proc,
   };
 
-  // Optional timeout
   let timer;
   if (timeout) {
     timer = setTimeout(() => {
@@ -97,13 +176,18 @@ export function claudeSession(agentId, prompt, opts = {}) {
 
   proc.on("close", code => {
     if (timer) clearTimeout(timer);
+    // Process remaining buffer
+    if (buffer.trim()) {
+      const formatted = formatStreamEvent(buffer);
+      if (formatted) logStream.write(formatted + "\n");
+    }
+
     handle.done = true;
     handle.exitCode = code;
     handle.stdout = stdout;
     handle.stderr = stderr;
-    // Try to extract structured result from the text output
-    handle.result = parseJsonResponse(stdout) || { summary: extractSummary(stdout) };
-    logStream.write(`\n[${new Date().toISOString()}] Agent finished with exit code ${code}\n`);
+    handle.result = lastResult || parseJsonResponse(stdout) || { summary: "Task completed" };
+    logStream.write(`\n[${new Date().toISOString()}] Agent finished (exit ${code})\n`);
     logStream.end();
   });
 
@@ -121,8 +205,6 @@ export function claudeSession(agentId, prompt, opts = {}) {
 
 /**
  * Run a full Claude session synchronously — waits for completion.
- * Used for planning agents (CEO, CTO, Designer) where we need the result
- * before proceeding to the next phase. Same full capabilities as async version.
  */
 export async function claudeSessionSync(agentId, prompt, opts = {}) {
   const handle = claudeSession(agentId, prompt, opts);
@@ -140,26 +222,55 @@ export async function claudeSessionSync(agentId, prompt, opts = {}) {
   });
 }
 
-// ── Legacy aliases (for backward compat) ────────────────────────────────
-
-/** @deprecated Use claudeSessionSync instead */
+// Legacy aliases
 export async function claudeThink(prompt, opts = {}) {
-  // CEO/CTO/Designer now get full tool access too
   const agentId = opts.agentId || "planner";
   return claudeSessionSync(agentId, prompt, { ...opts, maxTurns: opts.maxTurns || 20 });
 }
 
-/** @deprecated Use claudeSession instead */
 export function claudeExecute(agentId, prompt, opts = {}) {
   return claudeSession(agentId, prompt, opts);
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────
+/**
+ * Extract the assistant's text content from stream-json output.
+ * Concatenates all text blocks from assistant messages.
+ */
+export function extractAssistantText(streamOutput) {
+  if (!streamOutput) return "";
+  const lines = streamOutput.split("\n");
+  const texts = [];
+  for (const line of lines) {
+    try {
+      const evt = JSON.parse(line);
+      if (evt.type === "assistant" && evt.message?.content) {
+        for (const block of evt.message.content) {
+          if (block.type === "text" && block.text) texts.push(block.text);
+        }
+      }
+    } catch {}
+  }
+  return texts.join("\n");
+}
 
 /**
- * Parse JSON from claude output, handling markdown code blocks.
+ * Parse JSON from claude output, handling stream-json format and markdown code blocks.
  */
 export function parseJsonResponse(text) {
+  if (!text) return null;
+
+  // For stream-json output, first extract assistant text then parse JSON from it
+  const assistantText = extractAssistantText(text);
+  if (assistantText) {
+    const parsed = parseJsonFromText(assistantText);
+    if (parsed) return parsed;
+  }
+
+  // Fallback: try raw text
+  return parseJsonFromText(text);
+}
+
+function parseJsonFromText(text) {
   if (!text) return null;
   try { return JSON.parse(text); } catch {}
 
@@ -175,16 +286,6 @@ export function parseJsonResponse(text) {
   }
 
   return null;
-}
-
-/**
- * Extract a summary from verbose claude output (last meaningful paragraph).
- */
-function extractSummary(text) {
-  if (!text) return "No output";
-  const lines = text.split("\n").filter(l => l.trim());
-  // Take last 5 non-empty lines as summary
-  return lines.slice(-5).join("\n").slice(0, 500);
 }
 
 /**

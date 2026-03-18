@@ -157,6 +157,31 @@ export function createServer(port = 3100) {
     }
   });
 
+  // Nudge endpoint — send a message to the CEO
+  app.post("/api/companies/:id/nudge", async (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const { message } = req.body || {};
+    db.logActivity({
+      companyId: company.id,
+      action: "nudge_received",
+      detail: message || "No message",
+    });
+
+    // Import and run nudge async (don't block the response)
+    try {
+      const { nudge } = await import("./orchestrator.js");
+      // Run in background
+      nudge(company.id, message || "").catch(err => {
+        console.error("Nudge error:", err.message);
+      });
+      res.json({ success: true, message: "Nudge sent to CEO" });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // SPA fallback
   app.get("*", (req, res) => {
     const indexPath = path.join(uiDist, "index.html");
