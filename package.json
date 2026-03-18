@@ -8,6 +8,10 @@
   },
   "scripts": {
     "start": "node bin/hivemind.js",
+    "seed:beta": "node scripts/seed-beta-users.js",
+    "campaign:preview": "node scripts/early-bird-campaign.js",
+    "campaign:test": "node scripts/early-bird-campaign.js --test-email=guomaitao@gmail.com",
+    "campaign:send": "node scripts/early-bird-campaign.js --send",
     "usage:init": "node scripts/init-usage-billing.js",
     "usage:check": "node scripts/daily-usage-check.js",
     "usage:paddle-report": "node scripts/monthly-paddle-report.js"
