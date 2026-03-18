@@ -16,6 +16,7 @@ import Logs from './pages/Logs';
 import AgentHealth from './pages/AgentHealth';
 import Companies from './pages/Companies';
 import CrossProjectAnalytics from './pages/CrossProjectAnalytics';
+import Settings from './pages/Settings';
 
 export default function App() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="/cross-project-analytics" element={<CrossProjectAnalytics />} />
         <Route path="/costs" element={<Costs companyId={selectedCompany.id} />} />
         <Route path="/logs-view" element={<Logs />} />
+        <Route path="/settings" element={<Settings companyId={selectedCompany.id} />} />
         <Route path="/tasks/:taskId" element={<TaskDetail />} />
         <Route path="/logs/:agentName" element={<AgentLog />} />
         <Route path="*" element={<Navigate to="/" replace />} />
