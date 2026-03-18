@@ -326,6 +326,66 @@ function dispatchEngineers(company, designSpecs) {
   return toDispatch.length;
 }
 
+// ── Clean up stale agents (dead PIDs) ─────────────────────────────────────
+
+export function cleanupStaleAgents(company) {
+  const agents = db.getAgentsByCompany(company.id);
+  let cleaned = 0;
+
+  for (const agent of agents) {
+    if (agent.status !== "running") continue;
+
+    // Check if PID is still alive
+    if (agent.pid) {
+      try {
+        process.kill(agent.pid, 0);
+        continue; // Still alive, skip
+      } catch {
+        // PID is dead — clean up
+      }
+    }
+
+    log(company.id, "CLEANUP", `Agent ${agent.name} (pid ${agent.pid || "none"}) is no longer running, cleaning up`);
+    db.updateAgentStatus(agent.id, "idle");
+
+    // Find the in-progress task for this agent
+    const task = db.getDb().prepare("SELECT * FROM tasks WHERE assignee_id = ? AND status = 'in_progress'").get(agent.id);
+    if (task) {
+      // Try to read the agent's log for a completion summary
+      let summary = "Completed (detected by cleanup)";
+      try {
+        const logContent = claude.readAgentLog(agent.name);
+        if (logContent) {
+          // Look for the last result line or last few meaningful lines
+          const lines = logContent.split("\n").filter(l => l.trim());
+          const resultLine = lines.findLast(l => l.includes("Result:"));
+          if (resultLine) {
+            summary = resultLine.slice(0, 500);
+          } else {
+            summary = lines.slice(-3).join(" ").slice(0, 500);
+          }
+        }
+      } catch {}
+
+      db.updateTaskStatus(task.id, "done", summary);
+      db.logActivity({
+        companyId: company.id,
+        agentId: agent.id,
+        taskId: task.id,
+        action: "task_completed",
+        detail: `Cleanup: ${task.title.slice(0, 150)}`,
+      });
+      log(company.id, "CLEANUP", `Marked task done: ${task.title}`);
+    }
+
+    // Remove from in-memory map if present
+    runningAgents.delete(agent.id);
+    cleaned++;
+  }
+
+  return cleaned;
+}
+
 // ── Check running agents ─────────────────────────────────────────────────
 
 function checkRunningAgents(company) {
@@ -466,8 +526,11 @@ async function runHeartbeatLoop(companyId) {
         return;
       }
 
+      // Clean up agents whose PIDs died (e.g. after orchestrator restart)
+      const cleanedUp = cleanupStaleAgents(company);
+
       const completedNow = checkRunningAgents(company);
-      if (completedNow > 0) {
+      if (completedNow > 0 || cleanedUp > 0) {
         dispatchEngineers(company, undefined);
       }
 
@@ -542,26 +605,10 @@ export async function resumeMonitoring(companyIdPrefix) {
 
   console.log(`\n  Resuming: ${company.name} (${company.id.slice(0, 8)})`);
 
-  // Clean up stale agents — check if PIDs are still alive
-  const agents = db.getAgentsByCompany(company.id);
-  for (const agent of agents) {
-    if (agent.status === "running" && agent.pid) {
-      try {
-        process.kill(agent.pid, 0); // Signal 0 = check if alive
-      } catch {
-        // PID is dead — mark agent idle and task as done
-        log(company.id, "RESUME", `Agent ${agent.name} (pid ${agent.pid}) is no longer running, cleaning up`);
-        db.updateAgentStatus(agent.id, "idle");
-        const task = db.getDb().prepare("SELECT * FROM tasks WHERE assignee_id = ? AND status = 'in_progress'").get(agent.id);
-        if (task) {
-          db.updateTaskStatus(task.id, "done", "Completed (detected on resume)");
-          db.logActivity({ companyId: company.id, agentId: agent.id, taskId: task.id, action: "task_completed", detail: "Detected completed on resume" });
-        }
-      }
-    } else if (agent.status === "running" && !agent.pid) {
-      // No PID recorded — mark idle
-      db.updateAgentStatus(agent.id, "idle");
-    }
+  // Clean up stale agents whose PIDs are dead
+  const cleaned = cleanupStaleAgents(company);
+  if (cleaned > 0) {
+    log(company.id, "RESUME", `Cleaned up ${cleaned} stale agent(s)`);
   }
 
   checkRunningAgents(company);

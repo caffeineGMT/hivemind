@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
-import { startCompany, showStatus, nudge, resumeMonitoring } from "./orchestrator.js";
+import { startCompany, showStatus, nudge, resumeMonitoring, cleanupStaleAgents } from "./orchestrator.js";
 import { listCompanies, getCostSummary, getCostTotals } from "./db.js";
 import { readAgentLog } from "./claude.js";
 
@@ -18,6 +18,7 @@ const HELP = `
     hivemind dashboard [--port 3100]     Launch the web dashboard
     hivemind list                       List all companies
     hivemind costs [company-id]         Show CFO cost report
+    hivemind cleanup [company-id]       Clean up finished agents with dead PIDs
     hivemind logs <agent-name>          View an agent's output log
 
   OPTIONS:
@@ -111,6 +112,23 @@ export async function run(args) {
         const port = portIdx !== -1 ? parseInt(rest[portIdx + 1], 10) : 3100;
         const { startServer } = await import("./server.js");
         startServer(port);
+        break;
+      }
+
+      case "cleanup": {
+        const allCos2 = listCompanies();
+        const co = rest[0]
+          ? allCos2.find(c => c.id.startsWith(rest[0]))
+          : allCos2.find(c => c.status === "active") || allCos2[0];
+        if (!co) { console.log("  No companies found."); return; }
+        const { getCompany } = await import("./db.js");
+        const fullCo = getCompany(co.id);
+        const cleaned = cleanupStaleAgents(fullCo);
+        if (cleaned > 0) {
+          console.log(`  Cleaned up ${cleaned} stale agent(s). Run 'hivemind status' to see updated state.`);
+        } else {
+          console.log("  No stale agents found — all agents are healthy.");
+        }
         break;
       }
 
