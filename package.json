@@ -1,0 +1,15 @@
+{
+  "name": "hivemind",
+  "version": "0.1.0",
+  "description": "Autonomous AI company orchestrator — spawn a team of Claude agents via tmux",
+  "type": "module",
+  "bin": {
+    "hivemind": "./bin/hivemind.js"
+  },
+  "scripts": {
+    "start": "node bin/hivemind.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0"
+  }
+}
