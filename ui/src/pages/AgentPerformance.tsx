@@ -444,7 +444,7 @@ export default function AgentPerformance({ companyId }: AgentPerformanceProps) {
                   borderRadius: '8px',
                 }}
                 labelStyle={{ color: '#a1a1aa' }}
-                formatter={(value: any, name: string) => {
+                formatter={(value: any, name?: string) => {
                   if (name === 'x') return [`${value} tasks`, 'Tasks'];
                   if (name === 'y') return [`$${value.toFixed(4)}`, 'Cost'];
                   return value;

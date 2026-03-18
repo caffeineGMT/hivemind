@@ -21,6 +21,8 @@ import {
 import { useState, useRef, useEffect } from 'react';
 import { Company } from '../api';
 import WebSocketStatus from './WebSocketStatus';
+import MobileBottomNav from './MobileBottomNav';
+import { useSidebarSwipe } from '../hooks/useSidebarSwipe';
 
 interface LayoutProps {
   companies: Company[];
@@ -64,6 +66,13 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, co
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navItems = getNavItems(companySlug);
+
+  // Swipe gesture handlers for sidebar
+  const swipeHandlers = useSidebarSwipe({
+    isOpen: sidebarOpen,
+    onOpen: () => setSidebarOpen(true),
+    onClose: () => setSidebarOpen(false),
+  });
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -172,7 +181,7 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, co
   );
 
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-950">
+    <div className="flex h-screen overflow-hidden bg-zinc-950" {...swipeHandlers}>
       {/* Mobile top bar */}
       <div className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-zinc-800/60 bg-zinc-950/95 px-4 backdrop-blur md:hidden safe-area-inset-top">
         <button
@@ -213,23 +222,7 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, co
       </main>
 
       {/* Mobile bottom navigation */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-zinc-800/60 bg-zinc-950/95 backdrop-blur md:hidden safe-area-inset-bottom">
-        {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === `/${companySlug}`}
-            className={({ isActive }) =>
-              `flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition min-h-[56px] justify-center active:bg-zinc-800/30 ${
-                isActive ? 'text-amber-400' : 'text-zinc-500'
-              }`
-            }
-          >
-            <Icon className="h-5 w-5" />
-            <span className="mt-0.5">{label}</span>
-          </NavLink>
-        ))}
-      </nav>
+      <MobileBottomNav companySlug={companySlug} />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, DollarSign, Users, Activity, Target, Percent } from 'lucide-react';
+import ResponsiveTable from '../components/ResponsiveTable';
 
 interface FunnelData {
   page_view: number;
@@ -208,52 +209,54 @@ export default function Analytics({ companyId }: { companyId?: string }) {
       </div>
 
       {/* Recent Events */}
-      <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/30">
-        <div className="border-b border-zinc-800/40 px-4 py-3">
-          <h3 className="text-sm font-semibold text-zinc-300">
-            Recent Events
-            <span className="ml-2 text-xs font-normal text-zinc-600">
-              ({events?.length || 0})
-            </span>
-          </h3>
+      <ResponsiveTable>
+        <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/30">
+          <div className="border-b border-zinc-800/40 px-4 py-3">
+            <h3 className="text-sm font-semibold text-zinc-300">
+              Recent Events
+              <span className="ml-2 text-xs font-normal text-zinc-600">
+                ({events?.length || 0})
+              </span>
+            </h3>
+          </div>
+          {eventsLoading ? (
+            <div className="flex h-32 items-center justify-center">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-700 border-t-amber-500" />
+            </div>
+          ) : !events || events.length === 0 ? (
+            <div className="p-6 text-center text-sm text-zinc-600">
+              No events tracked yet
+            </div>
+          ) : (
+            <div className="max-h-[400px] divide-y divide-zinc-800/20 overflow-y-auto">
+              {events.map((event) => (
+                <div key={event.id} className="flex items-center justify-between gap-3 px-4 py-2.5 min-w-[600px] md:min-w-0">
+                  <div className="flex items-center gap-3">
+                    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 whitespace-nowrap">
+                      {event.event_type}
+                    </span>
+                    {event.event_data && (
+                      <span className="text-xs text-zinc-500 hide-mobile">
+                        {JSON.stringify(JSON.parse(event.event_data)).slice(0, 100)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {event.revenue_usd > 0 && (
+                      <span className="text-xs font-medium text-emerald-400">
+                        +{formatCurrency(event.revenue_usd)}
+                      </span>
+                    )}
+                    <span className="text-xs text-zinc-600">
+                      {new Date(event.created_at).toLocaleTimeString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        {eventsLoading ? (
-          <div className="flex h-32 items-center justify-center">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-700 border-t-amber-500" />
-          </div>
-        ) : !events || events.length === 0 ? (
-          <div className="p-6 text-center text-sm text-zinc-600">
-            No events tracked yet
-          </div>
-        ) : (
-          <div className="max-h-[400px] divide-y divide-zinc-800/20 overflow-y-auto">
-            {events.map((event) => (
-              <div key={event.id} className="flex items-center justify-between px-4 py-2.5">
-                <div className="flex items-center gap-3">
-                  <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
-                    {event.event_type}
-                  </span>
-                  {event.event_data && (
-                    <span className="text-xs text-zinc-500">
-                      {JSON.stringify(JSON.parse(event.event_data)).slice(0, 100)}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  {event.revenue_usd > 0 && (
-                    <span className="text-xs font-medium text-emerald-400">
-                      +{formatCurrency(event.revenue_usd)}
-                    </span>
-                  )}
-                  <span className="text-xs text-zinc-600">
-                    {new Date(event.created_at).toLocaleTimeString()}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      </ResponsiveTable>
     </div>
   );
 }

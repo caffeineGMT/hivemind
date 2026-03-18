@@ -249,6 +249,19 @@ export function createServer(port = 3100) {
     }
   });
 
+  // Search structured logs with filtering
+  app.get("/api/logs/search", (req, res) => {
+    const { keyword, level, source, companyId, limit } = req.query;
+    const logs = db.searchLogs({
+      keyword,
+      level,
+      source,
+      companyId,
+      limit: limit ? parseInt(limit, 10) : 1000
+    });
+    res.json(logs);
+  });
+
   app.get("/api/companies/:id/costs", (req, res) => {
     const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });

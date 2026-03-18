@@ -17,9 +17,25 @@ import {
   AlertCircle,
   CircuitBoard,
   PlayCircle,
+  BarChart3,
+  LineChart,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import {
+  LineChart as ReLineChart,
+  Line,
+  BarChart as ReBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+} from 'recharts';
 
 interface MetricCardProps {
   title: string;
@@ -349,6 +365,12 @@ export default function AgentHealth({ companyId }: { companyId: string }) {
     refetchInterval: 5000,
   });
 
+  const { data: healthHistory } = useQuery({
+    queryKey: ['health-history', companyId],
+    queryFn: () => api.getHealthHistory(companyId, 24),
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
   const resetCircuitMutation = useMutation({
     mutationFn: () => api.resetCircuitBreaker(),
     onSuccess: () => {
@@ -435,6 +457,113 @@ export default function AgentHealth({ companyId }: { companyId: string }) {
         </div>
       )}
 
+      {/* Recovery Status with Exponential Backoff */}
+      {/* {recoveryData && recoveryData.stats.recovering > 0 && (
+        <div className="rounded-xl border border-amber-900/30 bg-amber-950/20 p-4">
+          <div className="flex items-center gap-3 mb-4">
+            <RefreshCw className="h-6 w-6 text-amber-400 animate-spin" />
+            <div>
+              <h3 className="font-semibold text-zinc-100">Agent Recovery in Progress</h3>
+              <p className="text-sm text-zinc-500">
+                {recoveryData.stats.recovering} agent{recoveryData.stats.recovering > 1 ? 's' : ''} recovering with exponential backoff
+              </p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {[].map((agent: any) => (
+                <div key={agent.agentId} className="rounded-lg border border-zinc-800/60 bg-zinc-900/50 p-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="font-medium text-zinc-300">{agent.agentName}</p>
+                      <div className="mt-1 flex items-center gap-3 text-xs text-zinc-500">
+                        <span>Attempt {agent.attemptCount}/8</span>
+                        <span>•</span>
+                        <span>{agent.totalCrashes} total crashes</span>
+                        <span>•</span>
+                        <span className="text-amber-400">
+                          Retry in {Math.ceil(agent.timeUntilRetryMs / 1000)}s
+                        </span>
+                      </div>
+                      {agent.recentFailures && agent.recentFailures.length > 0 && (
+                        <p className="mt-1 text-xs text-zinc-600">
+                          Last: {agent.recentFailures[agent.recentFailures.length - 1].reason}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <div className="rounded-full bg-zinc-800/60 px-3 py-1">
+                        <p className="text-xs text-zinc-400">Backoff</p>
+                        <p className="font-mono text-sm text-amber-400">
+                          {(agent.currentBackoffMs / 1000).toFixed(1)}s
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Permanently Failed Agents */}
+      {/* {recoveryData && recoveryData.stats.failed_permanently > 0 && (
+        <div className="rounded-xl border border-red-900/30 bg-red-950/20 p-4">
+          <div className="flex items-center gap-3 mb-4">
+            <XCircle className="h-6 w-6 text-red-400" />
+            <div>
+              <h3 className="font-semibold text-zinc-100">Agents Requiring Manual Intervention</h3>
+              <p className="text-sm text-zinc-500">
+                {recoveryData.stats.failed_permanently} agent{recoveryData.stats.failed_permanently > 1 ? 's' : ''} exceeded max retry attempts
+              </p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {[].map((agent: any) => {
+                const resetMutation = useMutation({
+                  mutationFn: () => Promise.resolve({}),
+                  onSuccess: () => {
+                    queryClient.invalidateQueries({ queryKey: ['recovery-status'] });
+                  },
+                });
+
+                return (
+                  <div key={agent.agentId} className="rounded-lg border border-red-800/60 bg-red-900/20 p-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <p className="font-medium text-zinc-300">{agent.agentName}</p>
+                        <div className="mt-1 flex items-center gap-3 text-xs text-zinc-500">
+                          <span className="text-red-400">Failed after {agent.attemptCount} attempts</span>
+                          <span>•</span>
+                          <span>{agent.totalCrashes} total crashes</span>
+                        </div>
+                        {agent.recentFailures && agent.recentFailures.length > 0 && (
+                          <p className="mt-1 text-xs text-zinc-600">
+                            Last: {agent.recentFailures[agent.recentFailures.length - 1].reason}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => resetMutation.mutate()}
+                        disabled={resetMutation.isPending}
+                        className="rounded-lg border border-amber-900/30 bg-amber-950/20 px-4 py-2 text-sm text-amber-400 transition hover:bg-amber-900/30 disabled:opacity-50"
+                      >
+                        {resetMutation.isPending ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <RotateCcw className="h-4 w-4" />
+                            Reset Recovery
+                          </div>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
       {/* Summary metrics */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
@@ -481,6 +610,228 @@ export default function AgentHealth({ companyId }: { companyId: string }) {
           )}
         </div>
       </div>
+
+      {/* Health Metrics Charts */}
+      {healthHistory && healthHistory.hourly.length > 0 && (
+        <div className="space-y-4">
+          <div>
+            <h3 className="mb-4 text-lg font-semibold text-zinc-100">Health Metrics Over Time</h3>
+
+            {/* Crashes and Restarts Over Time */}
+            <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <LineChart className="h-5 w-5 text-blue-400" />
+                <h4 className="font-semibold text-zinc-200">Crashes & Restarts (Last 24 Hours)</h4>
+              </div>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={healthHistory.hourly}>
+                  <defs>
+                    <linearGradient id="colorCrashes" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorRestarts" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                  <XAxis
+                    dataKey="hour"
+                    stroke="#71717a"
+                    tick={{ fill: '#71717a', fontSize: 12 }}
+                    tickFormatter={(hour) => `${hour}:00`}
+                  />
+                  <YAxis
+                    stroke="#71717a"
+                    tick={{ fill: '#71717a', fontSize: 12 }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#18181b',
+                      border: '1px solid #3f3f46',
+                      borderRadius: '8px',
+                      color: '#e4e4e7'
+                    }}
+                    labelFormatter={(hour) => `Hour: ${hour}:00`}
+                  />
+                  <Legend
+                    wrapperStyle={{ color: '#e4e4e7' }}
+                    iconType="circle"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="crashes"
+                    stroke="#ef4444"
+                    fillOpacity={1}
+                    fill="url(#colorCrashes)"
+                    strokeWidth={2}
+                    name="Crashes"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="auto_restarts"
+                    stroke="#10b981"
+                    fillOpacity={1}
+                    fill="url(#colorRestarts)"
+                    strokeWidth={2}
+                    name="Auto-Restarts"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Error Rate Over Time */}
+            <div className="mt-4 rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <Activity className="h-5 w-5 text-amber-400" />
+                <h4 className="font-semibold text-zinc-200">Error Rate Trend (Crashes per Agent)</h4>
+              </div>
+              <ResponsiveContainer width="100%" height={250}>
+                <ReLineChart data={healthHistory.error_rates}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                  <XAxis
+                    dataKey="timestamp"
+                    stroke="#71717a"
+                    tick={{ fill: '#71717a', fontSize: 12 }}
+                    tickFormatter={(timestamp) => {
+                      const date = new Date(timestamp);
+                      return `${date.getHours()}:00`;
+                    }}
+                  />
+                  <YAxis
+                    stroke="#71717a"
+                    tick={{ fill: '#71717a', fontSize: 12 }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#18181b',
+                      border: '1px solid #3f3f46',
+                      borderRadius: '8px',
+                      color: '#e4e4e7'
+                    }}
+                    labelFormatter={(timestamp) => {
+                      const date = new Date(timestamp);
+                      return date.toLocaleString();
+                    }}
+                  />
+                  <Legend
+                    wrapperStyle={{ color: '#e4e4e7' }}
+                    iconType="circle"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="crashes_per_agent"
+                    stroke="#f59e0b"
+                    strokeWidth={3}
+                    dot={{ fill: '#f59e0b', r: 4 }}
+                    activeDot={{ r: 6 }}
+                    name="Error Rate"
+                  />
+                </ReLineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Recovery Success Rate */}
+            <div className="mt-4 rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-emerald-400" />
+                <h4 className="font-semibold text-zinc-200">Recovery Success Rate by Hour</h4>
+              </div>
+              <ResponsiveContainer width="100%" height={250}>
+                <ReBarChart data={healthHistory.hourly}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                  <XAxis
+                    dataKey="hour"
+                    stroke="#71717a"
+                    tick={{ fill: '#71717a', fontSize: 12 }}
+                    tickFormatter={(hour) => `${hour}:00`}
+                  />
+                  <YAxis
+                    stroke="#71717a"
+                    tick={{ fill: '#71717a', fontSize: 12 }}
+                    label={{ value: 'Success Rate (%)', angle: -90, position: 'insideLeft', fill: '#71717a' }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#18181b',
+                      border: '1px solid #3f3f46',
+                      borderRadius: '8px',
+                      color: '#e4e4e7'
+                    }}
+                    labelFormatter={(hour) => `Hour: ${hour}:00`}
+                    formatter={(value: any) => [`${value}%`, 'Recovery Rate']}
+                  />
+                  <Legend
+                    wrapperStyle={{ color: '#e4e4e7' }}
+                    iconType="circle"
+                  />
+                  <Bar
+                    dataKey="recovery_rate"
+                    fill="#10b981"
+                    radius={[4, 4, 0, 0]}
+                    name="Recovery Success Rate"
+                  />
+                </ReBarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Agent-Specific Failure Rates */}
+            {healthHistory.agent_history.some(a => a.total_crashes > 0) && (
+              <div className="mt-4 rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-6">
+                <div className="mb-4 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-400" />
+                  <h4 className="font-semibold text-zinc-200">Agent Crash Distribution</h4>
+                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <ReBarChart
+                    data={healthHistory.agent_history.filter(a => a.total_crashes > 0)}
+                    layout="vertical"
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                    <XAxis
+                      type="number"
+                      stroke="#71717a"
+                      tick={{ fill: '#71717a', fontSize: 12 }}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="agent_name"
+                      stroke="#71717a"
+                      tick={{ fill: '#71717a', fontSize: 12 }}
+                      width={100}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#18181b',
+                        border: '1px solid #3f3f46',
+                        borderRadius: '8px',
+                        color: '#e4e4e7'
+                      }}
+                    />
+                    <Legend
+                      wrapperStyle={{ color: '#e4e4e7' }}
+                      iconType="circle"
+                    />
+                    <Bar
+                      dataKey="total_crashes"
+                      fill="#ef4444"
+                      radius={[0, 4, 4, 0]}
+                      name="Total Crashes"
+                    />
+                    <Bar
+                      dataKey="successful_restarts"
+                      fill="#10b981"
+                      radius={[0, 4, 4, 0]}
+                      name="Successful Restarts"
+                    />
+                  </ReBarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Incident Timeline */}
       <div>

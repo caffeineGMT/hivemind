@@ -282,6 +282,75 @@ export interface IncidentTimeline {
   };
 }
 
+export interface HourlyHealthData {
+  timestamp: string;
+  hour: number;
+  crashes: number;
+  auto_restarts: number;
+  manual_restarts: number;
+  total_incidents: number;
+  recovery_rate: string;
+}
+
+export interface AgentHistoryData {
+  agent_id: string;
+  agent_name: string;
+  role: string;
+  total_crashes: number;
+  successful_restarts: number;
+  failure_rate: string;
+}
+
+export interface ErrorRateData {
+  timestamp: string;
+  error_rate: number;
+  crashes_per_agent: number;
+}
+
+export interface HealthHistory {
+  hourly: HourlyHealthData[];
+  agent_history: AgentHistoryData[];
+  error_rates: ErrorRateData[];
+  summary: {
+    time_range_hours: number;
+    total_crashes: number;
+    total_restarts: number;
+    total_agents: number;
+  };
+}
+
+export interface AgentRecoveryStatus {
+  agentId: string;
+  agentName: string;
+  status: 'healthy' | 'recovering' | 'failed_permanently';
+  attemptCount: number;
+  totalCrashes: number;
+  currentBackoffMs: number;
+  timeUntilRetryMs: number;
+  canRetryNow: boolean;
+  lastSuccessTime: number;
+  recentFailures: Array<{
+    timestamp: number;
+    reason: string;
+    taskId?: string;
+  }>;
+}
+
+export interface RecoveryStats {
+  total_agents: number;
+  healthy: number;
+  recovering: number;
+  failed_permanently: number;
+  total_crashes: number;
+  total_recovery_attempts: number;
+  agents_in_backoff: number;
+}
+
+export interface RecoveryData {
+  status: AgentRecoveryStatus[];
+  stats: RecoveryStats;
+}
+
 // ── Fetch helpers ──────────────────────────────────────────────────
 
 // Token management - will be set by the app
@@ -362,6 +431,7 @@ export const api = {
     fetchJson<TaskDetail>(`/api/tasks/${taskId}`),
 
   addComment: async (taskId: string, message: string) => {
+    const headers = { 'Content-Type': 'application/json' };
     
     const res = await fetch(`/api/tasks/${taskId}/comments`, {
       method: 'POST',
@@ -375,7 +445,7 @@ export const api = {
     fetchJson<CostData>(`/api/companies/${companyId}/costs`),
 
   setCostBudget: async (companyId: string, monthlyBudget: number, alertThreshold: number) => {
-    
+    const headers = { 'Content-Type': 'application/json' };
     const res = await fetch(`/api/companies/${companyId}/budget`, {
       method: 'POST',
       headers,
@@ -388,7 +458,7 @@ export const api = {
     fetchJson<CostByDateEntry[]>(`/api/companies/${companyId}/costs/range?startDate=${startDate}&endDate=${endDate}`),
 
   nudge: async (companyId: string, message: string) => {
-    
+    const headers = { 'Content-Type': 'application/json' };
     const res = await fetch('/api/nudge', {
       method: 'POST',
       headers,
@@ -420,11 +490,14 @@ export const api = {
   getIncidentTimeline: (companyId: string, limit = 100) =>
     fetchJson<IncidentTimeline>(`/api/companies/${companyId}/incident-timeline?limit=${limit}`),
 
+  getHealthHistory: (companyId: string, hours = 24) =>
+    fetchJson<HealthHistory>(`/api/companies/${companyId}/health-history?hours=${hours}`),
+
   getCircuitBreakerStatus: () =>
     fetchJson<CircuitBreakerStatus>('/api/circuit-breaker/status'),
 
   resetCircuitBreaker: async (companyId?: string) => {
-    
+    const headers = { 'Content-Type': 'application/json' };
     const res = await fetch('/api/circuit-breaker/reset', {
       method: 'POST',
       headers,
@@ -434,7 +507,7 @@ export const api = {
   },
 
   restartAgent: async (agentId: string) => {
-    
+    const headers = { 'Content-Type': 'application/json' };
     const res = await fetch(`/api/agents/${agentId}/restart`, {
       method: 'POST',
       headers,
@@ -443,7 +516,7 @@ export const api = {
   },
 
   resetAgent: async (agentId: string) => {
-    
+    const headers = { 'Content-Type': 'application/json' };
     const res = await fetch(`/api/agents/${agentId}/reset`, {
       method: 'DELETE',
       headers,
@@ -453,7 +526,7 @@ export const api = {
 
   // Company management
   createCompany: async (data: { name: string; goal: string }) => {
-    
+    const headers = { 'Content-Type': 'application/json' };
     const res = await fetch('/api/companies', {
       method: 'POST',
       headers,
@@ -463,7 +536,7 @@ export const api = {
   },
 
   updateCompany: async (id: string, data: Partial<Company>) => {
-    
+    const headers = { 'Content-Type': 'application/json' };
     const res = await fetch(`/api/companies/${id}`, {
       method: 'PATCH',
       headers,
@@ -473,7 +546,7 @@ export const api = {
   },
 
   deleteCompany: async (id: string) => {
-    
+    const headers = { 'Content-Type': 'application/json' };
     const res = await fetch(`/api/companies/${id}`, {
       method: 'DELETE',
       headers,
@@ -484,6 +557,19 @@ export const api = {
   // Cross-project analytics
   getCrossProjectAnalytics: () =>
     fetchJson<CrossProjectAnalytics>('/api/analytics/cross-project'),
+
+  // Agent recovery manager
+  getRecoveryStatus: (companyId: string) =>
+    fetchJson<RecoveryData>(`/api/companies/${companyId}/recovery-status`),
+
+  resetAgentRecovery: async (agentId: string) => {
+    const headers = { 'Content-Type': 'application/json' };
+    const res = await fetch(`/api/agents/${agentId}/recovery/reset`, {
+      method: 'POST',
+      headers,
+    });
+    return res.json();
+  },
 };
 
 // ── Cross-Project Analytics Types ──────────────────────────────────

@@ -41,10 +41,27 @@ const PRIORITY_COLORS = {
   low: '#84cc16',
 } as const;
 
-export default function TaskQueueVisualization({ tasks, onTaskClick, height = 700 }: Props) {
+export default function TaskQueueVisualization({ tasks, onTaskClick, height }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredTask, setHoveredTask] = useState<string | null>(null);
   const [selectedView, setSelectedView] = useState<'dag' | 'force' | 'timeline'>('dag');
+  const [containerHeight, setContainerHeight] = useState(height || 700);
+
+  // Update height based on container and screen size
+  useEffect(() => {
+    const updateHeight = () => {
+      if (containerRef.current) {
+        const isMobile = window.innerWidth < 768;
+        const baseHeight = height || 700;
+        setContainerHeight(isMobile ? Math.min(baseHeight, 500) : baseHeight);
+      }
+    };
+
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    return () => window.removeEventListener('resize', updateHeight);
+  }, [height]);
 
   // Calculate task metrics
   const { nodes, links, criticalPath, estimatedCompletion } = useMemo(() => {
@@ -186,7 +203,7 @@ export default function TaskQueueVisualization({ tasks, onTaskClick, height = 70
     const width = svgRef.current.clientWidth;
     const margin = { top: 40, right: 40, bottom: 40, left: 40 };
     const innerWidth = width - margin.left - margin.right;
-    const innerHeight = height - margin.top - margin.bottom;
+    const innerHeight = containerHeight - margin.top - margin.bottom;
 
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
@@ -431,10 +448,10 @@ export default function TaskQueueVisualization({ tasks, onTaskClick, height = 70
       .style('pointer-events', 'none')
       .style('z-index', '1000');
 
-  }, [nodes, links, selectedView, height, onTaskClick]);
+  }, [nodes, links, selectedView, containerHeight, onTaskClick]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={containerRef}>
       {/* Stats header */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
@@ -458,10 +475,10 @@ export default function TaskQueueVisualization({ tasks, onTaskClick, height = 70
       </div>
 
       {/* View selector */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setSelectedView('dag')}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+          className={`rounded-lg px-3 py-2 text-xs md:text-sm md:px-4 font-medium transition ${
             selectedView === 'dag'
               ? 'bg-amber-500 text-white'
               : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
@@ -471,7 +488,7 @@ export default function TaskQueueVisualization({ tasks, onTaskClick, height = 70
         </button>
         <button
           onClick={() => setSelectedView('force')}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+          className={`rounded-lg px-3 py-2 text-xs md:text-sm md:px-4 font-medium transition ${
             selectedView === 'force'
               ? 'bg-amber-500 text-white'
               : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
@@ -481,7 +498,7 @@ export default function TaskQueueVisualization({ tasks, onTaskClick, height = 70
         </button>
         <button
           onClick={() => setSelectedView('timeline')}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+          className={`rounded-lg px-3 py-2 text-xs md:text-sm md:px-4 font-medium transition ${
             selectedView === 'timeline'
               ? 'bg-amber-500 text-white'
               : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
@@ -519,11 +536,11 @@ export default function TaskQueueVisualization({ tasks, onTaskClick, height = 70
       </div>
 
       {/* SVG canvas */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950">
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950 chart-container">
         <svg
           ref={svgRef}
           width="100%"
-          height={height}
+          height={containerHeight}
           className="overflow-visible"
           style={{ cursor: 'grab' }}
         />
