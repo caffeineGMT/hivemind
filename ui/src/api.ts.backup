@@ -277,23 +277,11 @@ export interface IncidentTimeline {
 
 // ── Fetch helpers ──────────────────────────────────────────────────
 
-// Token management - will be set by the app
-let authToken: string | null = null;
-
-export function setAuthToken(token: string | null) {
-  authToken = token;
-}
-
 // Try live API first, fall back to static JSON snapshots (for Vercel deployment)
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-
-  // Add auth token if available
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
-  }
 
   // Merge with provided headers
   if (options?.headers) {
@@ -366,6 +354,7 @@ export const api = {
 
   addComment: async (taskId: string, message: string) => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch(`/api/tasks/${taskId}/comments`, {
       method: 'POST',
       headers,
@@ -379,6 +368,7 @@ export const api = {
 
   setCostBudget: async (companyId: string, monthlyBudget: number, alertThreshold: number) => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch(`/api/companies/${companyId}/budget`, {
       method: 'POST',
       headers,
@@ -392,6 +382,7 @@ export const api = {
 
   nudge: async (companyId: string, message: string) => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch('/api/nudge', {
       method: 'POST',
       headers,
@@ -428,6 +419,7 @@ export const api = {
 
   resetCircuitBreaker: async (companyId?: string) => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch('/api/circuit-breaker/reset', {
       method: 'POST',
       headers,
@@ -438,6 +430,7 @@ export const api = {
 
   restartAgent: async (agentId: string) => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch(`/api/agents/${agentId}/restart`, {
       method: 'POST',
       headers,
@@ -447,6 +440,7 @@ export const api = {
 
   resetAgent: async (agentId: string) => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch(`/api/agents/${agentId}/reset`, {
       method: 'DELETE',
       headers,
@@ -457,6 +451,7 @@ export const api = {
   // Company management
   createCompany: async (data: { name: string; goal: string }) => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch('/api/companies', {
       method: 'POST',
       headers,
@@ -467,6 +462,7 @@ export const api = {
 
   updateCompany: async (id: string, data: Partial<Company>) => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch(`/api/companies/${id}`, {
       method: 'PATCH',
       headers,
@@ -477,6 +473,7 @@ export const api = {
 
   deleteCompany: async (id: string) => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch(`/api/companies/${id}`, {
       method: 'DELETE',
       headers,
@@ -494,6 +491,7 @@ export const api = {
 
   markOnboardingStarted: async () => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch('/api/onboarding/started', {
       method: 'POST',
       headers,
@@ -503,6 +501,7 @@ export const api = {
 
   markOnboardingCompleted: async () => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch('/api/onboarding/complete', {
       method: 'POST',
       headers,
@@ -512,6 +511,7 @@ export const api = {
 
   markOnboardingSkipped: async () => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch('/api/onboarding/skip', {
       method: 'POST',
       headers,
