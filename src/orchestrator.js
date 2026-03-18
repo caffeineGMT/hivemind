@@ -32,7 +32,7 @@ async function runCeoPlanning(company) {
   const existingTasks = db.getTasksByCompany(company.id);
   const prompt = prompts.ceoPrompt(company, existingTasks);
 
-  const raw = await claude.claudeSessionSync("ceo", prompt, {
+  const { output: raw, usage: ceoUsage } = await claude.claudeSessionSync("ceo", prompt, {
     cwd: company.workspace,
     timeout: 300000,
     maxTurns: 20,
@@ -40,6 +40,11 @@ async function runCeoPlanning(company) {
   const plan = claude.parseJsonResponse(raw);
 
   setAgentIdle(company.id, "ceo");
+
+  if (ceoUsage) {
+    db.logCost({ companyId: company.id, agentName: "ceo", inputTokens: ceoUsage.inputTokens, outputTokens: ceoUsage.outputTokens, cacheReadTokens: ceoUsage.cacheReadTokens, cacheWriteTokens: ceoUsage.cacheWriteTokens, totalTokens: ceoUsage.totalTokens, costUsd: ceoUsage.costUsd, durationMs: ceoUsage.durationMs, numTurns: ceoUsage.numTurns, model: ceoUsage.model });
+    log(company.id, "CFO", `CEO planning: ${ceoUsage.totalTokens} tokens, $${ceoUsage.costUsd.toFixed(4)}`);
+  }
 
   if (!plan || !plan.projects) {
     log(company.id, "CEO", `Failed to parse strategy. Raw output: ${raw.slice(0, 300)}`);
@@ -99,12 +104,17 @@ async function runCtoRefinement(company) {
     }, childTasks);
 
     try {
-      const raw = await claude.claudeSessionSync("cto", prompt, {
+      const { output: raw, usage: ctoUsage } = await claude.claudeSessionSync("cto", prompt, {
         cwd: company.workspace,
         timeout: 300000,
         maxTurns: 20,
       });
       const refined = claude.parseJsonResponse(raw);
+
+      if (ctoUsage) {
+        db.logCost({ companyId: company.id, agentName: "cto", taskId: project.id, inputTokens: ctoUsage.inputTokens, outputTokens: ctoUsage.outputTokens, cacheReadTokens: ctoUsage.cacheReadTokens, cacheWriteTokens: ctoUsage.cacheWriteTokens, totalTokens: ctoUsage.totalTokens, costUsd: ctoUsage.costUsd, durationMs: ctoUsage.durationMs, numTurns: ctoUsage.numTurns, model: ctoUsage.model });
+        log(company.id, "CFO", `CTO refinement: ${ctoUsage.totalTokens} tokens, $${ctoUsage.costUsd.toFixed(4)}`);
+      }
 
       if (!refined || !refined.refined_tasks) {
         log(company.id, "CTO", `Could not refine "${project.title}", using original tasks`);
@@ -153,7 +163,7 @@ async function runDesignerPhase(company) {
 
   try {
     const prompt = prompts.designerPrompt(company, work);
-    const raw = await claude.claudeSessionSync("designer", prompt, {
+    const { output: raw, usage: designerUsage } = await claude.claudeSessionSync("designer", prompt, {
       cwd: company.workspace,
       timeout: 300000,
       maxTurns: 20,
@@ -161,6 +171,11 @@ async function runDesignerPhase(company) {
     const specs = claude.parseJsonResponse(raw);
 
     setAgentIdle(company.id, "designer");
+
+    if (designerUsage) {
+      db.logCost({ companyId: company.id, agentName: "designer", inputTokens: designerUsage.inputTokens, outputTokens: designerUsage.outputTokens, cacheReadTokens: designerUsage.cacheReadTokens, cacheWriteTokens: designerUsage.cacheWriteTokens, totalTokens: designerUsage.totalTokens, costUsd: designerUsage.costUsd, durationMs: designerUsage.durationMs, numTurns: designerUsage.numTurns, model: designerUsage.model });
+      log(company.id, "CFO", `Designer: ${designerUsage.totalTokens} tokens, $${designerUsage.costUsd.toFixed(4)}`);
+    }
 
     if (!specs) {
       log(company.id, "DESIGNER", "Could not generate design specs, engineers will proceed without.");
@@ -324,6 +339,25 @@ function checkRunningAgents(company) {
       detail: summary.slice(0, 200),
     });
 
+    // Log cost data from this session
+    if (handle.usage) {
+      db.logCost({
+        companyId: company.id,
+        agentName: handle.agentName,
+        taskId: handle.taskId,
+        inputTokens: handle.usage.inputTokens,
+        outputTokens: handle.usage.outputTokens,
+        cacheReadTokens: handle.usage.cacheReadTokens,
+        cacheWriteTokens: handle.usage.cacheWriteTokens,
+        totalTokens: handle.usage.totalTokens,
+        costUsd: handle.usage.costUsd,
+        durationMs: handle.usage.durationMs,
+        numTurns: handle.usage.numTurns,
+        model: handle.usage.model,
+      });
+      log(company.id, "CFO", `${handle.agentName}: ${handle.usage.totalTokens} tokens, $${handle.usage.costUsd.toFixed(4)}, ${handle.usage.numTurns} turns`);
+    }
+
     const task = db.getDb().prepare("SELECT title FROM tasks WHERE id = ?").get(handle.taskId);
     log(company.id, handle.agentName.toUpperCase(), `Completed: ${task?.title || handle.taskId}`);
 
@@ -377,6 +411,7 @@ export async function startCompany(goal, opts = {}) {
   db.createAgent({ id: uid(), companyId, name: "ceo", role: "ceo", title: "CEO" });
   db.createAgent({ id: uid(), companyId, name: "cto", role: "cto", title: "CTO" });
   db.createAgent({ id: uid(), companyId, name: "designer", role: "designer", title: "Lead Designer" });
+  db.createAgent({ id: uid(), companyId, name: "cfo", role: "cfo", title: "CFO" });
 
   // Phase 1: CEO — full session, can read files, explore workspace
   const plan = await runCeoPlanning(db.getCompany(companyId));
@@ -539,6 +574,23 @@ export function showStatus(companyIdPrefix) {
   const bar = "█".repeat(Math.floor(pct / 5)) + "░".repeat(20 - Math.floor(pct / 5));
   console.log(`\n  PROGRESS: [${bar}] ${done}/${work.length} (${pct}%)`);
 
+  // Cost summary (CFO report)
+  const costTotals = db.getCostTotals(company.id);
+  if (costTotals && costTotals.total_sessions > 0) {
+    console.log("\n  COSTS (CFO):");
+    console.log(`    Total spend   : $${(costTotals.total_cost_usd || 0).toFixed(4)}`);
+    console.log(`    Sessions      : ${costTotals.total_sessions}`);
+    console.log(`    Total tokens  : ${(costTotals.total_tokens || 0).toLocaleString()}`);
+    console.log(`    Total turns   : ${costTotals.total_turns || 0}`);
+    const costByAgent = db.getCostSummary(company.id);
+    if (costByAgent.length > 0) {
+      console.log("    By agent:");
+      for (const c of costByAgent) {
+        console.log(`      ${c.agent_name.padEnd(16)} $${(c.total_cost_usd || 0).toFixed(4)}  (${c.sessions} sessions, ${(c.total_tokens || 0).toLocaleString()} tokens)`);
+      }
+    }
+  }
+
   if (activity.length > 0) {
     console.log("\n  RECENT ACTIVITY:");
     for (const a of activity.slice(0, 5)) {
@@ -570,12 +622,17 @@ export async function nudge(companyIdPrefix, message) {
   const prompt = prompts.heartbeatPrompt(company, agents, tasks, message || null);
 
   try {
-    const raw = await claude.claudeSessionSync("ceo-nudge", prompt, {
+    const { output: raw, usage: nudgeUsage } = await claude.claudeSessionSync("ceo-nudge", prompt, {
       cwd: company.workspace,
       timeout: 120000,
       maxTurns: 20,
     });
     const assessment = claude.parseJsonResponse(raw);
+
+    if (nudgeUsage) {
+      db.logCost({ companyId: company.id, agentName: "ceo-nudge", inputTokens: nudgeUsage.inputTokens, outputTokens: nudgeUsage.outputTokens, cacheReadTokens: nudgeUsage.cacheReadTokens, cacheWriteTokens: nudgeUsage.cacheWriteTokens, totalTokens: nudgeUsage.totalTokens, costUsd: nudgeUsage.costUsd, durationMs: nudgeUsage.durationMs, numTurns: nudgeUsage.numTurns, model: nudgeUsage.model });
+      log(company.id, "CFO", `CEO nudge: ${nudgeUsage.totalTokens} tokens, $${nudgeUsage.costUsd.toFixed(4)}`);
+    }
 
     if (assessment) {
       log(company.id, "CEO", `Status: ${assessment.status}`);

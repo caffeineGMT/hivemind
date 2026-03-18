@@ -163,6 +163,7 @@ export function claudeSession(agentId, prompt, opts = {}) {
     stdout: "",
     stderr: "",
     result: null,
+    usage: null,
     proc,
   };
 
@@ -187,7 +188,11 @@ export function claudeSession(agentId, prompt, opts = {}) {
     handle.stdout = stdout;
     handle.stderr = stderr;
     handle.result = lastResult || parseJsonResponse(stdout) || { summary: "Task completed" };
+    handle.usage = extractUsage(lastResult);
     logStream.write(`\n[${new Date().toISOString()}] Agent finished (exit ${code})\n`);
+    if (handle.usage) {
+      logStream.write(`[USAGE] ${JSON.stringify(handle.usage)}\n`);
+    }
     logStream.end();
   });
 
@@ -215,7 +220,7 @@ export async function claudeSessionSync(agentId, prompt, opts = {}) {
         if (handle.exitCode !== 0 && !handle.stdout.trim()) {
           reject(new Error(`Agent ${agentId} exited ${handle.exitCode}: ${handle.stderr.slice(0, 500)}`));
         } else {
-          resolve(handle.stdout.trim());
+          resolve({ output: handle.stdout.trim(), usage: handle.usage });
         }
       }
     }, 500);
@@ -225,7 +230,8 @@ export async function claudeSessionSync(agentId, prompt, opts = {}) {
 // Legacy aliases
 export async function claudeThink(prompt, opts = {}) {
   const agentId = opts.agentId || "planner";
-  return claudeSessionSync(agentId, prompt, { ...opts, maxTurns: opts.maxTurns || 20 });
+  const { output } = await claudeSessionSync(agentId, prompt, { ...opts, maxTurns: opts.maxTurns || 20 });
+  return output;
 }
 
 export function claudeExecute(agentId, prompt, opts = {}) {
@@ -286,6 +292,48 @@ function parseJsonFromText(text) {
   }
 
   return null;
+}
+
+// Claude Opus 4 pricing (per 1M tokens)
+const PRICING = {
+  input: 15.0,
+  output: 75.0,
+  cache_read: 1.5,
+  cache_write: 18.75,
+};
+
+/**
+ * Extract token usage and calculate cost from a stream-json result event.
+ */
+export function extractUsage(resultEvent) {
+  if (!resultEvent) return null;
+
+  // stream-json result event may have: total_cost_usd, total_input_tokens, total_output_tokens, num_turns, duration_ms, model
+  const usage = {
+    inputTokens: resultEvent.total_input_tokens || 0,
+    outputTokens: resultEvent.total_output_tokens || 0,
+    cacheReadTokens: resultEvent.cache_read_input_tokens || 0,
+    cacheWriteTokens: resultEvent.cache_creation_input_tokens || 0,
+    durationMs: resultEvent.duration_ms || 0,
+    numTurns: resultEvent.num_turns || 0,
+    model: resultEvent.model || null,
+  };
+
+  usage.totalTokens = usage.inputTokens + usage.outputTokens;
+
+  // Calculate cost — use API-reported cost if available, otherwise estimate
+  if (resultEvent.total_cost_usd) {
+    usage.costUsd = resultEvent.total_cost_usd;
+  } else {
+    usage.costUsd = (
+      (usage.inputTokens * PRICING.input +
+       usage.outputTokens * PRICING.output +
+       usage.cacheReadTokens * PRICING.cache_read +
+       usage.cacheWriteTokens * PRICING.cache_write) / 1_000_000
+    );
+  }
+
+  return usage;
 }
 
 /**

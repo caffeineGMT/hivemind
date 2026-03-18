@@ -12,7 +12,7 @@ export interface Company {
 export interface Agent {
   id: string;
   name: string;
-  role: 'ceo' | 'cto' | 'designer' | 'engineer';
+  role: 'ceo' | 'cto' | 'cfo' | 'designer' | 'engineer';
   title: string;
   status: 'idle' | 'running' | 'error';
   pid: number | null;
@@ -90,6 +90,52 @@ export interface LogEntry {
   file: string;
 }
 
+export interface CostEntry {
+  id: number;
+  company_id: string;
+  agent_name: string;
+  task_id: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  total_tokens: number;
+  cost_usd: number;
+  duration_ms: number;
+  num_turns: number;
+  model: string | null;
+  created_at: string;
+}
+
+export interface CostSummaryEntry {
+  agent_name: string;
+  sessions: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cache_read_tokens: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  total_duration_ms: number;
+  total_turns: number;
+}
+
+export interface CostTotals {
+  total_sessions: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cache_read_tokens: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  total_duration_ms: number;
+  total_turns: number;
+}
+
+export interface CostData {
+  summary: CostSummaryEntry[];
+  totals: CostTotals;
+  recent: CostEntry[];
+}
+
 // ── Fetch helpers ──────────────────────────────────────────────────
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -131,6 +177,9 @@ export const api = {
     });
     return res.json();
   },
+
+  getCosts: (companyId: string) =>
+    fetchJson<CostData>(`/api/companies/${companyId}/costs`),
 
   nudge: async (companyId: string, message: string) => {
     const res = await fetch(`/api/companies/${companyId}/nudge`, {

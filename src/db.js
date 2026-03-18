@@ -82,6 +82,23 @@ function migrate(db) {
       detail TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS cost_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      agent_name TEXT NOT NULL,
+      task_id TEXT,
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+      total_tokens INTEGER NOT NULL DEFAULT 0,
+      cost_usd REAL NOT NULL DEFAULT 0,
+      duration_ms INTEGER NOT NULL DEFAULT 0,
+      num_turns INTEGER NOT NULL DEFAULT 0,
+      model TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 }
 
@@ -193,4 +210,52 @@ export function getTask(id) {
 
 export function getRecentActivity(companyId, limit = 20) {
   return getDb().prepare("SELECT * FROM activity_log WHERE company_id = ? ORDER BY created_at DESC LIMIT ?").all(companyId, limit);
+}
+
+// ── Cost tracking ──────────────────────────────────────────────────
+
+export function logCost({ companyId, agentName, taskId, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, totalTokens, costUsd, durationMs, numTurns, model }) {
+  getDb().prepare(
+    `INSERT INTO cost_log (company_id, agent_name, task_id, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, total_tokens, cost_usd, duration_ms, num_turns, model)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(companyId, agentName, taskId || null, inputTokens || 0, outputTokens || 0, cacheReadTokens || 0, cacheWriteTokens || 0, totalTokens || 0, costUsd || 0, durationMs || 0, numTurns || 0, model || null);
+}
+
+export function getCostsByCompany(companyId) {
+  return getDb().prepare("SELECT * FROM cost_log WHERE company_id = ? ORDER BY created_at DESC").all(companyId);
+}
+
+export function getCostSummary(companyId) {
+  return getDb().prepare(`
+    SELECT
+      agent_name,
+      COUNT(*) as sessions,
+      SUM(input_tokens) as total_input_tokens,
+      SUM(output_tokens) as total_output_tokens,
+      SUM(cache_read_tokens) as total_cache_read_tokens,
+      SUM(total_tokens) as total_tokens,
+      SUM(cost_usd) as total_cost_usd,
+      SUM(duration_ms) as total_duration_ms,
+      SUM(num_turns) as total_turns
+    FROM cost_log
+    WHERE company_id = ?
+    GROUP BY agent_name
+    ORDER BY total_cost_usd DESC
+  `).all(companyId);
+}
+
+export function getCostTotals(companyId) {
+  return getDb().prepare(`
+    SELECT
+      COUNT(*) as total_sessions,
+      SUM(input_tokens) as total_input_tokens,
+      SUM(output_tokens) as total_output_tokens,
+      SUM(cache_read_tokens) as total_cache_read_tokens,
+      SUM(total_tokens) as total_tokens,
+      SUM(cost_usd) as total_cost_usd,
+      SUM(duration_ms) as total_duration_ms,
+      SUM(num_turns) as total_turns
+    FROM cost_log
+    WHERE company_id = ?
+  `).get(companyId);
 }

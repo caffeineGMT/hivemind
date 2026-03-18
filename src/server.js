@@ -157,6 +157,16 @@ export function createServer(port = 3100) {
     }
   });
 
+  // Cost tracking
+  app.get("/api/companies/:id/costs", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+    const summary = db.getCostSummary(company.id);
+    const totals = db.getCostTotals(company.id);
+    const recent = db.getCostsByCompany(company.id);
+    res.json({ summary, totals, recent: recent.slice(0, 50) });
+  });
+
   // Task detail
   app.get("/api/tasks/:id", (req, res) => {
     const task = db.getTask(req.params.id);

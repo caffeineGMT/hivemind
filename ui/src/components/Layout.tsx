@@ -4,6 +4,7 @@ import {
   ListTodo,
   Users,
   Activity,
+  DollarSign,
   ChevronDown,
   Hexagon,
 } from 'lucide-react';
@@ -22,6 +23,7 @@ const navItems = [
   { to: '/tasks', icon: ListTodo, label: 'Tasks' },
   { to: '/agents', icon: Users, label: 'Agents' },
   { to: '/activity', icon: Activity, label: 'Activity' },
+  { to: '/finance', icon: DollarSign, label: 'Finance' },
 ];
 
 function statusColor(status: string) {
