@@ -62,6 +62,25 @@ function migrate(db) {
     }
   } catch {}
 
+  // Create testimonials table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS testimonials (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
+      user_name TEXT NOT NULL,
+      user_email TEXT NOT NULL,
+      user_role TEXT,
+      user_company TEXT,
+      rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+      quote TEXT NOT NULL,
+      feedback TEXT,
+      approved INTEGER NOT NULL DEFAULT 0,
+      featured INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY,
@@ -527,7 +546,6 @@ export function getRevenueMetrics(companyId) {
   const totalSubs = activeSubs.length + cancelledCount;
   const churnRate = totalSubs > 0 ? (cancelledCount / totalSubs) * 100 : 0;
 
-  // LTV calculation (simple: average revenue per user * average lifetime)
   const avgRevenuePerUser = activeSubs.length > 0 ? mrr / activeSubs.length : 0;
   const avgLifetimeMonths = churnRate > 0 ? 1 / (churnRate / 100) : 12; // If 10% monthly churn, avg lifetime = 10 months
   const ltv = avgRevenuePerUser * avgLifetimeMonths;

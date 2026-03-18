@@ -6,12 +6,11 @@ import {
   Activity,
   DollarSign,
   TrendingUp,
-  Receipt,
-  Target,
   ChevronDown,
   Hexagon,
   Menu,
   X,
+  Target,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Company } from '../api';
@@ -24,14 +23,14 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { to: '/app', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/app/tasks', icon: ListTodo, label: 'Tasks' },
-  { to: '/app/agents', icon: Users, label: 'Agents' },
-  { to: '/app/activity', icon: Activity, label: 'Activity' },
-  { to: '/app/finance', icon: DollarSign, label: 'Finance' },
-  { to: '/app/analytics', icon: TrendingUp, label: 'Analytics' },
-  { to: '/app/pricing', icon: Target, label: 'Pricing' },
-  { to: '/app/costs', icon: Receipt, label: 'Costs' },
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/tasks', icon: ListTodo, label: 'Tasks' },
+  { to: '/agents', icon: Users, label: 'Agents' },
+  { to: '/activity', icon: Activity, label: 'Activity' },
+  { to: '/finance', icon: DollarSign, label: 'Finance' },
+  { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
+  { to: '/costs', icon: DollarSign, label: 'Costs' },
+  { to: '/marketing', icon: Target, label: 'Marketing' },
 ];
 
 function statusColor(status: string) {
@@ -120,7 +119,7 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, ch
           <NavLink
             key={to}
             to={to}
-            end={to === '/app'}
+            end={to === '/'}
             onClick={closeSidebar}
             className={({ isActive }) =>
               `flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
@@ -202,7 +201,7 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, ch
           <NavLink
             key={to}
             to={to}
-            end={to === '/app'}
+            end={to === '/'}
             className={({ isActive }) =>
               `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition ${
                 isActive ? 'text-amber-400' : 'text-zinc-500'

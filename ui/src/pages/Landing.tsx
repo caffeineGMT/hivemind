@@ -1,8 +1,31 @@
 import { ArrowRight, Check, Play, Zap, Brain, TrendingUp, Users, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import TestimonialForm from '../components/TestimonialForm';
+import { useState } from 'react';
+
+interface Testimonial {
+  id: number;
+  user_name: string;
+  user_role: string;
+  user_company: string;
+  rating: number;
+  quote: string;
+  created_at: string;
+}
 
 export default function Landing() {
   const navigate = useNavigate();
+  const [showTestimonialForm, setShowTestimonialForm] = useState(false);
+
+  const { data: testimonials = [] } = useQuery({
+    queryKey: ['testimonials'],
+    queryFn: async () => {
+      const response = await fetch('http://localhost:3100/api/testimonials?approved=true&limit=6');
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
 
   const pricingTiers = [
     {
@@ -54,32 +77,29 @@ export default function Landing() {
     },
   ];
 
-  const testimonials = [
+  // Fallback testimonials if API hasn't loaded yet
+  const fallbackTestimonials = [
     {
+      id: 0,
+      user_name: 'Sarah Chen',
+      user_role: 'Serial Entrepreneur',
+      user_company: 'TechVentures AI',
+      rating: 5,
       quote: "I launched 3 AI companies in parallel using Hivemind. Each one has a full team working 24/7. It's like having a startup accelerator in your pocket.",
-      author: 'Sarah Chen',
-      role: 'Serial Entrepreneur',
-      company: 'TechVentures AI',
+      created_at: new Date().toISOString(),
     },
     {
+      id: 0,
+      user_name: 'Marcus Williams',
+      user_role: 'Founder',
+      user_company: 'AutomateScale',
+      rating: 5,
       quote: "The ROI is insane. My AI company built and deployed a SaaS product in 2 weeks. Revenue hit $12K MRR in the first month, all automated.",
-      author: 'Marcus Williams',
-      role: 'Founder',
-      company: 'AutomateScale',
-    },
-    {
-      quote: "I was skeptical at first, but watching my AI agents collaborate and ship features while I sleep is surreal. This is the future of entrepreneurship.",
-      author: 'Elena Rodriguez',
-      role: 'Product Designer turned Founder',
-      company: 'DesignFlow AI',
-    },
-    {
-      quote: "Hivemind gave me the confidence to quit my job. I now run 5 AI companies, each generating passive income. Best investment I've ever made.",
-      author: 'David Park',
-      role: 'Former SWE at Google',
-      company: 'MultiVenture Labs',
+      created_at: new Date().toISOString(),
     },
   ];
+
+  const displayedTestimonials = testimonials.length > 0 ? testimonials : fallbackTestimonials;
 
   const features = [
     {
@@ -265,39 +285,67 @@ export default function Landing() {
               Join hundreds of entrepreneurs building AI companies
             </p>
           </div>
-          <div className="mt-16 grid gap-8 sm:grid-cols-2">
-            {testimonials.map((testimonial) => (
-              <div
-                key={testimonial.author}
-                className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-8"
-              >
-                <div className="flex gap-1">
-                  {[...Array(5)].map((_, i) => (
-                    <svg
-                      key={i}
-                      className="h-5 w-5 text-amber-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-                <p className="mt-4 text-base text-zinc-300">&ldquo;{testimonial.quote}&rdquo;</p>
-                <div className="mt-6 flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-lg font-bold text-white">
-                    {testimonial.author.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-zinc-100">{testimonial.author}</div>
-                    <div className="text-sm text-zinc-400">
-                      {testimonial.role} · {testimonial.company}
+
+          {showTestimonialForm ? (
+            <div className="mt-12">
+              <div className="mx-auto max-w-2xl">
+                <TestimonialForm />
+                <button
+                  onClick={() => setShowTestimonialForm(false)}
+                  className="mt-4 w-full text-center text-sm text-zinc-500 hover:text-zinc-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="mt-16 grid gap-8 sm:grid-cols-2">
+                {displayedTestimonials.slice(0, 4).map((testimonial) => (
+                  <div
+                    key={testimonial.id || testimonial.user_name}
+                    className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-8"
+                  >
+                    <div className="flex gap-1">
+                      {[...Array(testimonial.rating)].map((_, i) => (
+                        <svg
+                          key={i}
+                          className="h-5 w-5 text-amber-500"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                      ))}
+                    </div>
+                    <p className="mt-4 text-base text-zinc-300">&ldquo;{testimonial.quote}&rdquo;</p>
+                    <div className="mt-6 flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-lg font-bold text-white">
+                        {testimonial.user_name.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="font-semibold text-zinc-100">{testimonial.user_name}</div>
+                        <div className="text-sm text-zinc-400">
+                          {testimonial.user_role}
+                          {testimonial.user_company && ` · ${testimonial.user_company}`}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+
+              <div className="mt-12 text-center">
+                <button
+                  onClick={() => setShowTestimonialForm(true)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-amber-600/50 bg-amber-950/30 px-6 py-3 font-semibold text-amber-400 transition hover:bg-amber-950/50"
+                >
+                  Share Your Success Story
+                  <ArrowRight className="h-5 w-5" />
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </section>
 

@@ -218,6 +218,119 @@ export function createServer(port = 3100) {
     res.json(incidents);
   });
 
+  app.get("/api/companies/:id/agent-health", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const agents = db.getAgentsByCompany(company.id);
+    const incidents = db.getIncidents(company.id, 1000);
+
+    // Calculate metrics per agent
+    const agentMetrics = agents.map(agent => {
+      const agentIncidents = incidents.filter(i => i.agent_id === agent.id);
+      const crashes = agentIncidents.filter(i => i.incident_type === "agent_crash");
+      const restarts = crashes.filter(i => i.recovery_action && i.recovery_action.includes("Auto-restart"));
+
+      // Calculate uptime based on heartbeat
+      let uptimeMinutes = 0;
+      if (agent.last_heartbeat) {
+        const lastBeat = new Date(agent.last_heartbeat).getTime();
+        const now = Date.now();
+        const diffMs = now - lastBeat;
+        uptimeMinutes = Math.max(0, Math.floor(diffMs / (1000 * 60)));
+      }
+
+      // Error rate (crashes per hour of uptime)
+      const uptimeHours = uptimeMinutes / 60;
+      const errorRate = uptimeHours > 0 ? (crashes.length / uptimeHours).toFixed(2) : 0;
+
+      return {
+        agent_id: agent.id,
+        agent_name: agent.name,
+        role: agent.role,
+        status: agent.status,
+        pid: agent.pid,
+        last_heartbeat: agent.last_heartbeat,
+        total_incidents: agentIncidents.length,
+        crashes: crashes.length,
+        restarts: restarts.length,
+        error_rate: parseFloat(errorRate),
+        uptime_minutes: uptimeMinutes,
+      };
+    });
+
+    // Overall stats
+    const totalAgents = agents.length;
+    const runningAgents = agents.filter(a => a.status === "running").length;
+    const totalCrashes = incidents.filter(i => i.incident_type === "agent_crash").length;
+    const totalRestarts = incidents.filter(i => i.recovery_action && i.recovery_action.includes("Auto-restart")).length;
+    const avgErrorRate = agentMetrics.length > 0
+      ? (agentMetrics.reduce((sum, m) => sum + m.error_rate, 0) / agentMetrics.length).toFixed(2)
+      : 0;
+
+    res.json({
+      summary: {
+        total_agents: totalAgents,
+        running_agents: runningAgents,
+        idle_agents: agents.filter(a => a.status === "idle").length,
+        error_agents: agents.filter(a => a.status === "error").length,
+        total_crashes: totalCrashes,
+        total_restarts: totalRestarts,
+        avg_error_rate: parseFloat(avgErrorRate),
+      },
+      agents: agentMetrics,
+      recent_incidents: incidents.slice(0, 50),
+    });
+  });
+
+  app.get("/api/agents/:id/health-metrics", (req, res) => {
+    const agent = db.getAgent(req.params.id);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+    const incidents = db.getIncidentsByAgent(req.params.id, 100);
+    const crashes = incidents.filter(i => i.incident_type === "agent_crash");
+    const restarts = crashes.filter(i => i.recovery_action && i.recovery_action.includes("Auto-restart"));
+
+    // Get retry logs for this agent
+    const retries = db.getRecentRetries(agent.name, 50);
+
+    // Calculate uptime
+    let uptimeMinutes = 0;
+    let uptimeStatus = "unknown";
+    if (agent.status === "running" && agent.last_heartbeat) {
+      const lastBeat = new Date(agent.last_heartbeat).getTime();
+      const now = Date.now();
+      const diffMs = now - lastBeat;
+      uptimeMinutes = Math.max(0, Math.floor(diffMs / (1000 * 60)));
+
+      // Status based on last heartbeat
+      if (diffMs < 60000) uptimeStatus = "healthy";
+      else if (diffMs < 300000) uptimeStatus = "degraded";
+      else uptimeStatus = "stale";
+    } else if (agent.status === "idle") {
+      uptimeStatus = "idle";
+    }
+
+    res.json({
+      agent,
+      health: {
+        status: uptimeStatus,
+        uptime_minutes: uptimeMinutes,
+        last_heartbeat: agent.last_heartbeat,
+      },
+      incidents: {
+        total: incidents.length,
+        crashes: crashes.length,
+        restarts: restarts.length,
+        recent: incidents.slice(0, 20),
+      },
+      retries: {
+        total: retries.length,
+        recent: retries.slice(0, 20),
+      },
+    });
+  });
+
   app.get("/api/analytics/events", (req, res) => {
     const companyId = req.query.companyId;
     const limit = parseInt(req.query.limit || "100", 10);
@@ -323,6 +436,59 @@ export function createServer(port = 3100) {
     req.app.locals.broadcast('activity_logged', { companyId: company.id });
     triggerResume(company.id);
     res.json({ success: true, message: "Nudge sent — agent picking it up now" });
+  });
+
+  // Testimonials endpoints
+  app.post("/api/testimonials", (req, res) => {
+    const { userId, userName, userEmail, userRole, userCompany, rating, quote, feedback } = req.body || {};
+
+    if (!userName || !userEmail || !rating || !quote) {
+      return res.status(400).json({ error: "userName, userEmail, rating, and quote are required" });
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ error: "rating must be between 1 and 5" });
+    }
+
+    try {
+      const result = db.createTestimonial({
+        userId,
+        userName,
+        userEmail,
+        userRole: userRole || null,
+        userCompany: userCompany || null,
+        rating,
+        quote,
+        feedback: feedback || null,
+      });
+      res.json({ success: true, id: result.lastInsertRowid });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/testimonials", (req, res) => {
+    const approved = req.query.approved === "true" ? true : req.query.approved === "false" ? false : undefined;
+    const featured = req.query.featured === "true" ? true : req.query.featured === "false" ? false : undefined;
+    const limit = parseInt(req.query.limit || "100", 10);
+
+    const testimonials = db.getTestimonials({ approved, featured, limit });
+    res.json(testimonials);
+  });
+
+  app.get("/api/testimonials/:id", (req, res) => {
+    const testimonial = db.getTestimonial(req.params.id);
+    if (!testimonial) return res.status(404).json({ error: "Not found" });
+    res.json(testimonial);
+  });
+
+  app.patch("/api/testimonials/:id", (req, res) => {
+    const testimonial = db.getTestimonial(req.params.id);
+    if (!testimonial) return res.status(404).json({ error: "Not found" });
+
+    const { approved, featured } = req.body || {};
+    db.updateTestimonial(req.params.id, { approved, featured });
+    res.json({ success: true });
   });
 
   if (fs.existsSync(uiDist)) {
