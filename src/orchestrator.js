@@ -2,11 +2,14 @@ import crypto from "node:crypto";
 import * as db from "./db.js";
 import * as claude from "./claude.js";
 import * as prompts from "./prompts.js";
-import { HEARTBEAT_INTERVAL_SEC, MAX_CONCURRENT_AGENTS, LOGS_DIR, CHECKPOINT_EVERY_N_TURNS } from "./config.js";
+import { HEARTBEAT_INTERVAL_SEC, MAX_CONCURRENT_AGENTS, LOGS_DIR, CHECKPOINT_EVERY_N_TURNS, DEFAULT_MODEL } from "./config.js";
 // Stripe usage reporting removed — not needed for monitoring dashboard
 import { startHealthMonitoring, stopHealthMonitoring } from "./health-monitoring.js";
+import { startSelfHealing, stopSelfHealing } from "./self-healing.js";
 import { log as structuredLog } from "./logger.js";
 import * as projectConfig from "./project-config.js";
+import * as tracer from "./tracer.js";
+import * as dependencies from "./orchestrator/dependencies.js";
 
 function uid() { return crypto.randomUUID(); }
 
@@ -44,6 +47,7 @@ async function runCeoPlanning(company) {
     companyId: company.id,
     timeout: 300000,
     maxTurns: 20,
+    model: DEFAULT_MODEL,
   });
   const plan = claude.parseJsonResponse(raw);
 
@@ -117,6 +121,7 @@ async function runCtoRefinement(company) {
         companyId: company.id,
         timeout: 300000,
         maxTurns: 20,
+        model: DEFAULT_MODEL,
       });
       const refined = claude.parseJsonResponse(raw);
 
@@ -176,6 +181,7 @@ async function runDesignerPhase(company) {
       cwd: company.workspace,
       timeout: 300000,
       maxTurns: 20,
+      model: DEFAULT_MODEL,
     });
     const specs = claude.parseJsonResponse(raw);
 
@@ -232,6 +238,7 @@ async function runCmoPhase(company) {
       cwd: company.workspace,
       timeout: 300000,
       maxTurns: 20,
+      model: DEFAULT_MODEL,
     });
     const strategy = claude.parseJsonResponse(raw);
 
@@ -430,15 +437,36 @@ function dispatchEngineers(company, designSpecs) {
     }
 
     const prompt = prompts.engineerPrompt(company, task, projectContext);
+
+    // Start trace for this task
+    tracer.startTrace(task.id, "task_execution", {
+      company_id: company.id,
+      agent_id: agent.id,
+      agent_name: agentName,
+      task_title: task.title,
+      task_priority: task.priority
+    });
+    tracer.createSpan(task.id, "agent_start", {
+      agent_name: agentName,
+      task_id: task.id
+    });
+
     // Each engineer is a full Claude session with all capabilities
     const handle = claude.claudeSession(agentName, prompt, {
       cwd: company.workspace,
       taskId: task.id,
       companyId: company.id,
       maxTurns: 50,
+      model: DEFAULT_MODEL,
     });
 
-    const agentHandle = { ...handle, taskId: task.id, agentName, companyId: company.id };
+    // Create agent_run record for lifecycle tracking
+    const agentRunId = db.createAgentRun({ agentId: agent.id, taskId: task.id });
+
+    // Create task_execution record for state tracking
+    const taskExecutionId = db.createTaskExecution({ taskId: task.id, companyId: company.id });
+
+    const agentHandle = { ...handle, taskId: task.id, agentName, companyId: company.id, agentRunId, taskExecutionId };
     runningAgents.set(agent.id, agentHandle);
 
     // Track agent start time for usage metering
@@ -469,6 +497,12 @@ function dispatchEngineers(company, designSpecs) {
 
       if (agentHandle.done || handle.done) {
         clearInterval(watchInterval);
+        // Log trace completion
+        tracer.logTrace(task.id, "agent_complete", {
+          agent_name: agentName,
+          status: "done"
+        });
+        tracer.endTrace(task.id, { status: "completed" });
         agentHandle.done = true;
         // Clean up checkpoints after successful completion
         try {
@@ -483,6 +517,11 @@ function dispatchEngineers(company, designSpecs) {
         }
       }
     }, 5000);
+
+    tracer.logTrace(task.id, "task_assigned", {
+      agent_id: agent.id,
+      status: "in_progress"
+    });
 
     db.updateTaskStatus(task.id, "in_progress");
     db.assignTask(task.id, agent.id);
@@ -523,6 +562,9 @@ export function cleanupStaleAgents(company) {
     log(company.id, "CLEANUP", `Agent ${agent.name} (pid ${agent.pid || "none"}) is no longer running, cleaning up`);
     db.updateAgentStatus(agent.id, "idle");
 
+    // Get agent handle to access agent_run and task_execution IDs
+    const handle = runningAgents.get(agent.id);
+
     // Find the in-progress task for this agent
     const task = db.getDb().prepare("SELECT * FROM tasks WHERE assignee_id = ? AND status = 'in_progress'").get(agent.id);
     if (task) {
@@ -550,6 +592,25 @@ export function cleanupStaleAgents(company) {
         action: "task_completed",
         detail: `Cleanup: ${task.title.slice(0, 150)}`,
       });
+
+      // Update agent_run if we have the ID
+      if (handle?.agentRunId) {
+        db.endAgentRun(handle.agentRunId, {
+          status: 'completed',
+          tokensUsed: 0,
+          cost: 0,
+          errorMessage: 'Completed via cleanup (process terminated)',
+        });
+      }
+
+      // Update task_execution if we have the ID
+      if (handle?.taskExecutionId) {
+        db.updateTaskExecution(handle.taskExecutionId, {
+          status: 'completed',
+          completedAt: new Date().toISOString(),
+        });
+      }
+
       log(company.id, "CLEANUP", `Marked task done: ${task.title}`);
     }
 
@@ -618,6 +679,26 @@ function checkRunningAgents(company) {
       detail: summary.slice(0, 200),
     });
 
+    // Update agent_run record with completion status
+    if (handle.agentRunId) {
+      const tokensUsed = handle.usage?.totalTokens || 0;
+      const cost = handle.usage?.costUsd || 0;
+      db.endAgentRun(handle.agentRunId, {
+        status: handle.exitCode === 0 ? 'completed' : 'error',
+        tokensUsed,
+        cost,
+        errorMessage: handle.exitCode !== 0 ? handle.stderr?.slice(0, 500) : null,
+      });
+    }
+
+    // Update task_execution record with completion
+    if (handle.taskExecutionId) {
+      db.updateTaskExecution(handle.taskExecutionId, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      });
+    }
+
     // Log cost data from this session
     if (handle.usage) {
       db.logCost({
@@ -636,6 +717,21 @@ function checkRunningAgents(company) {
       });
       log(company.id, "CFO", `${handle.agentName}: ${handle.usage.totalTokens} tokens, $${handle.usage.costUsd.toFixed(4)}, ${handle.usage.numTurns} turns`);
 
+      // Record metrics for real-time tracking
+      db.recordMetric({
+        metricName: 'token_usage',
+        value: handle.usage.totalTokens,
+        agentId,
+        companyId: company.id,
+      });
+
+      db.recordMetric({
+        metricName: 'agent_cost',
+        value: handle.usage.costUsd,
+        agentId,
+        companyId: company.id,
+      });
+
       // Track API calls (each turn is an API call)
       if (handle.usage.numTurns) {
         db.logUsage({
@@ -644,6 +740,13 @@ function checkRunningAgents(company) {
           value: handle.usage.numTurns,
           agentId,
           metadata: { agent_name: handle.agentName, task_id: handle.taskId }
+        });
+
+        db.recordMetric({
+          metricName: 'api_calls',
+          value: handle.usage.numTurns,
+          agentId,
+          companyId: company.id,
         });
       }
     }
@@ -794,11 +897,25 @@ async function runHeartbeatLoop(companyId) {
       }
     }) : null;
 
+    // Start self-healing rule engine
+    const selfHealingEngine = startSelfHealing({
+      company,
+      runningAgents,
+      restartCallback: () => {
+        // Callback when self-healing triggers restart - trigger dispatcher
+        const freshCompany = db.getCompany(companyId);
+        if (freshCompany) {
+          dispatchEngineers(freshCompany, undefined);
+        }
+      }
+    });
+
     const heartbeat = setInterval(async () => {
       const company = db.getCompany(companyId);
       if (!company || company.status !== "active") {
         clearInterval(heartbeat);
         stopHealthMonitoring(healthMonitor);
+        stopSelfHealing();
         resolve();
         return;
       }
@@ -1077,6 +1194,7 @@ export async function nudge(companyIdPrefix, message) {
       cwd: company.workspace,
       timeout: 120000,
       maxTurns: 20,
+      model: DEFAULT_MODEL,
     });
     const assessment = claude.parseJsonResponse(raw);
 

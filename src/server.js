@@ -269,6 +269,73 @@ export function createServer(port = 3100) {
     res.json(logs);
   });
 
+  // ── Trace endpoints ────────────────────────────────────────────────
+
+  app.get("/api/traces/:traceId", (req, res) => {
+    try {
+      const { traceId } = req.params;
+      const spans = db.getTraceById(traceId);
+
+      if (!spans || spans.length === 0) {
+        return res.status(404).json({ error: "Trace not found" });
+      }
+
+      // Calculate durations and build timeline
+      const timeline = spans.map((span, idx) => {
+        const nextSpan = spans[idx + 1];
+        const startTime = new Date(span.timestamp).getTime();
+        const endTime = nextSpan
+          ? new Date(nextSpan.timestamp).getTime()
+          : startTime + (span.duration_ms || 100);
+
+        return {
+          ...span,
+          startTime,
+          endTime,
+          duration: endTime - startTime,
+        };
+      });
+
+      res.json({
+        traceId,
+        spans: timeline,
+        tree: db.getTraceTree(traceId),
+        summary: {
+          totalSpans: spans.length,
+          startTime: spans[0]?.timestamp,
+          endTime: spans[spans.length - 1]?.timestamp,
+          totalDuration: timeline.reduce((sum, s) => sum + s.duration, 0),
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/tasks/:taskId/traces", (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const limit = req.query.limit ? parseInt(req.query.limit, 10) : 100;
+      const traces = db.getTracesByTaskId(taskId, limit);
+      res.json(traces);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/companies/:id/traces", (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Not found" });
+
+      const limit = req.query.limit ? parseInt(req.query.limit, 10) : 50;
+      const traces = db.getRecentTraces(company.id, limit);
+      res.json(traces);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/companies/:id/costs", (req, res) => {
     const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
@@ -1604,6 +1671,9 @@ export function createServer(port = 3100) {
       res.status(404).json({ error: "UI not built. Run: cd ui && npm run build" });
     }
   });
+
+  // Start anomaly detection with WebSocket broadcast
+  startAnomalyDetector(broadcast);
 
   return { app, wss };
 }
