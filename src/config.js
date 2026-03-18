@@ -7,7 +7,7 @@ export const HIVEMIND_HOME = process.env.HIVEMIND_HOME || path.join(os.homedir()
 export const DB_PATH = path.join(HIVEMIND_HOME, "hivemind.db");
 export const LOGS_DIR = path.join(HIVEMIND_HOME, "logs");
 export const TMUX_SESSION_PREFIX = "hive";
-export const HEARTBEAT_INTERVAL_SEC = parseInt(process.env.HIVEMIND_HEARTBEAT_SEC || "120", 10);
+export const HEARTBEAT_INTERVAL_SEC = parseInt(process.env.HIVEMIND_HEARTBEAT_SEC || "15", 10);
 export const MAX_CONCURRENT_AGENTS = parseInt(process.env.HIVEMIND_MAX_AGENTS || "5", 10);
 
 // Resolve claude command — use native binary to bypass sandbox-exec

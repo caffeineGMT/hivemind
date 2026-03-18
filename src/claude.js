@@ -308,15 +308,17 @@ const PRICING = {
 export function extractUsage(resultEvent) {
   if (!resultEvent) return null;
 
-  // stream-json result event may have: total_cost_usd, total_input_tokens, total_output_tokens, num_turns, duration_ms, model
+  // Result event has usage nested: { usage: { input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens }, total_cost_usd, duration_ms, num_turns, modelUsage }
+  const u = resultEvent.usage || {};
+  const modelKey = resultEvent.modelUsage ? Object.keys(resultEvent.modelUsage)[0] : null;
   const usage = {
-    inputTokens: resultEvent.total_input_tokens || 0,
-    outputTokens: resultEvent.total_output_tokens || 0,
-    cacheReadTokens: resultEvent.cache_read_input_tokens || 0,
-    cacheWriteTokens: resultEvent.cache_creation_input_tokens || 0,
+    inputTokens: resultEvent.total_input_tokens || u.input_tokens || 0,
+    outputTokens: resultEvent.total_output_tokens || u.output_tokens || 0,
+    cacheReadTokens: resultEvent.cache_read_input_tokens || u.cache_read_input_tokens || 0,
+    cacheWriteTokens: resultEvent.cache_creation_input_tokens || u.cache_creation_input_tokens || 0,
     durationMs: resultEvent.duration_ms || 0,
     numTurns: resultEvent.num_turns || 0,
-    model: resultEvent.model || null,
+    model: resultEvent.model || modelKey || null,
   };
 
   usage.totalTokens = usage.inputTokens + usage.outputTokens;

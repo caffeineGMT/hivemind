@@ -291,7 +291,23 @@ function dispatchEngineers(company, designSpecs) {
       maxTurns: 50,
     });
 
-    runningAgents.set(agent.id, { ...handle, taskId: task.id, agentName });
+    const agentHandle = { ...handle, taskId: task.id, agentName, companyId: company.id };
+    runningAgents.set(agent.id, agentHandle);
+
+    // Watch for completion — immediately update DB and dispatch next tasks
+    const watchInterval = setInterval(() => {
+      if (agentHandle.done || handle.done) {
+        clearInterval(watchInterval);
+        agentHandle.done = true;
+        const freshCompany = db.getCompany(company.id);
+        if (freshCompany) {
+          const completed = checkRunningAgents(freshCompany);
+          if (completed > 0) {
+            dispatchEngineers(freshCompany, undefined);
+          }
+        }
+      }
+    }, 5000);
 
     db.updateTaskStatus(task.id, "in_progress");
     db.assignTask(task.id, agent.id);
@@ -525,6 +541,29 @@ export async function resumeMonitoring(companyIdPrefix) {
   }
 
   console.log(`\n  Resuming: ${company.name} (${company.id.slice(0, 8)})`);
+
+  // Clean up stale agents — check if PIDs are still alive
+  const agents = db.getAgentsByCompany(company.id);
+  for (const agent of agents) {
+    if (agent.status === "running" && agent.pid) {
+      try {
+        process.kill(agent.pid, 0); // Signal 0 = check if alive
+      } catch {
+        // PID is dead — mark agent idle and task as done
+        log(company.id, "RESUME", `Agent ${agent.name} (pid ${agent.pid}) is no longer running, cleaning up`);
+        db.updateAgentStatus(agent.id, "idle");
+        const task = db.getDb().prepare("SELECT * FROM tasks WHERE assignee_id = ? AND status = 'in_progress'").get(agent.id);
+        if (task) {
+          db.updateTaskStatus(task.id, "done", "Completed (detected on resume)");
+          db.logActivity({ companyId: company.id, agentId: agent.id, taskId: task.id, action: "task_completed", detail: "Detected completed on resume" });
+        }
+      }
+    } else if (agent.status === "running" && !agent.pid) {
+      // No PID recorded — mark idle
+      db.updateAgentStatus(agent.id, "idle");
+    }
+  }
+
   checkRunningAgents(company);
   dispatchEngineers(company, undefined);
   await runHeartbeatLoop(company.id);

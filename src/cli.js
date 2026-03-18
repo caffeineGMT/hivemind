@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { startCompany, showStatus, nudge, resumeMonitoring } from "./orchestrator.js";
-import { listCompanies } from "./db.js";
+import { listCompanies, getCostSummary, getCostTotals } from "./db.js";
 import { readAgentLog } from "./claude.js";
 
 const HELP = `
@@ -17,6 +17,7 @@ const HELP = `
     hivemind resume [company-id]        Resume monitoring a running company
     hivemind dashboard [--port 3100]     Launch the web dashboard
     hivemind list                       List all companies
+    hivemind costs [company-id]         Show CFO cost report
     hivemind logs <agent-name>          View an agent's output log
 
   OPTIONS:
@@ -125,6 +126,59 @@ export async function run(args) {
         } else {
           console.error(`  No logs found for agent: ${agentName}`);
         }
+        break;
+      }
+
+      case "costs":
+      case "finance":
+      case "cfo": {
+        const allCos = listCompanies();
+        const targetCo = rest[0]
+          ? allCos.find(c => c.id.startsWith(rest[0]))
+          : allCos[0];
+        if (!targetCo) { console.log("  No companies found."); return; }
+
+        const totals = getCostTotals(targetCo.id);
+        const summary = getCostSummary(targetCo.id);
+
+        console.log(`\n  ╔═══════════════════════════════════════════════╗`);
+        console.log(`  ║  CFO Report — ${targetCo.name.slice(0, 33).padEnd(33)}║`);
+        console.log(`  ╚═══════════════════════════════════════════════╝`);
+
+        if (!totals || !totals.total_sessions) {
+          console.log("  No cost data recorded yet.\n");
+          return;
+        }
+
+        const fmtCost = (n) => n ? `$${n.toFixed(4)}` : "$0.00";
+        const fmtTok = (n) => {
+          if (!n) return "0";
+          if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+          if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+          return String(n);
+        };
+        const fmtTime = (ms) => {
+          if (!ms) return "0s";
+          const s = ms / 1000;
+          if (s < 60) return `${s.toFixed(0)}s`;
+          return `${(s / 60).toFixed(1)}m`;
+        };
+
+        console.log(`\n  Total Cost : ${fmtCost(totals.total_cost_usd)}`);
+        console.log(`  Tokens     : ${fmtTok(totals.total_tokens)} (${fmtTok(totals.total_input_tokens)} in / ${fmtTok(totals.total_output_tokens)} out)`);
+        console.log(`  Cache Read : ${fmtTok(totals.total_cache_read_tokens)}`);
+        console.log(`  Sessions   : ${totals.total_sessions}`);
+        console.log(`  Turns      : ${totals.total_turns}`);
+        console.log(`  Time       : ${fmtTime(totals.total_duration_ms)}`);
+
+        if (summary.length > 0) {
+          console.log("\n  COST BY AGENT:");
+          for (const row of summary) {
+            const pct = totals.total_cost_usd ? ((row.total_cost_usd / totals.total_cost_usd) * 100).toFixed(0) : 0;
+            console.log(`    ${row.agent_name.padEnd(16)} ${fmtCost(row.total_cost_usd).padStart(8)}  ${fmtTok(row.total_tokens).padStart(7)} tok  ${row.sessions} sess  ${fmtTime(row.total_duration_ms).padStart(6)}  (${pct}%)`);
+          }
+        }
+        console.log("");
         break;
       }
 
