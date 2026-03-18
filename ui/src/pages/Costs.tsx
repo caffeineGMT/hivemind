@@ -118,6 +118,66 @@ export default function Costs({ companyId }: CostsProps) {
     }));
   }, [data]);
 
+  // Model usage breakdown
+  const modelData = useMemo(() => {
+    if (!filteredRecentCosts.length) return [];
+    const modelCosts = filteredRecentCosts.reduce((acc, entry) => {
+      const model = entry.model || 'Unknown';
+      if (!acc[model]) {
+        acc[model] = { model, cost: 0, sessions: 0, tokens: 0 };
+      }
+      acc[model].cost += entry.cost_usd;
+      acc[model].sessions += 1;
+      acc[model].tokens += entry.total_tokens;
+      return acc;
+    }, {} as Record<string, { model: string; cost: number; sessions: number; tokens: number }>);
+
+    return Object.values(modelCosts)
+      .sort((a, b) => b.cost - a.cost)
+      .map(m => ({ ...m, cost: parseFloat(m.cost.toFixed(4)) }));
+  }, [filteredRecentCosts]);
+
+  // Efficiency metrics
+  const efficiencyMetrics = useMemo(() => {
+    if (!data?.totals || !data.summary) return null;
+    const totalTasks = data.taskCosts?.length || 0;
+    const avgCostPerTask = totalTasks > 0 ? data.totals.total_cost_usd / totalTasks : 0;
+    const avgCostPer1KTokens = data.totals.total_tokens > 0
+      ? (data.totals.total_cost_usd / data.totals.total_tokens) * 1000
+      : 0;
+    const avgTokensPerSession = data.totals.total_sessions > 0
+      ? data.totals.total_tokens / data.totals.total_sessions
+      : 0;
+    const avgDurationPerSession = data.totals.total_sessions > 0
+      ? data.totals.total_duration_ms / data.totals.total_sessions / 1000
+      : 0;
+
+    return {
+      avgCostPerTask: parseFloat(avgCostPerTask.toFixed(4)),
+      avgCostPer1KTokens: parseFloat(avgCostPer1KTokens.toFixed(4)),
+      avgTokensPerSession: Math.round(avgTokensPerSession),
+      avgDurationPerSession: parseFloat(avgDurationPerSession.toFixed(2)),
+    };
+  }, [data]);
+
+  // Hourly usage pattern
+  const hourlyPattern = useMemo(() => {
+    if (!filteredRecentCosts.length) return [];
+    const hourly = filteredRecentCosts.reduce((acc, entry) => {
+      const hour = new Date(entry.created_at).getHours();
+      if (!acc[hour]) acc[hour] = { hour, cost: 0, sessions: 0 };
+      acc[hour].cost += entry.cost_usd;
+      acc[hour].sessions += 1;
+      return acc;
+    }, {} as Record<number, { hour: number; cost: number; sessions: number }>);
+
+    return Array.from({ length: 24 }, (_, i) => ({
+      hour: `${i.toString().padStart(2, '0')}:00`,
+      cost: parseFloat((hourly[i]?.cost || 0).toFixed(4)),
+      sessions: hourly[i]?.sessions || 0,
+    }));
+  }, [filteredRecentCosts]);
+
   // Projected monthly burn
   const projectedBurn = useMemo(() => {
     if (!data?.totals) return 0;
@@ -344,6 +404,36 @@ export default function Costs({ companyId }: CostsProps) {
           </div>
         </div>
       </div>
+
+      {/* Efficiency Metrics */}
+      {efficiencyMetrics && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+            <div className="text-xs text-zinc-500 mb-1">Avg Cost per Task</div>
+            <div className="text-lg font-semibold text-amber-400">
+              ${efficiencyMetrics.avgCostPerTask.toFixed(4)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+            <div className="text-xs text-zinc-500 mb-1">Cost per 1K Tokens</div>
+            <div className="text-lg font-semibold text-amber-400">
+              ${efficiencyMetrics.avgCostPer1KTokens.toFixed(4)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+            <div className="text-xs text-zinc-500 mb-1">Avg Tokens/Session</div>
+            <div className="text-lg font-semibold text-blue-400">
+              {efficiencyMetrics.avgTokensPerSession.toLocaleString()}
+            </div>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+            <div className="text-xs text-zinc-500 mb-1">Avg Duration/Session</div>
+            <div className="text-lg font-semibold text-blue-400">
+              {efficiencyMetrics.avgDurationPerSession.toFixed(2)}s
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
