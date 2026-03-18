@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { api } from '../api';
-import { Settings as SettingsIcon, Zap, DollarSign, Activity, Clock, Save, RotateCcw, Archive, Trash2 } from 'lucide-react';
+import { api, AlertRule, AlertChannelConfig } from '../api';
+import { Settings as SettingsIcon, Zap, DollarSign, Activity, Clock, Save, RotateCcw, Archive, Trash2, Bell, Monitor, FileText, Wifi, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 
 interface ProjectConfig {
   company_id: string;
@@ -384,6 +384,9 @@ export default function Settings({ companyId }: { companyId: string }) {
         </div>
       </div>
 
+      {/* Alert Configuration */}
+      <AlertConfigSection companyId={companyId} />
+
       {/* Danger Zone */}
       <div className="rounded-xl border border-red-900/50 bg-red-950/10 p-6">
         <h3 className="mb-4 text-sm font-semibold text-red-400">Danger Zone</h3>
@@ -433,6 +436,341 @@ export default function Settings({ companyId }: { companyId: string }) {
               </div>
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Alert Configuration Section ──────────────────────────────────
+
+const SEVERITY_COLORS: Record<string, string> = {
+  critical: 'text-red-400 bg-red-950/30 border-red-900/50',
+  warning: 'text-amber-400 bg-amber-950/30 border-amber-900/50',
+  info: 'text-blue-400 bg-blue-950/30 border-blue-900/50',
+};
+
+const SEVERITY_DOT: Record<string, string> = {
+  critical: 'bg-red-500',
+  warning: 'bg-amber-500',
+  info: 'bg-blue-500',
+};
+
+const METRIC_LABELS: Record<string, string> = {
+  error_rate: 'Error Rate',
+  response_time: 'Response Time (ms)',
+  token_usage: 'Token Usage',
+  agent_status: 'Agent Status',
+  cost_per_task: 'Cost Per Task ($)',
+  task_completion_time: 'Task Duration (ms)',
+  budget_usage: 'Budget Usage Ratio',
+  cache_hit_rate: 'Cache Hit Rate',
+};
+
+const CONDITION_LABELS: Record<string, string> = {
+  gt: '>',
+  gte: '>=',
+  lt: '<',
+  lte: '<=',
+  eq: '=',
+  neq: '!=',
+};
+
+function AlertConfigSection({ companyId }: { companyId: string }) {
+  const queryClient = useQueryClient();
+  const [editingRules, setEditingRules] = useState<AlertRule[] | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  const { data: rulesData, isLoading: rulesLoading } = useQuery({
+    queryKey: ['alert-rules', companyId],
+    queryFn: () => api.getAlertRules(companyId),
+  });
+
+  const { data: channelsData, isLoading: channelsLoading } = useQuery({
+    queryKey: ['alert-channels', companyId],
+    queryFn: () => api.getAlertChannels(companyId),
+  });
+
+  const { data: statsData } = useQuery({
+    queryKey: ['alert-stats', companyId],
+    queryFn: () => api.getAlertStats(companyId),
+    refetchInterval: 30000,
+  });
+
+  useEffect(() => {
+    if (rulesData?.rules && !editingRules) {
+      setEditingRules(rulesData.rules);
+    }
+  }, [rulesData, editingRules]);
+
+  const saveRulesMutation = useMutation({
+    mutationFn: (rules: AlertRule[]) => api.saveAlertRules(companyId, rules),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alert-rules', companyId] });
+      setHasChanges(false);
+    },
+  });
+
+  const saveChannelsMutation = useMutation({
+    mutationFn: (channels: AlertChannelConfig) => api.saveAlertChannels(companyId, channels),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alert-channels', companyId] });
+    },
+  });
+
+  const testAlertMutation = useMutation({
+    mutationFn: () => api.testAlert(companyId, 'info', 'Test Alert', 'This is a test alert from the settings page'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alert-stats', companyId] });
+    },
+  });
+
+  if (rulesLoading || channelsLoading || !editingRules) {
+    return (
+      <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-6">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-zinc-300">
+          <Bell className="h-4 w-4" />
+          Alert Configuration
+        </h3>
+        <div className="flex h-24 items-center justify-center">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-700 border-t-amber-500" />
+        </div>
+      </div>
+    );
+  }
+
+  const channels = channelsData?.channels || { websocket: true, log_file: true, desktop: false };
+  const stats = statsData;
+
+  const updateRule = (index: number, field: keyof AlertRule, value: unknown) => {
+    const updated = [...editingRules];
+    updated[index] = { ...updated[index], [field]: value };
+    setEditingRules(updated);
+    setHasChanges(true);
+  };
+
+  const toggleRule = (index: number) => {
+    updateRule(index, 'enabled', !editingRules[index].enabled);
+  };
+
+  const toggleChannel = (channel: keyof AlertChannelConfig) => {
+    const updated = { ...channels, [channel]: !channels[channel] };
+    saveChannelsMutation.mutate(updated);
+  };
+
+  const handleSaveRules = () => {
+    saveRulesMutation.mutate(editingRules);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Alert Stats Summary */}
+      {stats && stats.total > 0 && (
+        <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-6">
+          <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-zinc-300">
+            <AlertTriangle className="h-4 w-4" />
+            Alert Summary (24h)
+          </h3>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div>
+              <div className="text-2xl font-bold text-red-400">{stats.critical}</div>
+              <div className="text-xs text-zinc-500">Critical</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-amber-400">{stats.warning}</div>
+              <div className="text-xs text-zinc-500">Warning</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-blue-400">{stats.info}</div>
+              <div className="text-xs text-zinc-500">Info</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-zinc-100">{stats.unacknowledged}</div>
+              <div className="text-xs text-zinc-500">Unacknowledged</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delivery Channels */}
+      <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-6">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-zinc-300">
+          <Bell className="h-4 w-4" />
+          Alert Delivery Channels
+        </h3>
+        <div className="space-y-3">
+          <label className="flex cursor-pointer items-center justify-between">
+            <span className="flex items-center gap-2 text-sm text-zinc-400">
+              <Wifi className="h-4 w-4" />
+              WebSocket (Dashboard Push)
+            </span>
+            <input
+              type="checkbox"
+              checked={channels.websocket}
+              onChange={() => toggleChannel('websocket')}
+              className="h-5 w-5 rounded border-zinc-700 bg-zinc-800 text-amber-600 focus:ring-2 focus:ring-amber-600/20"
+            />
+          </label>
+          <label className="flex cursor-pointer items-center justify-between">
+            <span className="flex items-center gap-2 text-sm text-zinc-400">
+              <FileText className="h-4 w-4" />
+              Log File (alerts.log)
+            </span>
+            <input
+              type="checkbox"
+              checked={channels.log_file}
+              onChange={() => toggleChannel('log_file')}
+              className="h-5 w-5 rounded border-zinc-700 bg-zinc-800 text-amber-600 focus:ring-2 focus:ring-amber-600/20"
+            />
+          </label>
+          <label className="flex cursor-pointer items-center justify-between">
+            <span className="flex items-center gap-2 text-sm text-zinc-400">
+              <Monitor className="h-4 w-4" />
+              Desktop Notifications (SSE)
+            </span>
+            <input
+              type="checkbox"
+              checked={channels.desktop}
+              onChange={() => toggleChannel('desktop')}
+              className="h-5 w-5 rounded border-zinc-700 bg-zinc-800 text-amber-600 focus:ring-2 focus:ring-amber-600/20"
+            />
+          </label>
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={() => testAlertMutation.mutate()}
+              disabled={testAlertMutation.isPending}
+              className="rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-1.5 text-xs font-medium text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-50"
+            >
+              {testAlertMutation.isPending ? 'Sending...' : 'Send Test Alert'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Alert Rules */}
+      <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-300">
+            <Activity className="h-4 w-4" />
+            Alert Rules
+          </h3>
+          {hasChanges && (
+            <button
+              onClick={handleSaveRules}
+              disabled={saveRulesMutation.isPending}
+              className="flex items-center gap-1.5 rounded-lg bg-amber-600/80 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-amber-500 disabled:opacity-50"
+            >
+              <Save className="h-3 w-3" />
+              {saveRulesMutation.isPending ? 'Saving...' : 'Save Rules'}
+            </button>
+          )}
+        </div>
+        <div className="space-y-3">
+          {editingRules.map((rule, index) => (
+            <div
+              key={rule.id}
+              className={`rounded-lg border p-4 transition ${
+                rule.enabled
+                  ? 'border-zinc-700 bg-zinc-800/30'
+                  : 'border-zinc-800/50 bg-zinc-900/30 opacity-60'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <div className={`h-2 w-2 rounded-full ${SEVERITY_DOT[rule.severity]}`} />
+                    <span className="text-sm font-medium text-zinc-200">{rule.name}</span>
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${SEVERITY_COLORS[rule.severity]}`}>
+                      {rule.severity}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-500">{rule.description}</p>
+
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] uppercase tracking-wider text-zinc-600">
+                        Metric
+                      </label>
+                      <span className="text-xs text-zinc-400">{METRIC_LABELS[rule.metric] || rule.metric}</span>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] uppercase tracking-wider text-zinc-600">
+                        Condition
+                      </label>
+                      <span className="text-xs text-zinc-400">{CONDITION_LABELS[rule.condition] || rule.condition}</span>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] uppercase tracking-wider text-zinc-600">
+                        Threshold
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={rule.threshold}
+                        onChange={(e) => updateRule(index, 'threshold', parseFloat(e.target.value) || 0)}
+                        className="w-24 rounded border border-zinc-700 bg-zinc-900/50 px-2 py-0.5 text-xs text-zinc-200 outline-none focus:border-amber-600/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] uppercase tracking-wider text-zinc-600">
+                        Severity
+                      </label>
+                      <select
+                        value={rule.severity}
+                        onChange={(e) => updateRule(index, 'severity', e.target.value)}
+                        className="rounded border border-zinc-700 bg-zinc-900/50 px-2 py-0.5 text-xs text-zinc-200 outline-none focus:border-amber-600/50"
+                      >
+                        <option value="info">Info</option>
+                        <option value="warning">Warning</option>
+                        <option value="critical">Critical</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] uppercase tracking-wider text-zinc-600">
+                        Cooldown (min)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={rule.cooldown_minutes}
+                        onChange={(e) => updateRule(index, 'cooldown_minutes', parseInt(e.target.value) || 10)}
+                        className="w-16 rounded border border-zinc-700 bg-zinc-900/50 px-2 py-0.5 text-xs text-zinc-200 outline-none focus:border-amber-600/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] uppercase tracking-wider text-zinc-600">
+                        Escalate (min)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={rule.escalate_after_minutes || ''}
+                        onChange={(e) => updateRule(index, 'escalate_after_minutes', e.target.value ? parseInt(e.target.value) : null)}
+                        placeholder="Never"
+                        className="w-16 rounded border border-zinc-700 bg-zinc-900/50 px-2 py-0.5 text-xs text-zinc-200 outline-none focus:border-amber-600/50"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => toggleRule(index)}
+                  className={`mt-1 flex-shrink-0 rounded-full p-1 transition ${
+                    rule.enabled
+                      ? 'text-green-400 hover:bg-green-950/30'
+                      : 'text-zinc-600 hover:bg-zinc-800'
+                  }`}
+                  title={rule.enabled ? 'Disable rule' : 'Enable rule'}
+                >
+                  {rule.enabled ? (
+                    <CheckCircle className="h-5 w-5" />
+                  ) : (
+                    <XCircle className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

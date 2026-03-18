@@ -10,6 +10,7 @@ import { WebSocketServer } from "ws";
 import * as projectConfig from "./project-config.js";
 import crypto from "node:crypto";
 import { startAnomalyDetector, stopAnomalyDetector, runAnomalyCheck } from "./anomaly-detector.js";
+import { analyzeFailurePatterns } from "./analytics/failure-patterns.js";
 import * as anomalyDetector from "./monitoring/anomaly-detector.js";
 import * as alertManager from "./monitoring/alert-manager.js";
 import { registerBulkRoutes } from "./api/bulk-operations.js";
@@ -78,7 +79,7 @@ export function createServer(port = 3100) {
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
     if (req.method === "OPTIONS") return res.sendStatus(200);
     next();
   });
@@ -1037,6 +1038,30 @@ export function createServer(port = 3100) {
     }
   });
 
+  // Failure pattern analysis (all projects)
+  app.get("/api/analytics/failure-patterns", (req, res) => {
+    try {
+      const result = analyzeFailurePatterns(null, { limit: parseInt(req.query.limit) || 500 });
+      res.json(result);
+    } catch (err) {
+      console.error('[analytics] Error analyzing failure patterns:', err);
+      res.status(500).json({ error: 'Failed to analyze failure patterns' });
+    }
+  });
+
+  // Failure pattern analysis (per company)
+  app.get("/api/companies/:id/failure-patterns", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+    try {
+      const result = analyzeFailurePatterns(company.id, { limit: parseInt(req.query.limit) || 500 });
+      res.json(result);
+    } catch (err) {
+      console.error('[analytics] Error analyzing failure patterns:', err);
+      res.status(500).json({ error: 'Failed to analyze failure patterns' });
+    }
+  });
+
   // ── Health Monitoring & Circuit Breaker API ──────────────────────────
 
   app.get("/api/circuit-breaker/status", async (req, res) => {
@@ -1818,6 +1843,120 @@ export function createServer(port = 3100) {
       res.json({ ok: true, result });
     } catch (err) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Historical Trends API ───────────────────────────────────────────────
+
+  app.get("/api/companies/:id/trends", (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+
+      const days = Math.min(parseInt(req.query.days || "7", 10), 90);
+      const dba = db.getDb();
+
+      const agentSuccessFailure = dba.prepare(`
+        SELECT
+          date(created_at) as date,
+          SUM(CASE WHEN action LIKE '%completed%' OR action LIKE '%success%' OR action LIKE '%done%' OR action LIKE '%finished%' THEN 1 ELSE 0 END) as successes,
+          SUM(CASE WHEN action LIKE '%error%' OR action LIKE '%fail%' OR action LIKE '%crash%' THEN 1 ELSE 0 END) as failures,
+          COUNT(*) as total
+        FROM activity_log
+        WHERE company_id = ? AND created_at >= datetime('now', ?)
+        GROUP BY date(created_at)
+        ORDER BY date(created_at)
+      `).all(company.id, `-${days} days`);
+
+      const costTrends = dba.prepare(`
+        SELECT
+          date(created_at) as date,
+          SUM(cost_usd) as total_cost,
+          SUM(total_tokens) as total_tokens,
+          COUNT(*) as sessions,
+          SUM(input_tokens) as input_tokens,
+          SUM(output_tokens) as output_tokens
+        FROM cost_log
+        WHERE company_id = ? AND created_at >= datetime('now', ?)
+        GROUP BY date(created_at)
+        ORDER BY date(created_at)
+      `).all(company.id, `-${days} days`);
+
+      const taskCompletionTimes = dba.prepare(`
+        SELECT id, title,
+          ROUND((julianday(updated_at) - julianday(created_at)) * 24, 1) as hours_to_complete,
+          priority, date(updated_at) as completed_date
+        FROM tasks
+        WHERE company_id = ? AND status = 'done' AND updated_at >= datetime('now', ?)
+        ORDER BY updated_at DESC LIMIT 100
+      `).all(company.id, `-${days} days`);
+
+      const buckets = [
+        { label: '<1h', min: 0, max: 1 },
+        { label: '1-4h', min: 1, max: 4 },
+        { label: '4-12h', min: 4, max: 12 },
+        { label: '12-24h', min: 12, max: 24 },
+        { label: '1-3d', min: 24, max: 72 },
+        { label: '3-7d', min: 72, max: 168 },
+        { label: '>7d', min: 168, max: Infinity },
+      ];
+      const completionDistribution = buckets.map(b => ({
+        label: b.label,
+        count: taskCompletionTimes.filter(t => t.hours_to_complete >= b.min && t.hours_to_complete < b.max).length,
+      }));
+
+      const errorHeatmap = dba.prepare(`
+        SELECT CAST(strftime('%w', created_at) AS INTEGER) as day_of_week,
+          CAST(strftime('%H', created_at) AS INTEGER) as hour, COUNT(*) as count
+        FROM activity_log
+        WHERE company_id = ? AND (action LIKE '%error%' OR action LIKE '%fail%' OR action LIKE '%crash%')
+          AND created_at >= datetime('now', ?)
+        GROUP BY day_of_week, hour ORDER BY day_of_week, hour
+      `).all(company.id, `-${days} days`);
+
+      let incidentHeatmap = [];
+      try {
+        incidentHeatmap = dba.prepare(`
+          SELECT CAST(strftime('%w', created_at) AS INTEGER) as day_of_week,
+            CAST(strftime('%H', created_at) AS INTEGER) as hour, COUNT(*) as count
+          FROM incidents WHERE company_id = ? AND created_at >= datetime('now', ?)
+          GROUP BY day_of_week, hour ORDER BY day_of_week, hour
+        `).all(company.id, `-${days} days`);
+      } catch { /* incidents table may not exist */ }
+
+      const heatmapMap = new Map();
+      for (const row of [...errorHeatmap, ...incidentHeatmap]) {
+        const key = `${row.day_of_week}-${row.hour}`;
+        heatmapMap.set(key, (heatmapMap.get(key) || 0) + row.count);
+      }
+      const mergedHeatmap = [];
+      for (const [key, count] of heatmapMap) {
+        const [dw, h] = key.split('-').map(Number);
+        mergedHeatmap.push({ day_of_week: dw, hour: h, count });
+      }
+
+      const taskStatusOverTime = dba.prepare(`
+        SELECT date(created_at) as date,
+          SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done,
+          SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+          SUM(CASE WHEN status = 'backlog' OR status = 'todo' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END) as blocked,
+          COUNT(*) as total
+        FROM tasks WHERE company_id = ? AND created_at >= datetime('now', ?)
+        GROUP BY date(created_at) ORDER BY date(created_at)
+      `).all(company.id, `-${days} days`);
+
+      res.json({
+        days, agentSuccessFailure, costTrends,
+        taskCompletionTimes: taskCompletionTimes.map(t => ({
+          id: t.id, title: t.title, hoursToComplete: t.hours_to_complete,
+          priority: t.priority, completedDate: t.completed_date,
+        })),
+        completionDistribution, errorHeatmap: mergedHeatmap, taskStatusOverTime,
+      });
+    } catch (err) {
+      console.error("[trends] Error fetching trends:", err);
+      res.status(500).json({ error: "Failed to fetch trends data" });
     }
   });
 

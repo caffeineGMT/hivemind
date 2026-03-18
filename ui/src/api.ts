@@ -39,6 +39,7 @@ export interface Task {
   priority: 'urgent' | 'high' | 'medium' | 'low';
   assignee_id: string | null;
   parent_id: string | null;
+  depends_on: string | null; // JSON string array of task IDs
   result: string | null;
   created_at: string;
 }
@@ -352,6 +353,45 @@ export interface RecoveryData {
   stats: RecoveryStats;
 }
 
+// ── Failure Pattern Types ──────────────────────────────────────────
+
+export interface FailurePatternEntry {
+  pattern_id: string;
+  representative_message: string;
+  count: number;
+  first_seen: string;
+  last_seen: string;
+  hour_distribution: Record<string, number>;
+  agent_types: Record<string, number>;
+  task_types: Record<string, number>;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  sample_entries: Array<{
+    id: number;
+    action: string;
+    detail: string;
+    agent_id: string;
+    created_at: string;
+    level: string;
+  }>;
+}
+
+export interface FailurePatternSummary {
+  total_failures: number;
+  unique_patterns: number;
+  top_pattern: {
+    pattern_id: string;
+    message: string;
+    count: number;
+  } | null;
+  peak_failure_hour: { hour: number; count: number } | null;
+  failure_rate_by_agent: Record<string, number>;
+}
+
+export interface FailurePatternData {
+  patterns: FailurePatternEntry[];
+  summary: FailurePatternSummary;
+}
+
 // ── Fetch helpers ──────────────────────────────────────────────────
 
 // Token management - will be set by the app
@@ -559,6 +599,14 @@ export const api = {
   getCrossProjectAnalytics: () =>
     fetchJson<CrossProjectAnalytics>('/api/analytics/cross-project'),
 
+  // Failure pattern analysis
+  getFailurePatterns: (companyId?: string) =>
+    fetchJson<FailurePatternData>(
+      companyId
+        ? `/api/companies/${companyId}/failure-patterns`
+        : '/api/analytics/failure-patterns'
+    ),
+
   // Agent recovery manager
   getRecoveryStatus: (companyId: string) =>
     fetchJson<RecoveryData>(`/api/companies/${companyId}/recovery-status`),
@@ -587,7 +635,110 @@ export const api = {
 
   getAgentEfficiencyPrediction: (companyId: string) =>
     fetchJson<AgentEfficiencyPrediction>(`/api/companies/${companyId}/workload/agent-efficiency`),
+
+  // Alert management
+  getAlertRules: (companyId: string) =>
+    fetchJson<{ rules: AlertRule[] }>(`/api/companies/${companyId}/alerts/rules`),
+
+  saveAlertRules: async (companyId: string, rules: AlertRule[]) => {
+    const res = await fetch(`/api/companies/${companyId}/alerts/rules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rules }),
+    });
+    return res.json();
+  },
+
+  getAlertChannels: (companyId: string) =>
+    fetchJson<{ channels: AlertChannelConfig }>(`/api/companies/${companyId}/alerts/channels`),
+
+  saveAlertChannels: async (companyId: string, channels: AlertChannelConfig) => {
+    const res = await fetch(`/api/companies/${companyId}/alerts/channels`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channels }),
+    });
+    return res.json();
+  },
+
+  getAlertHistory: (companyId: string, hours = 24) =>
+    fetchJson<{ alerts: AlertHistoryEntry[] }>(`/api/companies/${companyId}/alerts/history?hours=${hours}`),
+
+  getAlertStats: (companyId: string, hours = 24) =>
+    fetchJson<AlertStats>(`/api/companies/${companyId}/alerts/stats?hours=${hours}`),
+
+  acknowledgeAlert: async (alertId: number) => {
+    const res = await fetch(`/api/alerts/${alertId}/acknowledge`, { method: 'POST' });
+    return res.json();
+  },
+
+  acknowledgeAllAlerts: async (companyId: string) => {
+    const res = await fetch(`/api/companies/${companyId}/alerts/acknowledge-all`, { method: 'POST' });
+    return res.json();
+  },
+
+  testAlert: async (companyId: string, severity: string, title: string, message: string) => {
+    const res = await fetch(`/api/companies/${companyId}/alerts/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ severity, title, message }),
+    });
+    return res.json();
+  },
 };
+
+// ── Alert Types ────────────────────────────────────────────────────
+
+export interface AlertRule {
+  id: string;
+  company_id?: string;
+  name: string;
+  description: string;
+  metric: string;
+  condition: string;
+  threshold: number;
+  severity: 'critical' | 'warning' | 'info';
+  enabled: boolean;
+  cooldown_minutes: number;
+  escalate_after_minutes: number | null;
+}
+
+export interface AlertChannelConfig {
+  websocket: boolean;
+  log_file: boolean;
+  desktop: boolean;
+}
+
+export interface AlertHistoryEntry {
+  id: number;
+  company_id: string;
+  rule_id: string | null;
+  severity: 'critical' | 'warning' | 'info';
+  title: string;
+  message: string;
+  metric: string | null;
+  metric_value: number | null;
+  threshold: number | null;
+  agent_id: string | null;
+  agent_name: string | null;
+  task_id: string | null;
+  acknowledged: boolean;
+  acknowledged_at: string | null;
+  escalated: boolean;
+  channels_delivered: string[];
+  context: unknown;
+  created_at: string;
+}
+
+export interface AlertStats {
+  total: number;
+  critical: number;
+  warning: number;
+  info: number;
+  acknowledged: number;
+  unacknowledged: number;
+  escalated: number;
+}
 
 // ── Cross-Project Analytics Types ──────────────────────────────────
 
@@ -729,6 +880,18 @@ export function setupWebSocket(queryClient: QueryClient) {
         queryClientInstance.invalidateQueries({ queryKey: ['dashboard'] });
         break;
 
+      case 'alert_fired':
+      case 'alert_acknowledged':
+      case 'alerts_acknowledged':
+        queryClientInstance.invalidateQueries({ queryKey: ['alert-stats'] });
+        break;
+
+      case 'alert_rules_updated':
+      case 'alert_channels_updated':
+        queryClientInstance.invalidateQueries({ queryKey: ['alert-rules'] });
+        queryClientInstance.invalidateQueries({ queryKey: ['alert-channels'] });
+        break;
+
       case 'config_updated':
       case 'project_archived':
       case 'project_deleted':
@@ -825,5 +988,50 @@ export interface WorkloadReport {
     rankings: AgentEfficiencyRanking[];
   };
   recommendations: string[];
+}
+
+// ── Trace and Span Types ───────────────────────────────────────────────
+
+export interface TraceSpan {
+  id: number;
+  trace_id: string;
+  span_id: string;
+  parent_span_id: string | null;
+  operation: string;
+  timestamp: string;
+  duration_ms: number | null;
+  status: string | null;
+  metadata: any;
+  company_id: string | null;
+  agent_id: string | null;
+  task_id: string | null;
+  startTime: number;
+  endTime: number;
+  duration: number;
+}
+
+export interface TraceTree extends TraceSpan {
+  children: TraceTree[];
+}
+
+export interface TraceSummary {
+  totalSpans: number;
+  startTime: string;
+  endTime: string;
+  totalDuration: number;
+}
+
+export interface TraceData {
+  traceId: string;
+  spans: TraceSpan[];
+  tree: TraceTree[];
+  summary: TraceSummary;
+}
+
+export interface RecentTrace {
+  trace_id: string;
+  start_time: string;
+  end_time: string;
+  span_count: number;
 }
 
