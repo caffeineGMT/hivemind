@@ -503,6 +503,90 @@ export function getUsageHistory(companyId, limit = 100) {
 
 // ── Analytics tracking ──────────────────────────────────────────────────
 
+export function trackEvent({ companyId, userId, sessionId, eventType, eventData, revenueUsd }) {
+  getDb().prepare(
+    `INSERT INTO analytics_events (company_id, user_id, session_id, event_type, event_data, revenue_usd)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(companyId || null, userId || null, sessionId || null, eventType, eventData ? JSON.stringify(eventData) : null, revenueUsd || 0);
+}
+
+export function getAnalyticsEvents(companyId, limit = 100) {
+  if (companyId) {
+    return getDb().prepare("SELECT * FROM analytics_events WHERE company_id = ? ORDER BY created_at DESC LIMIT ?").all(companyId, limit);
+  }
+  return getDb().prepare("SELECT * FROM analytics_events ORDER BY created_at DESC LIMIT ?").all(limit);
+}
+
+export function getConversionFunnel(companyId) {
+  const db = getDb();
+  const where = companyId ? "WHERE company_id = ?" : "";
+  const whereAnd = companyId ? "WHERE company_id = ? AND" : "WHERE";
+  const params = companyId ? [companyId] : [];
+
+  const pageViews = db.prepare(`SELECT COUNT(*) as count FROM analytics_events ${whereAnd} event_type = 'page_view'`).get(...params)?.count || 0;
+  const signupStarted = db.prepare(`SELECT COUNT(DISTINCT session_id) as count FROM analytics_events ${whereAnd} event_type = 'signup_started'`).get(...params)?.count || 0;
+  const signupCompleted = db.prepare(`SELECT COUNT(DISTINCT user_id) as count FROM analytics_events ${whereAnd} event_type = 'signup_completed'`).get(...params)?.count || 0;
+  const checkoutStarted = db.prepare(`SELECT COUNT(DISTINCT session_id) as count FROM analytics_events ${whereAnd} event_type = 'checkout_started'`).get(...params)?.count || 0;
+  const checkoutCompleted = db.prepare(`SELECT COUNT(DISTINCT session_id) as count FROM analytics_events ${whereAnd} event_type = 'checkout_completed'`).get(...params)?.count || 0;
+  const companyCreated = db.prepare(`SELECT COUNT(*) as count FROM analytics_events ${whereAnd} event_type = 'company_created'`).get(...params)?.count || 0;
+  const firstTaskCompleted = db.prepare(`SELECT COUNT(DISTINCT company_id) as count FROM analytics_events ${whereAnd} event_type = 'first_task_completed'`).get(...params)?.count || 0;
+
+  return {
+    page_view: pageViews,
+    signup_started: signupStarted,
+    signup_completed: signupCompleted,
+    checkout_started: checkoutStarted,
+    checkout_completed: checkoutCompleted,
+    company_created: companyCreated,
+    first_task_completed: firstTaskCompleted,
+  };
+}
+
+export function getRevenueMetrics(companyId) {
+  const db = getDb();
+  const where = companyId ? "WHERE company_id = ? AND status = 'active'" : "WHERE status = 'active'";
+  const params = companyId ? [companyId] : [];
+
+  const activeSubs = db.prepare(`SELECT * FROM subscriptions ${where}`).all(...params);
+  const mrr = activeSubs.reduce((sum, sub) => sum + (sub.mrr || 0), 0);
+  const arr = mrr * 12;
+
+  // Churn calculation (last 30 days)
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const cancelledWhere = companyId ? "WHERE company_id = ? AND cancelled_at > ?" : "WHERE cancelled_at > ?";
+  const cancelledParams = companyId ? [companyId, thirtyDaysAgo] : [thirtyDaysAgo];
+  const cancelledCount = db.prepare(`SELECT COUNT(*) as count FROM subscriptions ${cancelledWhere}`).get(...cancelledParams)?.count || 0;
+  const totalSubs = activeSubs.length + cancelledCount;
+  const churnRate = totalSubs > 0 ? (cancelledCount / totalSubs) * 100 : 0;
+
+  const avgRevenuePerUser = activeSubs.length > 0 ? mrr / activeSubs.length : 0;
+  const avgLifetimeMonths = churnRate > 0 ? 1 / (churnRate / 100) : 12; // If 10% monthly churn, avg lifetime = 10 months
+  const ltv = avgRevenuePerUser * avgLifetimeMonths;
+
+  // Total revenue from all checkout_completed events
+  const totalRevenue = db.prepare(
+    `SELECT SUM(revenue_usd) as total FROM analytics_events WHERE event_type = 'checkout_completed' ${companyId ? 'AND company_id = ?' : ''}`
+  ).get(...(companyId ? [companyId] : []))?.total || 0;
+
+  return {
+    mrr,
+    arr,
+    churnRate,
+    ltv,
+    totalRevenue,
+    activeSubscriptions: activeSubs.length,
+  };
+}
+
+export function createSubscription({ id, companyId, userId, plan, mrr }) {
+  getDb().prepare(
+    "INSERT INTO subscriptions (id, company_id, user_id, plan, mrr) VALUES (?, ?, ?, ?, ?)"
+  ).run(id, companyId, userId || null, plan, mrr);
+}
+
+export function cancelSubscription(id) {
+  getDb().prepare("UPDATE subscriptions SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?").run(id);
+}
 
 // ── Checkpoints (for agent crash recovery) ──────────────────────────────────
 
