@@ -1,7 +1,8 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { api, Company } from './api';
+import { SignIn, SignUp, useAuth, useUser } from '@clerk/react';
+import { api, setAuthToken, Company } from './api';
 import Layout from './components/Layout';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
@@ -47,20 +48,23 @@ function SignUpPage() {
 function AppRoutes() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const location = useLocation();
-  const { getToken } = useAuth();
+  const { getToken, isLoaded } = useAuth();
+  const { isSignedIn } = useUser();
 
   // Set auth token for API calls
   useEffect(() => {
+    if (!isLoaded) return;
     const setupAuth = async () => {
       const token = await getToken();
       setAuthToken(token);
     };
     setupAuth();
-  }, [getToken]);
+  }, [getToken, isLoaded]);
 
   const { data: companies, isLoading, error } = useQuery({
     queryKey: ['companies'],
     queryFn: api.getCompanies,
+    enabled: isSignedIn === true,
   });
 
   // Auto-select the most recent company
@@ -77,6 +81,22 @@ function AppRoutes() {
   useEffect(() => {
     trackPageView(location.pathname, selectedCompanyId || undefined);
   }, [location.pathname, selectedCompanyId]);
+
+  if (!isLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-zinc-950">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-amber-500" />
+          <span className="text-sm text-zinc-500">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isSignedIn) {
+    window.location.href = '/sign-in';
+    return null;
+  }
 
   if (isLoading) {
     return (
@@ -140,16 +160,7 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/sign-in/*" element={<SignInPage />} />
       <Route path="/sign-up/*" element={<SignUpPage />} />
-      <Route path="/app/*" element={
-        <>
-          <SignedIn>
-            <AppRoutes />
-          </SignedIn>
-          <SignedOut>
-            <RedirectToSignIn />
-          </SignedOut>
-        </>
-      } />
+      <Route path="/app/*" element={<AppRoutes />} />
     </Routes>
   );
 }

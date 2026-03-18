@@ -1,4 +1,3 @@
-import "dotenv/config";
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +7,7 @@ import { readAgentLog } from "./claude.js";
 import { LOGS_DIR } from "./config.js";
 import fs from "node:fs";
 import { WebSocketServer } from "ws";
+
 // Stripe routes — lazy import, no-op if not configured
 let createCheckoutSession, createPortalSession, getSubscriptionStatus, handleWebhook;
 try {
@@ -23,7 +23,6 @@ try {
   getSubscriptionStatus = stub;
   handleWebhook = stub;
 }
-import { clerkMiddleware, requireAuth, getAuth } from "@clerk/express";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

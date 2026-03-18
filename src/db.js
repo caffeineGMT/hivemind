@@ -228,6 +228,24 @@ function migrate(db) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_retry_logs_task ON retry_logs(task_id);
+
+    CREATE TABLE IF NOT EXISTS logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+      level TEXT NOT NULL,
+      source TEXT,
+      company_id TEXT,
+      agent_id TEXT,
+      task_id TEXT,
+      action TEXT,
+      metadata TEXT,
+      FOREIGN KEY (company_id) REFERENCES companies(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_logs_company ON logs(company_id);
+    CREATE INDEX IF NOT EXISTS idx_logs_level ON logs(level);
+    CREATE INDEX IF NOT EXISTS idx_logs_source ON logs(source);
   `);
 }
 
@@ -637,4 +655,62 @@ export function getLastSuccessfulDeployment(companyId) {
 
 export function getDeployment(deploymentId) {
   return getDb().prepare("SELECT * FROM deployment_history WHERE id = ?").get(deploymentId);
+}
+
+// ── Structured logging ──────────────────────────────────────────────────
+
+export function logStructured({timestamp, level, source, company_id, agent_id, task_id, action, metadata}) {
+  try {
+    getDb().prepare(
+      'INSERT INTO logs (timestamp, level, source, company_id, agent_id, task_id, action, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(
+      timestamp || new Date().toISOString(),
+      level || 'info',
+      source || null,
+      company_id || null,
+      agent_id || null,
+      task_id || null,
+      action || '',
+      metadata ? JSON.stringify(metadata) : null
+    );
+  } catch (err) {
+    // Silently ignore errors to prevent logging from breaking the app
+    console.error('Failed to write structured log:', err.message);
+  }
+}
+
+export function searchLogs({companyId, level, source, keyword, limit = 1000}) {
+  let query = 'SELECT * FROM logs WHERE 1=1';
+  const params = [];
+
+  if (companyId) {
+    query += ' AND company_id = ?';
+    params.push(companyId);
+  }
+
+  if (level) {
+    query += ' AND level = ?';
+    params.push(level);
+  }
+
+  if (source) {
+    query += ' AND source = ?';
+    params.push(source);
+  }
+
+  if (keyword) {
+    query += ' AND (action LIKE ? OR metadata LIKE ?)';
+    params.push(`%${keyword}%`, `%${keyword}%`);
+  }
+
+  query += ' ORDER BY timestamp DESC LIMIT ?';
+  params.push(limit);
+
+  return getDb().prepare(query).all(...params);
+}
+
+export function cleanOldLogs(daysToKeep = 30) {
+  const cutoff = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000).toISOString();
+  const result = getDb().prepare('DELETE FROM logs WHERE timestamp < ?').run(cutoff);
+  return result.changes;
 }

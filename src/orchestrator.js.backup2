@@ -39,7 +39,6 @@ async function runCeoPlanning(company) {
 
   const { output: raw, usage: ceoUsage } = await claude.claudeSessionSync("ceo", prompt, {
     cwd: company.workspace,
-    companyId: company.id,
     timeout: 300000,
     maxTurns: 20,
   });
@@ -112,7 +111,6 @@ async function runCtoRefinement(company) {
     try {
       const { output: raw, usage: ctoUsage } = await claude.claudeSessionSync("cto", prompt, {
         cwd: company.workspace,
-        companyId: company.id,
         timeout: 300000,
         maxTurns: 20,
       });
@@ -415,8 +413,6 @@ function dispatchEngineers(company, designSpecs) {
     // Each engineer is a full Claude session with all capabilities
     const handle = claude.claudeSession(agentName, prompt, {
       cwd: company.workspace,
-      taskId: task.id,
-      companyId: company.id,
       maxTurns: 50,
     });
 
