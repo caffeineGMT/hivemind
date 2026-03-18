@@ -3,11 +3,15 @@
 // Run as: node poll-nudges.js
 // Or install as a launchd agent for persistent background polling
 
-import { execSync } from 'node:child_process';
-import { listCompanies, getDb } from './src/db.js';
+import { execSync, spawn } from 'node:child_process';
+import { listCompanies, getDb, getAgentsByCompany, getTasksByCompany } from './src/db.js';
 import { cleanupStaleAgents } from './src/orchestrator.js';
 
 const REPO = 'caffeineGMT/hivemind';
+const HIVEMIND_DIR = '/Users/michaelguo/hivemind-engine';
+
+// Track which companies have a resume process running
+const resumeProcesses = new Map();
 const POLL_INTERVAL_MS = 30_000; // 30 seconds
 
 // Get token from env or from gh CLI
@@ -99,9 +103,61 @@ function autoCleanup() {
   }
 }
 
+function watchdog() {
+  try {
+    const db = getDb();
+    for (const c of listCompanies()) {
+      if (c.status !== 'active') continue;
+
+      const tasks = getTasksByCompany(c.id).filter(t => !t.title.startsWith('[PROJECT]'));
+      const pending = tasks.filter(t => t.status === 'backlog' || t.status === 'todo' || t.status === 'in_progress');
+      const done = tasks.filter(t => t.status === 'done').length;
+      if (pending.length === 0) continue; // nothing to do
+
+      const agents = getAgentsByCompany(c.id);
+      const running = agents.filter(a => a.status === 'running');
+
+      // Check if any "running" agents actually have live PIDs
+      let aliveCount = 0;
+      for (const a of running) {
+        if (a.pid) {
+          try { process.kill(a.pid, 0); aliveCount++; } catch {}
+        }
+      }
+
+      if (aliveCount > 0) continue; // orchestrator is alive, skip
+
+      // Check if we already spawned a resume for this company
+      const existing = resumeProcesses.get(c.id);
+      if (existing) {
+        try { process.kill(existing, 0); continue; } catch {
+          resumeProcesses.delete(c.id); // resume process died too, respawn
+        }
+      }
+
+      // No live agents, pending tasks exist — auto-resume
+      console.log(`[${new Date().toISOString()}] WATCHDOG: ${c.name} (${c.id.slice(0,8)}) has ${pending.length} pending tasks but 0 live agents. Auto-resuming...`);
+
+      const child = spawn('node', ['bin/hivemind.js', 'resume', c.id.slice(0, 8)], {
+        cwd: HIVEMIND_DIR,
+        stdio: 'ignore',
+        detached: true,
+      });
+      child.unref();
+      resumeProcesses.set(c.id, child.pid);
+      console.log(`[${new Date().toISOString()}] WATCHDOG: Spawned resume for ${c.name} (pid: ${child.pid})`);
+    }
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] Watchdog error: ${err.message}`);
+  }
+}
+
 async function poll() {
   // Always clean up stale agents on every poll cycle
   autoCleanup();
+
+  // Watchdog: auto-resume companies with stuck tasks
+  watchdog();
 
   try {
     const issues = await fetchNudgeIssues();
