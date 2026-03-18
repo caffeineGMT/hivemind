@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Play, CheckCircle2, Clock, Send, ExternalLink } from 'lucide-react';
-import { api } from '../api';
+import { api, wsClient } from '../api';
 import MetricCard from '../components/MetricCard';
 import ProgressBar from '../components/ProgressBar';
 import ProjectCard from '../components/ProjectCard';
@@ -13,6 +13,7 @@ export default function Dashboard({ companyId }: { companyId: string }) {
   const [nudgeMsg, setNudgeMsg] = useState('');
   const [nudgeSending, setNudgeSending] = useState(false);
   const [nudgeSent, setNudgeSent] = useState(false);
+  const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
 
   const handleNudge = async () => {
     if (!nudgeMsg.trim()) return;
@@ -101,7 +102,7 @@ export default function Dashboard({ companyId }: { companyId: string }) {
       <ProgressBar value={metrics.progressPct} done={metrics.doneTasks} total={metrics.totalTasks} />
 
       {/* Metric cards — clickable */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
         <div onClick={() => navigate('/agents')} className="cursor-pointer">
           <MetricCard label="Total Agents" value={metrics.totalAgents} icon={Users} color="text-blue-400" />
         </div>

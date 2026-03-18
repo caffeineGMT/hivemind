@@ -39,7 +39,7 @@ export default function Agents({ companyId }: { companyId: string }) {
           No agents spawned yet
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visibleAgents.map((agent: Agent) => (
             <AgentCard key={agent.id} agent={agent} />
           ))}
