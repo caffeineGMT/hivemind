@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   HeartPulse,
+  Building2,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Company } from '../api';
@@ -24,6 +25,7 @@ interface LayoutProps {
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/companies', icon: Building2, label: 'Companies' },
   { to: '/tasks', icon: ListTodo, label: 'Tasks' },
   { to: '/agents', icon: Users, label: 'Agents' },
   { to: '/agent-health', icon: HeartPulse, label: 'Health' },

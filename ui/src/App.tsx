@@ -14,6 +14,7 @@ import Analytics from './pages/Analytics';
 import Costs from './pages/Costs';
 import Logs from './pages/Logs';
 import AgentHealth from './pages/AgentHealth';
+import Companies from './pages/Companies';
 
 export default function App() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
@@ -73,6 +74,7 @@ export default function App() {
     >
       <Routes>
         <Route path="/" element={<Dashboard companyId={selectedCompany.id} />} />
+        <Route path="/companies" element={<Companies />} />
         <Route path="/tasks" element={<Tasks companyId={selectedCompany.id} />} />
         <Route path="/agents" element={<Agents companyId={selectedCompany.id} />} />
         <Route path="/agent-health" element={<AgentHealth companyId={selectedCompany.id} />} />

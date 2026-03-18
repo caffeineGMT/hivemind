@@ -27,56 +27,6 @@ export default function Landing() {
     },
   });
 
-  const pricingTiers = [
-    {
-      name: 'Starter',
-      price: 49,
-      description: 'Perfect for testing AI company management',
-      features: [
-        'Up to 3 AI companies',
-        '5 agents per company',
-        'Basic task automation',
-        'Community support',
-        'Weekly progress reports',
-      ],
-      cta: 'Start Free Trial',
-      highlighted: false,
-    },
-    {
-      name: 'Pro',
-      price: 199,
-      description: 'For serious entrepreneurs building AI ventures',
-      features: [
-        'Unlimited AI companies',
-        '25 agents per company',
-        'Advanced task orchestration',
-        'Priority support',
-        'Daily progress reports',
-        'Custom agent training',
-        'Slack/Discord integration',
-      ],
-      cta: 'Start Free Trial',
-      highlighted: true,
-    },
-    {
-      name: 'Enterprise',
-      price: 999,
-      description: 'Maximum scale and customization',
-      features: [
-        'Everything in Pro',
-        'Unlimited agents',
-        'Multi-company portfolios',
-        'Dedicated success manager',
-        'Custom integrations',
-        'SLA guarantees',
-        'Advanced analytics',
-        'White-label options',
-      ],
-      cta: 'Contact Sales',
-      highlighted: false,
-    },
-  ];
-
   // Fallback testimonials if API hasn't loaded yet
   const fallbackTestimonials = [
     {
@@ -188,9 +138,6 @@ export default function Landing() {
               Watch Demo
             </button>
           </div>
-          <p className="mt-6 text-sm text-zinc-500">
-            14-day free trial · No credit card required · Cancel anytime
-          </p>
         </div>
 
         {/* Stats */}
@@ -349,58 +296,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Pricing */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold text-zinc-100 sm:text-4xl">Simple, Transparent Pricing</h2>
-          <p className="mt-4 text-lg text-zinc-400">
-            Start free, scale as you grow. All plans include 14-day free trial.
-          </p>
-        </div>
-        <div className="mt-16 grid gap-8 lg:grid-cols-3">
-          {pricingTiers.map((tier) => (
-            <div
-              key={tier.name}
-              className={`rounded-2xl border p-8 transition ${
-                tier.highlighted
-                  ? 'border-amber-600/50 bg-gradient-to-b from-amber-950/30 to-zinc-900/50 shadow-xl shadow-amber-950/20'
-                  : 'border-zinc-800/60 bg-zinc-900/50'
-              }`}
-            >
-              {tier.highlighted && (
-                <div className="mb-4 inline-block rounded-full bg-amber-600 px-3 py-1 text-xs font-semibold text-white">
-                  Most Popular
-                </div>
-              )}
-              <h3 className="text-2xl font-bold text-zinc-100">{tier.name}</h3>
-              <p className="mt-2 text-sm text-zinc-400">{tier.description}</p>
-              <div className="mt-6">
-                <span className="text-5xl font-bold text-zinc-100">${tier.price}</span>
-                <span className="text-zinc-400">/month</span>
-              </div>
-              <button
-                onClick={() => navigate('/app')}
-                className={`mt-8 w-full rounded-lg px-6 py-3 text-base font-semibold transition ${
-                  tier.highlighted
-                    ? 'bg-amber-600 text-white hover:bg-amber-500'
-                    : 'border border-zinc-700 bg-zinc-800/50 text-zinc-100 hover:bg-zinc-800'
-                }`}
-              >
-                {tier.cta}
-              </button>
-              <ul className="mt-8 space-y-3">
-                {tier.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3 text-sm text-zinc-300">
-                    <Check className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-500" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* CTA Section */}
       <section className="border-t border-zinc-800/50 bg-gradient-to-b from-zinc-900/50 to-zinc-950 py-16 sm:py-24">
         <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
@@ -414,12 +309,9 @@ export default function Landing() {
             onClick={() => navigate('/app')}
             className="mt-10 inline-flex items-center gap-2 rounded-lg bg-amber-600 px-8 py-4 text-lg font-semibold text-white transition hover:bg-amber-500"
           >
-            Start Free Trial
+            Get Started
             <ArrowRight className="h-5 w-5" />
           </button>
-          <p className="mt-4 text-sm text-zinc-500">
-            No credit card required · 14-day free trial · Cancel anytime
-          </p>
         </div>
       </section>
 

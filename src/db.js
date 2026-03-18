@@ -210,6 +210,17 @@ function migrate(db) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_budget_company ON budget_config(company_id);
+
+    CREATE TABLE IF NOT EXISTS project_config (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      config_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(company_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_project_config_company ON project_config(company_id);
   `);
 }
 
@@ -225,6 +236,39 @@ export function getCompany(id) {
 
 export function getActiveCompany() {
   return getDb().prepare("SELECT * FROM companies WHERE status = 'active' ORDER BY created_at DESC LIMIT 1").get();
+}
+
+export function updateCompany(id, updates) {
+  const db = getDb();
+  const sets = [];
+  const vals = [];
+
+  if (updates.name !== undefined) { sets.push("name = ?"); vals.push(updates.name); }
+  if (updates.goal !== undefined) { sets.push("goal = ?"); vals.push(updates.goal); }
+  if (updates.status !== undefined) { sets.push("status = ?"); vals.push(updates.status); }
+
+  if (sets.length === 0) return;
+
+  sets.push("updated_at = datetime('now')");
+  vals.push(id);
+
+  db.prepare(`UPDATE companies SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
+}
+
+export function deleteCompany(id) {
+  const db = getDb();
+  // Delete in order: activity_log, comments, tasks, agents, company
+  db.prepare("DELETE FROM activity_log WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM comments WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM cost_log WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM usage_logs WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM incidents WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM deployment_history WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM budget_config WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM project_config WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM tasks WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM agents WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM companies WHERE id = ?").run(id);
 }
 
 export function listCompanies() {
@@ -503,6 +547,162 @@ export function getUsageHistory(companyId, limit = 100) {
 
 // ── Analytics tracking ──────────────────────────────────────────────────
 
+// Cross-project analytics - aggregate metrics across ALL companies
+export function getCrossProjectCostSummary() {
+  return getDb().prepare(`
+    SELECT
+      c.id as company_id,
+      c.name as company_name,
+      c.deployment_url,
+      COUNT(cl.id) as sessions,
+      SUM(cl.input_tokens) as total_input_tokens,
+      SUM(cl.output_tokens) as total_output_tokens,
+      SUM(cl.cache_read_tokens) as total_cache_read_tokens,
+      SUM(cl.total_tokens) as total_tokens,
+      SUM(cl.cost_usd) as total_cost_usd,
+      SUM(cl.duration_ms) as total_duration_ms,
+      SUM(cl.num_turns) as total_turns
+    FROM companies c
+    LEFT JOIN cost_log cl ON c.id = cl.company_id
+    WHERE c.status = 'active'
+    GROUP BY c.id, c.name, c.deployment_url
+    ORDER BY total_cost_usd DESC
+  `).all();
+}
+
+export function getCrossProjectTaskMetrics() {
+  return getDb().prepare(`
+    SELECT
+      c.id as company_id,
+      c.name as company_name,
+      COUNT(DISTINCT t.id) as total_tasks,
+      SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) as done_tasks,
+      SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) as in_progress_tasks,
+      SUM(CASE WHEN t.status = 'backlog' OR t.status = 'todo' THEN 1 ELSE 0 END) as backlog_tasks,
+      SUM(CASE WHEN t.status = 'blocked' THEN 1 ELSE 0 END) as blocked_tasks,
+      SUM(CASE WHEN t.priority = 'urgent' THEN 1 ELSE 0 END) as urgent_tasks,
+      SUM(CASE WHEN t.priority = 'high' THEN 1 ELSE 0 END) as high_priority_tasks
+    FROM companies c
+    LEFT JOIN tasks t ON c.id = t.company_id
+    WHERE c.status = 'active'
+    GROUP BY c.id, c.name
+    ORDER BY total_tasks DESC
+  `).all();
+}
+
+export function getCrossProjectAgentMetrics() {
+  return getDb().prepare(`
+    SELECT
+      c.id as company_id,
+      c.name as company_name,
+      COUNT(DISTINCT a.id) as total_agents,
+      SUM(CASE WHEN a.status = 'running' THEN 1 ELSE 0 END) as running_agents,
+      SUM(CASE WHEN a.status = 'idle' THEN 1 ELSE 0 END) as idle_agents,
+      SUM(CASE WHEN a.status = 'error' THEN 1 ELSE 0 END) as error_agents,
+      COUNT(DISTINCT i.id) as total_incidents,
+      SUM(CASE WHEN i.incident_type = 'agent_crash' THEN 1 ELSE 0 END) as total_crashes
+    FROM companies c
+    LEFT JOIN agents a ON c.id = a.company_id
+    LEFT JOIN incidents i ON a.id = i.agent_id
+    WHERE c.status = 'active'
+    GROUP BY c.id, c.name
+    ORDER BY total_agents DESC
+  `).all();
+}
+
+export function getCrossProjectTotals() {
+  const cost = getDb().prepare(`
+    SELECT
+      COUNT(*) as total_sessions,
+      SUM(input_tokens) as total_input_tokens,
+      SUM(output_tokens) as total_output_tokens,
+      SUM(cache_read_tokens) as total_cache_read_tokens,
+      SUM(total_tokens) as total_tokens,
+      SUM(cost_usd) as total_cost_usd,
+      SUM(duration_ms) as total_duration_ms,
+      SUM(num_turns) as total_turns
+    FROM cost_log cl
+    JOIN companies c ON cl.company_id = c.id
+    WHERE c.status = 'active'
+  `).get();
+
+  const tasks = getDb().prepare(`
+    SELECT
+      COUNT(*) as total_tasks,
+      SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done_tasks,
+      SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress_tasks,
+      SUM(CASE WHEN status = 'backlog' OR status = 'todo' THEN 1 ELSE 0 END) as backlog_tasks
+    FROM tasks t
+    JOIN companies c ON t.company_id = c.id
+    WHERE c.status = 'active'
+  `).get();
+
+  const agents = getDb().prepare(`
+    SELECT
+      COUNT(*) as total_agents,
+      SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) as running_agents,
+      SUM(CASE WHEN status = 'idle' THEN 1 ELSE 0 END) as idle_agents
+    FROM agents a
+    JOIN companies c ON a.company_id = c.id
+    WHERE c.status = 'active'
+  `).get();
+
+  const incidents = getDb().prepare(`
+    SELECT COUNT(*) as total_incidents
+    FROM incidents i
+    JOIN companies c ON i.company_id = c.id
+    WHERE c.status = 'active'
+  `).get();
+
+  return {
+    ...cost,
+    ...tasks,
+    ...agents,
+    total_incidents: incidents?.total_incidents || 0,
+    total_companies: getDb().prepare("SELECT COUNT(*) as count FROM companies WHERE status = 'active'").get().count,
+  };
+}
+
+export function getCrossProjectCostTrend(days = 7) {
+  return getDb().prepare(`
+    SELECT
+      DATE(cl.created_at) as date,
+      COUNT(*) as sessions,
+      SUM(cl.cost_usd) as total_cost_usd,
+      SUM(cl.total_tokens) as total_tokens
+    FROM cost_log cl
+    JOIN companies c ON cl.company_id = c.id
+    WHERE c.status = 'active'
+      AND cl.created_at >= date('now', '-' || ? || ' days')
+    GROUP BY DATE(cl.created_at)
+    ORDER BY date ASC
+  `).all(days);
+}
+
+// Cross-project agent performance
+export function getCrossProjectAgentPerformance() {
+  return getDb().prepare(`
+    SELECT
+      a.name as agent_name,
+      a.role,
+      c.name as company_name,
+      c.id as company_id,
+      COUNT(DISTINCT t.id) as tasks_completed,
+      SUM(cl.cost_usd) as total_cost,
+      SUM(cl.total_tokens) as total_tokens,
+      COUNT(i.id) as incidents,
+      a.status,
+      a.last_heartbeat
+    FROM agents a
+    JOIN companies c ON a.company_id = c.id
+    LEFT JOIN tasks t ON t.assignee_id = a.id AND t.status = 'done'
+    LEFT JOIN cost_log cl ON cl.agent_name = a.name AND cl.company_id = c.id
+    LEFT JOIN incidents i ON i.agent_id = a.id
+    WHERE c.status = 'active'
+    GROUP BY a.id, a.name, a.role, c.name, c.id, a.status, a.last_heartbeat
+    ORDER BY tasks_completed DESC, total_cost DESC
+  `).all();
+}
 
 // ── Checkpoints (for agent crash recovery) ──────────────────────────────────
 

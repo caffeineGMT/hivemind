@@ -170,71 +170,6 @@ export interface CostByDateEntry {
   total_cost_usd: number;
 }
 
-export interface SubscriptionStatus {
-  tier: 'free' | 'starter' | 'pro' | 'enterprise';
-  status: 'active' | 'inactive' | 'past_due' | 'canceled';
-  stripeCustomerId: string | null;
-  stripeSubscriptionId: string | null;
-  currentPeriodEnd: string | null;
-  limits: {
-    companies: number;
-    agents: number;
-  } | null;
-  allowed: boolean;
-  reason: string | null;
-}
-
-export interface CheckoutSession {
-  sessionId: string;
-  url: string;
-}
-
-export interface PortalSession {
-  url: string;
-}
-
-export interface UsageData {
-  current_month: {
-    agent_hours: number;
-    api_calls: number;
-    period_start: string;
-    period_end: string;
-  };
-  history: {
-    id: number;
-    company_id: string;
-    metric: string;
-    value: number;
-    timestamp: string;
-    agent_id: string | null;
-    metadata: string | null;
-  }[];
-}
-
-export interface BillingData {
-  plan: string;
-  base_price: number;
-  included: {
-    agent_hours: number;
-    api_calls: number;
-  };
-  usage: {
-    agent_hours: number;
-    api_calls: number;
-  };
-  overages: {
-    agent_hours: number;
-    api_calls: number;
-  };
-  overage_costs: {
-    agent_hours: number;
-    api_calls: number;
-    total: number;
-  };
-  total_cost: number;
-  stripe_customer_id: string | null;
-}
-
 export interface Incident {
   id: number;
   company_id: string;
@@ -421,45 +356,6 @@ export const api = {
     return res.json();
   },
 
-  // Stripe / Billing APIs
-  getSubscription: (companyId: string) =>
-    fetchJson<SubscriptionStatus>(`/api/stripe/subscription/${companyId}`),
-
-  createCheckout: async (data: {
-    tier: string;
-    companyId: string;
-    email: string;
-    successUrl?: string;
-    cancelUrl?: string;
-  }) => {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-    const res = await fetch('/api/stripe/checkout', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(data),
-    });
-    return res.json() as Promise<CheckoutSession>;
-  },
-
-  createPortal: async (companyId: string, returnUrl?: string) => {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-    const res = await fetch('/api/stripe/portal', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ companyId, returnUrl }),
-    });
-    return res.json() as Promise<PortalSession>;
-  },
-
-  // Usage metering
-  getUsage: (companyId: string) =>
-    fetchJson<UsageData>(`/api/companies/${companyId}/usage`),
-
-  getBilling: (companyId: string) =>
-    fetchJson<BillingData>(`/api/companies/${companyId}/billing`),
-
   // Structured logs
   searchLogs: async (filters: { keyword?: string; level?: string; source?: string }) => {
     const params = new URLSearchParams();
@@ -470,44 +366,6 @@ export const api = {
     return res.json();
   },
 
-  // Pricing Optimization APIs
-  getPricingCohorts: () =>
-    fetchJson<any[]>('/api/pricing/cohorts'),
-
-  getPricingElasticity: () =>
-    fetchJson<any[]>('/api/pricing/elasticity'),
-
-  getPricingFunnelDropoff: () =>
-    fetchJson<any[]>('/api/pricing/funnel-dropoff'),
-
-  getPricingTimeToConversion: () =>
-    fetchJson<any>('/api/pricing/time-to-conversion'),
-
-  getPricingRecommendations: () =>
-    fetchJson<any[]>('/api/pricing/recommendations'),
-
-  getPricingForecast: (months = 6) =>
-    fetchJson<any>(`/api/pricing/forecast?months=${months}`),
-
-  createPricingTest: async (data: {
-    testName: string;
-    variants: string[];
-    startDate: string;
-    endDate?: string;
-  }) => {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-    const res = await fetch('/api/pricing/ab-test', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(data),
-    });
-    return res.json();
-  },
-
-  getPricingTestResults: (testId: string) =>
-    fetchJson<any>(`/api/pricing/ab-test/${testId}`),
-
   // Agent health monitoring
   getAgentHealth: (companyId: string) =>
     fetchJson<AgentHealthData>(`/api/companies/${companyId}/agent-health`),
@@ -517,7 +375,132 @@ export const api = {
 
   getIncidents: (companyId: string, limit = 50) =>
     fetchJson<Incident[]>(`/api/companies/${companyId}/incidents?limit=${limit}`),
+
+  // Company management
+  createCompany: async (data: { name: string; goal: string }) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch('/api/companies', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  updateCompany: async (id: string, data: Partial<Company>) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch(`/api/companies/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  deleteCompany: async (id: string) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch(`/api/companies/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
+    return res.json();
+  },
+
+  // Cross-project analytics
+  getCrossProjectAnalytics: () =>
+    fetchJson<CrossProjectAnalytics>('/api/analytics/cross-project'),
 };
+
+// ── Cross-Project Analytics Types ──────────────────────────────────
+
+export interface CrossProjectCostSummary {
+  company_id: string;
+  company_name: string;
+  deployment_url: string | null;
+  sessions: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cache_read_tokens: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  total_duration_ms: number;
+  total_turns: number;
+}
+
+export interface CrossProjectTaskMetrics {
+  company_id: string;
+  company_name: string;
+  total_tasks: number;
+  done_tasks: number;
+  in_progress_tasks: number;
+  backlog_tasks: number;
+  blocked_tasks: number;
+  urgent_tasks: number;
+  high_priority_tasks: number;
+}
+
+export interface CrossProjectAgentMetrics {
+  company_id: string;
+  company_name: string;
+  total_agents: number;
+  running_agents: number;
+  idle_agents: number;
+  error_agents: number;
+  total_incidents: number;
+  total_crashes: number;
+}
+
+export interface CrossProjectTotals {
+  total_companies: number;
+  total_sessions: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cache_read_tokens: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  total_duration_ms: number;
+  total_turns: number;
+  total_tasks: number;
+  done_tasks: number;
+  in_progress_tasks: number;
+  backlog_tasks: number;
+  total_agents: number;
+  running_agents: number;
+  idle_agents: number;
+  total_incidents: number;
+}
+
+export interface CrossProjectCostTrend {
+  date: string;
+  sessions: number;
+  total_cost_usd: number;
+  total_tokens: number;
+}
+
+export interface CrossProjectAgentPerformance {
+  agent_name: string;
+  role: string;
+  company_name: string;
+  company_id: string;
+  tasks_completed: number;
+  total_cost: number;
+  total_tokens: number;
+  incidents: number;
+  status: string;
+  last_heartbeat: string | null;
+}
+
+export interface CrossProjectAnalytics {
+  costSummary: CrossProjectCostSummary[];
+  taskMetrics: CrossProjectTaskMetrics[];
+  agentMetrics: CrossProjectAgentMetrics[];
+  totals: CrossProjectTotals;
+  costTrend: CrossProjectCostTrend[];
+  agentPerformance: CrossProjectAgentPerformance[];
+}
 
 // ── WebSocket Integration ──────────────────────────────────────────
 import { QueryClient } from '@tanstack/react-query';

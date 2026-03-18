@@ -7,6 +7,8 @@ import { readAgentLog } from "./claude.js";
 import { LOGS_DIR } from "./config.js";
 import fs from "node:fs";
 import { WebSocketServer } from "ws";
+import crypto from "node:crypto";
+import os from "node:os";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -88,13 +90,34 @@ export function createServer(port = 3100) {
     res.json(company);
   });
 
+  app.post("/api/companies", (req, res) => {
+    const { name, goal } = req.body || {};
+    if (!name || !goal) {
+      return res.status(400).json({ error: "Name and goal required" });
+    }
+    const id = crypto.randomUUID();
+    const workspace = path.join(os.homedir(), `.hivemind/companies/${id.slice(0, 8)}`);
+    const company = db.createCompany({ id, name, goal, workspace });
+    res.json(company);
+  });
+
   app.patch("/api/companies/:id", (req, res) => {
     const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
-    const { deployment_url } = req.body || {};
+    const { deployment_url, name, goal, status } = req.body || {};
     if (deployment_url !== undefined) {
       db.updateCompanyDeploymentUrl(company.id, deployment_url);
     }
+    if (name || goal || status) {
+      db.updateCompany(company.id, { name, goal, status });
+    }
+    res.json({ success: true });
+  });
+
+  app.delete("/api/companies/:id", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+    db.deleteCompany(company.id);
     res.json({ success: true });
   });
 
@@ -450,6 +473,29 @@ export function createServer(port = 3100) {
     res.json({ success: true, message: "Nudge sent — agent picking it up now" });
   });
 
+  // Cross-project analytics endpoint
+  app.get("/api/analytics/cross-project", (req, res) => {
+    try {
+      const costSummary = db.getCrossProjectCostSummary();
+      const taskMetrics = db.getCrossProjectTaskMetrics();
+      const agentMetrics = db.getCrossProjectAgentMetrics();
+      const totals = db.getCrossProjectTotals();
+      const costTrend = db.getCrossProjectCostTrend(7);
+      const agentPerformance = db.getCrossProjectAgentPerformance();
+
+      res.json({
+        costSummary,
+        taskMetrics,
+        agentMetrics,
+        totals,
+        costTrend,
+        agentPerformance,
+      });
+    } catch (err) {
+      console.error('[analytics] Error fetching cross-project data:', err);
+      res.status(500).json({ error: 'Failed to fetch analytics data' });
+    }
+  });
 
   if (fs.existsSync(uiDist)) {
     app.use(express.static(uiDist, { index: false }));

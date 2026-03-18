@@ -6,6 +6,7 @@ import { HEARTBEAT_INTERVAL_SEC, MAX_CONCURRENT_AGENTS, LOGS_DIR, CHECKPOINT_EVE
 // Stripe usage reporting removed — not needed for monitoring dashboard
 import { startHealthMonitoring, stopHealthMonitoring } from "./health-monitoring.js";
 import { log as structuredLog } from "./logger.js";
+import * as projectConfig from "./project-config.js";
 
 function uid() { return crypto.randomUUID(); }
 
@@ -304,6 +305,21 @@ let _designSpecs = null;
 
 function dispatchEngineers(company, designSpecs) {
   if (designSpecs !== undefined) _designSpecs = designSpecs;
+
+  // Get project-specific configuration
+  const config = projectConfig.getProjectConfig(company.id);
+
+  // Check budget constraints
+  if (projectConfig.hasExceededBudget(company.id)) {
+    log(company.id, "DISPATCH", `Budget limit exceeded ($${config.max_budget_usd}). Pausing dispatch.`);
+    return 0;
+  }
+
+  if (projectConfig.isApproachingBudgetLimit(company.id)) {
+    const budgetStatus = projectConfig.getBudgetStatus(company.id);
+    log(company.id, "DISPATCH", `⚠️  Budget alert: ${(budgetStatus.usageRatio * 100).toFixed(1)}% used ($${budgetStatus.spent.toFixed(2)} / $${budgetStatus.limit})`);
+  }
+
   const tasks = db.getTasksByCompany(company.id);
   const todoTasks = tasks.filter(t =>
     !t.title.startsWith("[PROJECT]") && (t.status === "backlog" || t.status === "todo")
@@ -316,13 +332,14 @@ function dispatchEngineers(company, designSpecs) {
     return (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1);
   });
 
-  // Count actually running agents
+  // Count actually running agents for THIS PROJECT ONLY
   let runningCount = 0;
   for (const [, handle] of runningAgents) {
-    if (!handle.done) runningCount++;
+    if (!handle.done && handle.companyId === company.id) runningCount++;
   }
 
-  let available = MAX_CONCURRENT_AGENTS - runningCount;
+  // Use project-specific max concurrent agents
+  let available = config.max_concurrent_agents - runningCount;
 
   // PREEMPTION: urgent tasks kill lowest-priority running engineers to take their slot
   const urgentTasks = todoTasks.filter(t => t.priority === "urgent");
@@ -354,7 +371,7 @@ function dispatchEngineers(company, designSpecs) {
   }
 
   if (available <= 0) {
-    log(company.id, "DISPATCH", `All ${MAX_CONCURRENT_AGENTS} agent slots occupied.`);
+    log(company.id, "DISPATCH", `All ${config.max_concurrent_agents} agent slots occupied for this project.`);
     return 0;
   }
 
@@ -431,7 +448,8 @@ function dispatchEngineers(company, designSpecs) {
     let lastCheckpointTurn = 0;
     const watchInterval = setInterval(() => {
       // Save checkpoint if we've progressed N turns since last checkpoint
-      if (handle.currentTurn && handle.currentTurn - lastCheckpointTurn >= CHECKPOINT_EVERY_N_TURNS) {
+      const checkpointInterval = config.checkpoint_every_n_turns || CHECKPOINT_EVERY_N_TURNS;
+      if (handle.currentTurn && handle.currentTurn - lastCheckpointTurn >= checkpointInterval) {
         try {
           db.saveCheckpoint({
             agentId: agent.id,
@@ -721,7 +739,8 @@ export async function startCompany(goal, opts = {}) {
   dispatchEngineers(db.getCompany(companyId), designSpecs);
 
   // Phase 4: Monitor loop
-  console.log(`\n  Heartbeat every ${HEARTBEAT_INTERVAL_SEC}s. Press Ctrl+C to stop monitoring.`);
+  const config = projectConfig.getProjectConfig(companyId);
+  console.log(`\n  Heartbeat every ${config.heartbeat_interval_sec}s. Press Ctrl+C to stop monitoring.`);
   console.log(`  (Every agent is a standalone Claude session with full tool access.)\n`);
 
   await runHeartbeatLoop(companyId);
@@ -737,13 +756,15 @@ async function runHeartbeatLoop(companyId) {
   return new Promise((resolve) => {
     // Start health monitoring loop (separate from heartbeat)
     const company = db.getCompany(companyId);
-    const healthMonitor = startHealthMonitoring(company, runningAgents, () => {
+    const config = projectConfig.getProjectConfig(companyId);
+
+    const healthMonitor = config.health_check_enabled ? startHealthMonitoring(company, runningAgents, () => {
       // Callback when agent crashes - trigger dispatcher
       const freshCompany = db.getCompany(companyId);
       if (freshCompany) {
         dispatchEngineers(freshCompany, undefined);
       }
-    });
+    }) : null;
 
     const heartbeat = setInterval(async () => {
       const company = db.getCompany(companyId);
@@ -837,14 +858,14 @@ async function runHeartbeatLoop(companyId) {
       }
 
       printProgress(company);
-    }, HEARTBEAT_INTERVAL_SEC * 1000);
+    }, config.heartbeat_interval_sec * 1000);
 
     process.on("SIGINT", () => {
       console.log(`\n  Stopping monitor. Agents continue as background processes.`);
       console.log(`  Resume:  node bin/hivemind.js resume ${companyId.slice(0, 8)}`);
       console.log(`  Status:  node bin/hivemind.js status`);
       clearInterval(heartbeat);
-      stopHealthMonitoring(healthMonitor);
+      if (healthMonitor) stopHealthMonitoring(healthMonitor);
       resolve();
       setTimeout(() => process.exit(0), 100);
     });
