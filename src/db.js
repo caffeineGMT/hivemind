@@ -48,7 +48,7 @@ function migrate(db) {
       status TEXT NOT NULL DEFAULT 'backlog',
       priority TEXT NOT NULL DEFAULT 'medium',
       assignee_id TEXT REFERENCES agents(id),
-      created_by_id TEXT REFERENCES agents(id),
+      created_by_id TEXT,
       result TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
