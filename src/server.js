@@ -94,7 +94,7 @@ export function createServer(port = 3100) {
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
     if (req.method === "OPTIONS") return res.sendStatus(200);
     next();
   });
@@ -424,6 +424,26 @@ export function createServer(port = 3100) {
     // Broadcast updates
     req.app.locals.broadcast('comment_added', { taskId: task.id, message });
     req.app.locals.broadcast('activity_logged', { companyId: task.company_id, taskId: task.id });
+
+  // Structured logs endpoints
+  app.get("/api/logs/search", (req, res) => {
+    const { companyId, level, source, keyword, limit } = req.query;
+    const logs = db.searchLogs({
+      companyId: companyId || null,
+      level: level || null,
+      source: source || null,
+      keyword: keyword || null,
+      limit: parseInt(limit || "1000", 10),
+    });
+    res.json(logs);
+  });
+
+  app.post("/api/logs/export", (req, res) => {
+    const { companyId } = req.body || {};
+    const logs = db.searchLogs({ companyId, limit: 100000 });
+    res.setHeader("Content-Disposition", \`attachment; filename=logs-\${Date.now()}.json\`);
+    res.json(logs);
+  });
     triggerResume(task.company_id);
     res.json({ success: true });
   });
