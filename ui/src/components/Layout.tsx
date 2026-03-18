@@ -12,6 +12,7 @@ import {
   X,
   HeartPulse,
   Building2,
+  BarChart3,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Company } from '../api';
@@ -32,6 +33,7 @@ const navItems = [
   { to: '/activity', icon: Activity, label: 'Activity' },
   { to: '/finance', icon: DollarSign, label: 'Finance' },
   { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
+  { to: '/cross-project-analytics', icon: BarChart3, label: 'Cross-Project' },
   { to: '/costs', icon: DollarSign, label: 'Costs' },
 ];
 

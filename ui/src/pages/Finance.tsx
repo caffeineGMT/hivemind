@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { DollarSign, Zap, Clock, BarChart3, TrendingUp, AlertCircle } from 'lucide-react';
+import { DollarSign, Zap, Clock, BarChart3 } from 'lucide-react';
 import { api, CostSummaryEntry } from '../api';
 
 function formatTokens(n: number): string {
@@ -31,12 +31,6 @@ export default function Finance({ companyId }: { companyId: string }) {
     refetchInterval: 5000,
   });
 
-  const { data: billingData, isLoading: billingLoading } = useQuery({
-    queryKey: ['billing', companyId],
-    queryFn: () => api.getBilling(companyId),
-    refetchInterval: 10000,
-  });
-
   if (costLoading || !costData) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -51,112 +45,8 @@ export default function Finance({ companyId }: { companyId: string }) {
     <div className="animate-fade-in space-y-6">
       <div>
         <h2 className="text-xl font-bold text-zinc-100">Finance</h2>
-        <p className="mt-1 text-sm text-zinc-500">CFO — Token usage, cost tracking, and billing</p>
+        <p className="mt-1 text-sm text-zinc-500">CFO — Token usage and cost tracking</p>
       </div>
-
-      {/* Billing & Usage Summary */}
-      {billingData && !billingLoading && (
-        <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/30 p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-zinc-200">{billingData.plan} Plan</h3>
-              <p className="text-sm text-zinc-500">Current month usage vs. plan limits</p>
-            </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold text-emerald-400">${billingData.total_cost.toFixed(2)}</div>
-              <div className="text-xs text-zinc-500">
-                ${billingData.base_price} base + ${billingData.overage_costs.total.toFixed(2)} overages
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {/* Agent Hours */}
-            <div className="rounded-lg border border-zinc-800/40 bg-zinc-900/50 p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-medium text-zinc-400">Agent Hours</span>
-                {billingData.overages.agent_hours > 0 && (
-                  <span className="flex items-center gap-1 text-xs text-amber-400">
-                    <AlertCircle className="h-3 w-3" />
-                    Overage
-                  </span>
-                )}
-              </div>
-              <div className="mb-2 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-zinc-100">
-                  {billingData.usage.agent_hours.toFixed(1)}
-                </span>
-                <span className="text-sm text-zinc-500">
-                  / {billingData.included.agent_hours} hrs included
-                </span>
-              </div>
-              <div className="mb-2 h-2 overflow-hidden rounded-full bg-zinc-800">
-                <div
-                  className={`h-full transition-all ${
-                    billingData.usage.agent_hours > billingData.included.agent_hours
-                      ? 'bg-amber-500'
-                      : 'bg-emerald-500'
-                  }`}
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      (billingData.usage.agent_hours / billingData.included.agent_hours) * 100
-                    )}%`,
-                  }}
-                />
-              </div>
-              {billingData.overages.agent_hours > 0 && (
-                <div className="text-xs text-amber-400">
-                  +{billingData.overages.agent_hours.toFixed(1)} hrs overage ($
-                  {billingData.overage_costs.agent_hours.toFixed(2)} @ $10/hr)
-                </div>
-              )}
-            </div>
-
-            {/* API Calls */}
-            <div className="rounded-lg border border-zinc-800/40 bg-zinc-900/50 p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-medium text-zinc-400">API Calls</span>
-                {billingData.overages.api_calls > 0 && (
-                  <span className="flex items-center gap-1 text-xs text-amber-400">
-                    <AlertCircle className="h-3 w-3" />
-                    Overage
-                  </span>
-                )}
-              </div>
-              <div className="mb-2 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-zinc-100">
-                  {billingData.usage.api_calls.toLocaleString()}
-                </span>
-                <span className="text-sm text-zinc-500">
-                  / {billingData.included.api_calls.toLocaleString()} included
-                </span>
-              </div>
-              <div className="mb-2 h-2 overflow-hidden rounded-full bg-zinc-800">
-                <div
-                  className={`h-full transition-all ${
-                    billingData.usage.api_calls > billingData.included.api_calls
-                      ? 'bg-amber-500'
-                      : 'bg-blue-500'
-                  }`}
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      (billingData.usage.api_calls / billingData.included.api_calls) * 100
-                    )}%`,
-                  }}
-                />
-              </div>
-              {billingData.overages.api_calls > 0 && (
-                <div className="text-xs text-amber-400">
-                  +{billingData.overages.api_calls.toLocaleString()} calls overage ($
-                  {billingData.overage_costs.api_calls.toFixed(2)} @ $1/1k calls)
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Overview cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

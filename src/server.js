@@ -7,6 +7,7 @@ import { readAgentLog } from "./claude.js";
 import { LOGS_DIR } from "./config.js";
 import fs from "node:fs";
 import { WebSocketServer } from "ws";
+import * as projectConfig from "./project-config.js";
 import crypto from "node:crypto";
 import os from "node:os";
 
@@ -471,6 +472,167 @@ export function createServer(port = 3100) {
     req.app.locals.broadcast('activity_logged', { companyId: company.id });
     triggerResume(company.id);
     res.json({ success: true, message: "Nudge sent — agent picking it up now" });
+  });
+
+  // ── Project Configuration API ──────────────────────────────────────────
+
+  app.get("/api/companies/:id/config", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const config = projectConfig.getProjectConfig(company.id);
+    const budgetStatus = projectConfig.getBudgetStatus(company.id);
+    const availableSlots = projectConfig.getAvailableAgentSlots(company.id);
+    const resources = projectConfig.getProjectResources(company.id);
+
+    res.json({
+      config,
+      budgetStatus,
+      availableSlots,
+      resources,
+      presets: Object.keys(projectConfig.CONFIG_PRESETS),
+    });
+  });
+
+  app.post("/api/companies/:id/config", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const updates = req.body || {};
+    const config = projectConfig.setProjectConfig(company.id, updates);
+
+    db.logActivity({
+      companyId: company.id,
+      action: "config_updated",
+      detail: `Updated project configuration: ${JSON.stringify(updates)}`,
+    });
+
+    req.app.locals.broadcast('config_updated', { companyId: company.id, config });
+
+    res.json({ success: true, config });
+  });
+
+  app.post("/api/companies/:id/config/preset", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const { preset } = req.body || {};
+    if (!preset || !projectConfig.CONFIG_PRESETS[preset]) {
+      return res.status(400).json({
+        error: "Invalid preset",
+        available: Object.keys(projectConfig.CONFIG_PRESETS),
+      });
+    }
+
+    const config = projectConfig.applyConfigPreset(company.id, preset);
+
+    db.logActivity({
+      companyId: company.id,
+      action: "preset_applied",
+      detail: `Applied ${preset} preset`,
+    });
+
+    req.app.locals.broadcast('config_updated', { companyId: company.id, config, preset });
+
+    res.json({ success: true, config, preset });
+  });
+
+  app.delete("/api/companies/:id/config", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    projectConfig.deleteProjectConfig(company.id);
+
+    db.logActivity({
+      companyId: company.id,
+      action: "config_reset",
+      detail: "Reset to default configuration",
+    });
+
+    req.app.locals.broadcast('config_updated', { companyId: company.id, reset: true });
+
+    res.json({ success: true, message: "Configuration reset to defaults" });
+  });
+
+  app.post("/api/companies/:id/archive", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    projectConfig.archiveProject(company.id);
+
+    db.logActivity({
+      companyId: company.id,
+      action: "project_archived",
+      detail: "Project archived — all agents stopped",
+    });
+
+    req.app.locals.broadcast('project_archived', { companyId: company.id });
+
+    res.json({ success: true, message: "Project archived" });
+  });
+
+  app.delete("/api/companies/:id", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const { confirm } = req.query;
+    if (confirm !== "true") {
+      return res.status(400).json({
+        error: "Confirmation required",
+        message: "Add ?confirm=true to delete all project data (IRREVERSIBLE)",
+      });
+    }
+
+    projectConfig.deleteProjectData(company.id);
+
+    req.app.locals.broadcast('project_deleted', { companyId: company.id });
+
+    res.json({ success: true, message: "Project and all data deleted" });
+  });
+
+  app.get("/api/companies/:id/isolation-check", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const agents = db.getAgentsByCompany(company.id);
+    const tasks = db.getTasksByCompany(company.id);
+
+    const isolationIssues = [];
+
+    // Check agent isolation
+    for (const agent of agents) {
+      if (agent.company_id !== company.id) {
+        isolationIssues.push({
+          type: "agent_isolation_violation",
+          agent_id: agent.id,
+          expected: company.id,
+          actual: agent.company_id,
+        });
+      }
+    }
+
+    // Check task isolation
+    for (const task of tasks) {
+      if (task.company_id !== company.id) {
+        isolationIssues.push({
+          type: "task_isolation_violation",
+          task_id: task.id,
+          expected: company.id,
+          actual: task.company_id,
+        });
+      }
+    }
+
+    const isolated = isolationIssues.length === 0;
+
+    res.json({
+      isolated,
+      issues: isolationIssues,
+      resources: {
+        agents: agents.length,
+        tasks: tasks.length,
+      },
+    });
   });
 
   // Cross-project analytics endpoint
