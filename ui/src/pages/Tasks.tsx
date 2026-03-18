@@ -15,6 +15,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['tasks', companyId],
     queryFn: () => api.getTasks(companyId),
+    refetchInterval: 3000,
   });
 
   if (isLoading || !tasks) {

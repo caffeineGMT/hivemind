@@ -10,11 +10,13 @@ export default function Dashboard({ companyId }: { companyId: string }) {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard', companyId],
     queryFn: () => api.getDashboard(companyId),
+    refetchInterval: 3000,
   });
 
   const { data: activity } = useQuery({
     queryKey: ['activity', companyId],
     queryFn: () => api.getActivity(companyId),
+    refetchInterval: 3000,
   });
 
   if (isLoading || !data) {

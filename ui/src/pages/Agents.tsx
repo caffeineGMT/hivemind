@@ -6,6 +6,7 @@ export default function Agents({ companyId }: { companyId: string }) {
   const { data: agents, isLoading } = useQuery({
     queryKey: ['agents', companyId],
     queryFn: () => api.getAgents(companyId),
+    refetchInterval: 3000,
   });
 
   if (isLoading || !agents) {

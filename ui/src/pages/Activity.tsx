@@ -6,6 +6,7 @@ export default function Activity({ companyId }: { companyId: string }) {
   const { data: activity, isLoading } = useQuery({
     queryKey: ['activity', companyId],
     queryFn: () => api.getActivity(companyId),
+    refetchInterval: 3000,
   });
 
   if (isLoading || !activity) {

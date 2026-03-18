@@ -12,7 +12,7 @@ export interface Company {
 export interface Agent {
   id: string;
   name: string;
-  role: 'ceo' | 'cto' | 'engineer';
+  role: 'ceo' | 'cto' | 'designer' | 'engineer';
   title: string;
   status: 'idle' | 'running' | 'error';
   pid: number | null;
