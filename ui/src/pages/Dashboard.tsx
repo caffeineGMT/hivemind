@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Play, CheckCircle2, Clock, Send, ExternalLink } from 'lucide-react';
@@ -7,13 +7,26 @@ import MetricCard from '../components/MetricCard';
 import ProgressBar from '../components/ProgressBar';
 import ProjectCard from '../components/ProjectCard';
 import ActivityRow from '../components/ActivityRow';
+import { useSwipeNavigation } from '../hooks/useSwipeNavigation';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
 
 export default function Dashboard({ companyId }: { companyId: string }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [nudgeMsg, setNudgeMsg] = useState('');
   const [nudgeSending, setNudgeSending] = useState(false);
   const [nudgeSent, setNudgeSent] = useState(false);
   const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+
+  const swipeHandlers = useSwipeNavigation();
+
+  const { isPulling, isRefreshing, pullDistance } = usePullToRefresh({
+    onRefresh: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['dashboard', companyId] });
+      await queryClient.invalidateQueries({ queryKey: ['activity', companyId] });
+    },
+  });
 
   const handleNudge = async () => {
     if (!nudgeMsg.trim()) return;
@@ -60,7 +73,11 @@ export default function Dashboard({ companyId }: { companyId: string }) {
   const deploymentUrl = (company as any).deployment_url;
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div {...swipeHandlers} className="animate-fade-in space-y-6">
+      <PullToRefreshIndicator
+        pullDistance={pullDistance}
+        isRefreshing={isRefreshing}
+      />
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-bold text-zinc-100">Dashboard</h2>
@@ -93,12 +110,12 @@ export default function Dashboard({ companyId }: { companyId: string }) {
             onChange={(e) => setNudgeMsg(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleNudge()}
             placeholder="Nudge the CEO — e.g. &quot;Focus on the dashboard first&quot;"
-            className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition focus:border-amber-600/50 focus:ring-1 focus:ring-amber-600/20 sm:px-4"
+            className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition focus:border-amber-600/50 focus:ring-1 focus:ring-amber-600/20 sm:px-4 min-h-[44px]"
           />
           <button
             onClick={handleNudge}
             disabled={nudgeSending || !nudgeMsg.trim()}
-            className="flex items-center gap-1.5 rounded-lg bg-amber-600/80 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-amber-500 disabled:opacity-40 disabled:hover:bg-amber-600/80 sm:gap-2 sm:px-4"
+            className="flex items-center gap-1.5 rounded-lg bg-amber-600/80 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-amber-500 disabled:opacity-40 disabled:hover:bg-amber-600/80 sm:gap-2 sm:px-4 min-h-[44px] min-w-[44px]"
           >
             <Send className="h-4 w-4" />
             <span className="hidden sm:inline">{nudgeSending ? 'Sending...' : 'Nudge'}</span>

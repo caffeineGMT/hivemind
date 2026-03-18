@@ -301,7 +301,7 @@ export default function Landing() {
           ) : (
             <>
               <div className="mt-16 grid gap-8 sm:grid-cols-2">
-                {displayedTestimonials.slice(0, 4).map((testimonial) => (
+                {displayedTestimonials.slice(0, 4).map((testimonial: Testimonial) => (
                   <div
                     key={testimonial.id || testimonial.user_name}
                     className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-8"

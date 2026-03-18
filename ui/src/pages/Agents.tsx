@@ -1,8 +1,20 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, Agent } from '../api';
 import AgentCard from '../components/AgentCard';
+import { useSwipeNavigation } from '../hooks/useSwipeNavigation';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
 
 export default function Agents({ companyId }: { companyId: string }) {
+  const queryClient = useQueryClient();
+  const swipeHandlers = useSwipeNavigation();
+
+  const { isPulling, isRefreshing, pullDistance } = usePullToRefresh({
+    onRefresh: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['agents', companyId] });
+    },
+  });
+
   const { data: agents, isLoading } = useQuery({
     queryKey: ['agents', companyId],
     queryFn: () => api.getAgents(companyId),
@@ -25,7 +37,11 @@ export default function Agents({ companyId }: { companyId: string }) {
   const running = agents.filter((a: Agent) => a.status === 'running').length;
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div {...swipeHandlers} className="animate-fade-in space-y-6">
+      <PullToRefreshIndicator
+        pullDistance={pullDistance}
+        isRefreshing={isRefreshing}
+      />
       <div>
         <h2 className="text-xl font-bold text-zinc-100">Agents</h2>
         <p className="mt-1 text-sm text-zinc-500">

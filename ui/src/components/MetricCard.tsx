@@ -1,4 +1,5 @@
 import { type LucideIcon } from 'lucide-react';
+import { useTouchRipple } from './TouchRipple';
 
 interface MetricCardProps {
   label: string;
@@ -8,8 +9,14 @@ interface MetricCardProps {
 }
 
 export default function MetricCard({ label, value, icon: Icon, color = 'text-zinc-400' }: MetricCardProps) {
+  const { createRipple, rippleElements } = useTouchRipple();
+
   return (
-    <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4 transition hover:border-zinc-700/60">
+    <div
+      className="relative overflow-hidden rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4 transition-all duration-200 active:scale-[0.98] hover:border-zinc-700/60 md:active:scale-100"
+      onTouchStart={createRipple}
+    >
+      {rippleElements}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-medium text-zinc-500">{label}</p>

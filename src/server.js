@@ -201,7 +201,44 @@ export function createServer(port = 3100) {
     const summary = db.getCostSummary(company.id);
     const totals = db.getCostTotals(company.id);
     const recent = db.getCostsByCompany(company.id);
-    res.json({ summary, totals, recent: recent.slice(0, 50) });
+    const taskCosts = db.getCostsByTask(company.id);
+    const budget = db.getBudget(company.id);
+    const monthlySpend = db.getCurrentMonthCosts(company.id);
+
+    res.json({
+      summary,
+      totals,
+      recent: recent.slice(0, 50),
+      taskCosts: taskCosts.slice(0, 20),
+      budget: budget || null,
+      monthlySpend,
+    });
+  });
+
+  app.post("/api/companies/:id/budget", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+    const { monthlyBudget, alertThreshold } = req.body || {};
+    if (!monthlyBudget || monthlyBudget <= 0) {
+      return res.status(400).json({ error: "Valid monthlyBudget required" });
+    }
+    db.setBudget({
+      companyId: company.id,
+      monthlyBudget,
+      alertThreshold: alertThreshold || 0.8,
+    });
+    res.json({ success: true });
+  });
+
+  app.get("/api/companies/:id/costs/range", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: "startDate and endDate required" });
+    }
+    const costs = db.getCostsByDateRange(company.id, startDate, endDate);
+    res.json(costs);
   });
 
   app.get("/api/companies/:id/incidents", (req, res) => {

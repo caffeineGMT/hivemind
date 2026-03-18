@@ -265,6 +265,18 @@ function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_logs_company ON logs(company_id);
     CREATE INDEX IF NOT EXISTS idx_logs_level ON logs(level);
     CREATE INDEX IF NOT EXISTS idx_logs_source ON logs(source);
+
+    CREATE TABLE IF NOT EXISTS budget_config (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL REFERENCES companies(id),
+      monthly_budget REAL NOT NULL,
+      alert_threshold REAL NOT NULL DEFAULT 0.8,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(company_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_budget_company ON budget_config(company_id);
   `);
 }
 
@@ -431,6 +443,77 @@ export function getCostTotals(companyId) {
     FROM cost_log
     WHERE company_id = ?
   `).get(companyId);
+}
+
+// ── Budget tracking ──────────────────────────────────────────────────
+
+export function setBudget({ companyId, monthlyBudget, alertThreshold }) {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO budget_config (company_id, monthly_budget, alert_threshold)
+    VALUES (?, ?, ?)
+    ON CONFLICT(company_id) DO UPDATE SET
+      monthly_budget = excluded.monthly_budget,
+      alert_threshold = excluded.alert_threshold,
+      updated_at = datetime('now')
+  `).run(companyId, monthlyBudget, alertThreshold || 0.8);
+}
+
+export function getBudget(companyId) {
+  return getDb().prepare("SELECT * FROM budget_config WHERE company_id = ?").get(companyId);
+}
+
+export function getCostsByTask(companyId) {
+  return getDb().prepare(`
+    SELECT
+      task_id,
+      COUNT(*) as sessions,
+      SUM(input_tokens) as total_input_tokens,
+      SUM(output_tokens) as total_output_tokens,
+      SUM(cache_read_tokens) as total_cache_read_tokens,
+      SUM(total_tokens) as total_tokens,
+      SUM(cost_usd) as total_cost_usd,
+      SUM(duration_ms) as total_duration_ms,
+      SUM(num_turns) as total_turns
+    FROM cost_log
+    WHERE company_id = ? AND task_id IS NOT NULL
+    GROUP BY task_id
+    ORDER BY total_cost_usd DESC
+  `).all(companyId);
+}
+
+export function getCostsByDateRange(companyId, startDate, endDate) {
+  return getDb().prepare(`
+    SELECT
+      DATE(created_at) as date,
+      COUNT(*) as sessions,
+      SUM(input_tokens) as total_input_tokens,
+      SUM(output_tokens) as total_output_tokens,
+      SUM(total_tokens) as total_tokens,
+      SUM(cost_usd) as total_cost_usd
+    FROM cost_log
+    WHERE company_id = ?
+      AND created_at >= ?
+      AND created_at <= ?
+    GROUP BY DATE(created_at)
+    ORDER BY date ASC
+  `).all(companyId, startDate, endDate);
+}
+
+export function getCurrentMonthCosts(companyId) {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+
+  const costs = getDb().prepare(`
+    SELECT SUM(cost_usd) as total_cost_usd
+    FROM cost_log
+    WHERE company_id = ?
+      AND created_at >= ?
+      AND created_at <= ?
+  `).get(companyId, startOfMonth, endOfMonth);
+
+  return costs?.total_cost_usd || 0;
 }
 
 // ── Usage tracking ──────────────────────────────────────────────────

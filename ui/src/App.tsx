@@ -13,7 +13,6 @@ import Finance from './pages/Finance';
 import Analytics from './pages/Analytics';
 import Costs from './pages/Costs';
 import Logs from './pages/Logs';
-import Marketing from './pages/Marketing';
 
 export default function App() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
@@ -79,7 +78,6 @@ export default function App() {
         <Route path="/finance" element={<Finance companyId={selectedCompany.id} />} />
         <Route path="/analytics" element={<Analytics companyId={selectedCompany.id} />} />
         <Route path="/costs" element={<Costs companyId={selectedCompany.id} />} />
-        <Route path="/marketing" element={<Marketing />} />
         <Route path="/logs-view" element={<Logs />} />
         <Route path="/tasks/:taskId" element={<TaskDetail />} />
         <Route path="/logs/:agentName" element={<AgentLog />} />

@@ -202,6 +202,64 @@ export interface BillingData {
   stripe_customer_id: string | null;
 }
 
+export interface Incident {
+  id: number;
+  company_id: string;
+  agent_id: string;
+  task_id: string | null;
+  incident_type: string;
+  description: string;
+  recovery_action: string | null;
+  created_at: string;
+}
+
+export interface AgentHealthMetric {
+  agent_id: string;
+  agent_name: string;
+  role: string;
+  status: string;
+  pid: number | null;
+  last_heartbeat: string | null;
+  total_incidents: number;
+  crashes: number;
+  restarts: number;
+  error_rate: number;
+  uptime_minutes: number;
+}
+
+export interface AgentHealthData {
+  summary: {
+    total_agents: number;
+    running_agents: number;
+    idle_agents: number;
+    error_agents: number;
+    total_crashes: number;
+    total_restarts: number;
+    avg_error_rate: number;
+  };
+  agents: AgentHealthMetric[];
+  recent_incidents: Incident[];
+}
+
+export interface AgentHealthMetrics {
+  agent: Agent;
+  health: {
+    status: string;
+    uptime_minutes: number;
+    last_heartbeat: string | null;
+  };
+  incidents: {
+    total: number;
+    crashes: number;
+    restarts: number;
+    recent: Incident[];
+  };
+  retries: {
+    total: number;
+    recent: any[];
+  };
+}
+
 // ── Fetch helpers ──────────────────────────────────────────────────
 
 // Token management - will be set by the app
@@ -402,6 +460,16 @@ export const api = {
 
   getPricingTestResults: (testId: string) =>
     fetchJson<any>(`/api/pricing/ab-test/${testId}`),
+
+  // Agent health monitoring
+  getAgentHealth: (companyId: string) =>
+    fetchJson<AgentHealthData>(`/api/companies/${companyId}/agent-health`),
+
+  getAgentHealthMetrics: (agentId: string) =>
+    fetchJson<AgentHealthMetrics>(`/api/agents/${agentId}/health-metrics`),
+
+  getIncidents: (companyId: string, limit = 50) =>
+    fetchJson<Incident[]>(`/api/companies/${companyId}/incidents?limit=${limit}`),
 };
 
 // ── WebSocket Integration ──────────────────────────────────────────
