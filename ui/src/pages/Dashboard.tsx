@@ -27,16 +27,24 @@ export default function Dashboard({ companyId }: { companyId: string }) {
     setNudgeSending(false);
   };
 
+  // WebSocket status listener
+  useEffect(() => {
+    const statusListener = (status: 'connecting' | 'connected' | 'disconnected') => {
+      setWsStatus(status);
+    };
+
+    wsClient.addStatusListener(statusListener);
+    return () => wsClient.removeStatusListener(statusListener);
+  }, []);
+
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard', companyId],
     queryFn: () => api.getDashboard(companyId),
-    refetchInterval: 3000,
   });
 
   const { data: activity } = useQuery({
     queryKey: ['activity', companyId],
     queryFn: () => api.getActivity(companyId),
-    refetchInterval: 3000,
   });
 
   if (isLoading || !data) {
@@ -56,7 +64,12 @@ export default function Dashboard({ companyId }: { companyId: string }) {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-bold text-zinc-100">Dashboard</h2>
-          <p className="mt-1 text-sm text-zinc-500">Company overview and progress</p>
+          <p className="mt-1 text-sm text-zinc-500">
+            Company overview and progress
+            {wsStatus === 'connected' && (
+              <span className="ml-2 text-xs text-emerald-400">• Live</span>
+            )}
+          </p>
         </div>
         {deploymentUrl && (
           <a

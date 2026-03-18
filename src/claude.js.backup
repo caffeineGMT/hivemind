@@ -221,157 +221,21 @@ export function claudeSession(agentId, prompt, opts = {}) {
 /**
  * Run a full Claude session synchronously — waits for completion.
  */
-/**
- * Detect error type from error message
- */
-function detectErrorType(error) {
-  const message = error.message || error.toString();
-  
-  if (message.includes('429') || message.includes('rate limit')) {
-    return 'RATE_LIMIT';
-  }
-  if (message.includes('timeout') || message.includes('ETIMEDOUT')) {
-    return 'TIMEOUT';
-  }
-  if (message.match(/5\d\d/) || message.includes('Internal Server Error')) {
-    return 'SERVER_ERROR';
-  }
-  if (message.includes('ECONNREFUSED') || message.includes('ENOTFOUND')) {
-    return 'NETWORK_ERROR';
-  }
-  return 'UNKNOWN_ERROR';
-}
-
-/**
- * Check if error is retryable
- */
-function isRetryableError(error) {
-  const errorType = detectErrorType(error);
-  return ['RATE_LIMIT', 'TIMEOUT', 'SERVER_ERROR', 'NETWORK_ERROR'].includes(errorType);
-}
-
-/**
- * Sleep for a given duration
- */
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-/**
- * Run a full Claude session synchronously with retry logic and exponential backoff
- * Retries up to 3 times with delays: 2s, 8s, 32s
- * Logs retry attempts and creates incidents on final failure
- */
 export async function claudeSessionSync(agentId, prompt, opts = {}) {
-  const MAX_RETRIES = 3;
-  const BACKOFF_DELAYS = [2000, 8000, 32000]; // 2s, 8s, 32s
-  const taskId = opts.taskId;
-
-  // Check circuit breaker before attempting
-  if (!circuitBreaker.canAttempt()) {
-    const status = circuitBreaker.getStatus();
-    const error = new Error(`Circuit breaker OPEN - API calls paused until ${new Date(status.pausedUntil).toISOString()}`);
-    
-    if (taskId) {
-      db.logRetry({
-        taskId,
-        agentName: agentId,
-        attempt: 0,
-        errorType: 'CIRCUIT_BREAKER_OPEN',
-        errorMessage: error.message
-      });
-    }
-    
-    throw error;
-  }
-
-  let lastError = null;
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const handle = claudeSession(agentId, prompt, opts);
-      const result = await new Promise((resolve, reject) => {
-        const check = setInterval(() => {
-          if (handle.done) {
-            clearInterval(check);
-            if (handle.exitCode !== 0 && !handle.stdout.trim()) {
-              reject(new Error(`Agent ${agentId} exited ${handle.exitCode}: ${handle.stderr.slice(0, 500)}`));
-            } else {
-              resolve({ output: handle.stdout.trim(), usage: handle.usage });
-            }
-          }
-        }, 500);
-      });
-
-      // Success - record in circuit breaker and return
-      circuitBreaker.recordSuccess();
-      return result;
-
-    } catch (error) {
-      lastError = error;
-      const errorType = detectErrorType(error);
-      const isRetryable = isRetryableError(error);
-
-      // Log retry attempt
-      if (taskId) {
-        db.logRetry({
-          taskId,
-          agentName: agentId,
-          attempt: attempt + 1,
-          errorType,
-          errorMessage: error.message || error.toString()
-        });
+  const handle = claudeSession(agentId, prompt, opts);
+  return new Promise((resolve, reject) => {
+    const check = setInterval(() => {
+      if (handle.done) {
+        clearInterval(check);
+        if (handle.exitCode !== 0 && !handle.stdout.trim()) {
+          reject(new Error(`Agent ${agentId} exited ${handle.exitCode}: ${handle.stderr.slice(0, 500)}`));
+        } else {
+          resolve({ output: handle.stdout.trim(), usage: handle.usage });
+        }
       }
-
-      console.error(`[RETRY] Agent ${agentId} attempt ${attempt + 1}/${MAX_RETRIES + 1} failed: ${errorType} - ${error.message}`);
-
-      // If not retryable or last attempt, fail immediately
-      if (!isRetryable || attempt === MAX_RETRIES) {
-        circuitBreaker.recordFailure();
-        break;
-      }
-
-      // Wait before retry with exponential backoff
-      const delay = BACKOFF_DELAYS[attempt];
-      console.log(`[RETRY] Waiting ${delay}ms before retry...`);
-      await sleep(delay);
-    }
-  }
-
-  // All retries exhausted - create incident and mark task as blocked
-  const errorType = detectErrorType(lastError);
-  const errorMessage = lastError.message || lastError.toString();
-
-  // Create incident record
-  if (opts.companyId && taskId) {
-    try {
-      const agent = db.getDb().prepare("SELECT * FROM agents WHERE name = ?").get(agentId);
-      if (agent) {
-        db.logIncident({
-          companyId: opts.companyId,
-          agentId: agent.id,
-          taskId,
-          incidentType: 'API_FAILURE',
-          description: `Claude API failed after ${MAX_RETRIES + 1} attempts. Error: ${errorType} - ${errorMessage}`,
-          recoveryAction: 'Task marked as blocked. Manual intervention may be required.'
-        });
-      }
-    } catch (err) {
-      console.error('[INCIDENT] Failed to log incident:', err.message);
-    }
-
-    // Mark task as blocked
-    try {
-      db.updateTaskStatus(taskId, 'blocked', `API failure: ${errorType} - ${errorMessage.slice(0, 200)}`);
-    } catch (err) {
-      console.error('[TASK] Failed to mark task as blocked:', err.message);
-    }
-  }
-
-  // Throw error after all retries exhausted
-  throw new Error(`Agent ${agentId} failed after ${MAX_RETRIES + 1} attempts. Last error: ${errorType} - ${errorMessage}`);
+    }, 500);
+  });
 }
-
 
 // Legacy aliases
 export async function claudeThink(prompt, opts = {}) {

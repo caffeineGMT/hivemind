@@ -2,8 +2,9 @@ import crypto from "node:crypto";
 import * as db from "./db.js";
 import * as claude from "./claude.js";
 import * as prompts from "./prompts.js";
-import { HEARTBEAT_INTERVAL_SEC, MAX_CONCURRENT_AGENTS, LOGS_DIR } from "./config.js";
-import { reportUsageToStripe } from "./stripe.js";
+import { HEARTBEAT_INTERVAL_SEC, MAX_CONCURRENT_AGENTS, LOGS_DIR, CHECKPOINT_EVERY_N_TURNS } from "./config.js";
+// Stripe usage reporting removed — not needed for monitoring dashboard
+import { startHealthMonitoring, stopHealthMonitoring } from "./health-monitoring.js";
 
 function uid() { return crypto.randomUUID(); }
 
@@ -421,11 +422,35 @@ function dispatchEngineers(company, designSpecs) {
     // Track agent start time for usage metering
     agentStartTimes.set(agent.id, Date.now());
 
-    // Watch for completion — immediately update DB and dispatch next tasks
+    // Watch for completion AND save checkpoints every N turns
+    let lastCheckpointTurn = 0;
     const watchInterval = setInterval(() => {
+      // Save checkpoint if we've progressed N turns since last checkpoint
+      if (handle.currentTurn && handle.currentTurn - lastCheckpointTurn >= CHECKPOINT_EVERY_N_TURNS) {
+        try {
+          db.saveCheckpoint({
+            agentId: agent.id,
+            taskId: task.id,
+            turnNumber: handle.currentTurn,
+            stateData: {
+              progress: handle.stdout.slice(-1000), // Last 1KB of output
+              timestamp: Date.now(),
+            },
+          });
+          lastCheckpointTurn = handle.currentTurn;
+          log(company.id, "CHECKPOINT", `Saved checkpoint for ${agentName} at turn ${handle.currentTurn}`);
+        } catch (err) {
+          log(company.id, "CHECKPOINT", `Failed to save checkpoint: ${err.message}`);
+        }
+      }
+
       if (agentHandle.done || handle.done) {
         clearInterval(watchInterval);
         agentHandle.done = true;
+        // Clean up checkpoints after successful completion
+        try {
+          db.deleteCheckpoints(agent.id, task.id);
+        } catch {}
         const freshCompany = db.getCompany(company.id);
         if (freshCompany) {
           const completed = checkRunningAgents(freshCompany);
@@ -587,17 +612,6 @@ function checkRunningAgents(company) {
       agentStartTimes.delete(agentId);
       log(company.id, "CFO", `${handle.agentName}: ${hours.toFixed(2)} hours tracked`);
 
-      // Report to Stripe if configured
-      const companyRecord = db.getCompany(company.id);
-      if (companyRecord && companyRecord.stripe_customer_id) {
-        reportUsageToStripe({
-          customerId: companyRecord.stripe_customer_id,
-          metric: "agent_hours",
-          value: hours,
-        }).catch(err => {
-          log(company.id, "CFO", `Stripe reporting failed: ${err.message}`);
-        });
-      }
     }
 
     const task = db.getDb().prepare("SELECT title FROM tasks WHERE id = ?").get(handle.taskId);
@@ -707,10 +721,21 @@ async function runHeartbeatLoop(companyId) {
   let sprintPlanning = false;
 
   return new Promise((resolve) => {
+    // Start health monitoring loop (separate from heartbeat)
+    const company = db.getCompany(companyId);
+    const healthMonitor = startHealthMonitoring(company, runningAgents, () => {
+      // Callback when agent crashes - trigger dispatcher
+      const freshCompany = db.getCompany(companyId);
+      if (freshCompany) {
+        dispatchEngineers(freshCompany, undefined);
+      }
+    });
+
     const heartbeat = setInterval(async () => {
       const company = db.getCompany(companyId);
       if (!company || company.status !== "active") {
         clearInterval(heartbeat);
+        stopHealthMonitoring(healthMonitor);
         resolve();
         return;
       }
@@ -791,6 +816,7 @@ async function runHeartbeatLoop(companyId) {
       console.log(`  Resume:  node bin/hivemind.js resume ${companyId.slice(0, 8)}`);
       console.log(`  Status:  node bin/hivemind.js status`);
       clearInterval(heartbeat);
+      stopHealthMonitoring(healthMonitor);
       resolve();
       setTimeout(() => process.exit(0), 100);
     });

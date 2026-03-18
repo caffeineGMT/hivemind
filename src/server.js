@@ -7,12 +7,22 @@ import * as db from "./db.js";
 import { readAgentLog } from "./claude.js";
 import { LOGS_DIR } from "./config.js";
 import fs from "node:fs";
-import {
-  createCheckoutSession,
-  createPortalSession,
-  getSubscriptionStatus,
-  handleWebhook
-} from "./stripe-routes.js";
+import { WebSocketServer } from "ws";
+// Stripe routes — lazy import, no-op if not configured
+let createCheckoutSession, createPortalSession, getSubscriptionStatus, handleWebhook;
+try {
+  const stripeRoutes = await import("./stripe-routes.js");
+  createCheckoutSession = stripeRoutes.createCheckoutSession;
+  createPortalSession = stripeRoutes.createPortalSession;
+  getSubscriptionStatus = stripeRoutes.getSubscriptionStatus;
+  handleWebhook = stripeRoutes.handleWebhook;
+} catch {
+  const stub = (req, res) => res.status(501).json({ error: "Stripe not configured" });
+  createCheckoutSession = stub;
+  createPortalSession = stub;
+  getSubscriptionStatus = stub;
+  handleWebhook = stub;
+}
 import { clerkMiddleware, requireAuth, getAuth } from "@clerk/express";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -49,6 +59,34 @@ function triggerResume(companyId) {
 
 export function createServer(port = 3100) {
   const app = express();
+
+  // WebSocket server setup
+  const wss = new WebSocketServer({ noServer: true });
+  const clients = new Set();
+
+  wss.on('connection', (ws) => {
+    clients.add(ws);
+    console.log('[ws] Client connected. Total:', clients.size);
+
+    ws.on('close', () => {
+      clients.delete(ws);
+      console.log('[ws] Client disconnected. Total:', clients.size);
+    });
+  });
+
+  // Broadcast helper function
+  function broadcast(event, data) {
+    const message = JSON.stringify({ event, data, timestamp: new Date().toISOString() });
+    clients.forEach(client => {
+      if (client.readyState === 1) { // WebSocket.OPEN
+        client.send(message);
+      }
+    });
+  }
+
+  // Store broadcast function on app for use in routes
+  app.locals.broadcast = broadcast;
+
   app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), handleWebhook);
   app.use(express.json());
   const uiDist = path.join(__dirname, "../ui/dist");
@@ -214,6 +252,23 @@ export function createServer(port = 3100) {
     res.json({ summary, totals, recent: recent.slice(0, 50) });
   });
 
+  // Incidents endpoint (crash logs and health monitoring)
+  app.get("/api/companies/:id/incidents", requireAuth(), (req, res) => {
+    const { userId } = getAuth(req);
+    const company = findCompany(req.params.id, userId);
+    if (!company) return res.status(404).json({ error: "Not found" });
+    const limit = parseInt(req.query.limit || "50", 10);
+    const incidents = db.getIncidents(company.id, limit);
+    res.json(incidents);
+  });
+
+  // Agent incidents
+  app.get("/api/agents/:id/incidents", requireAuth(), (req, res) => {
+    const limit = parseInt(req.query.limit || "20", 10);
+    const incidents = db.getIncidentsByAgent(req.params.id, limit);
+    res.json(incidents);
+  });
+
   app.get("/api/analytics/events", (req, res) => {
     const companyId = req.query.companyId;
     const limit = parseInt(req.query.limit || "100", 10);
@@ -274,6 +329,9 @@ export function createServer(port = 3100) {
       action: "comment_added",
       detail: message.slice(0, 100),
     });
+    // Broadcast updates
+    req.app.locals.broadcast('comment_added', { taskId: task.id, message });
+    req.app.locals.broadcast('activity_logged', { companyId: task.company_id, taskId: task.id });
     triggerResume(task.company_id);
     res.json({ success: true });
   });
@@ -295,6 +353,9 @@ export function createServer(port = 3100) {
       action: "nudge_received",
       detail: message,
     });
+    // Broadcast updates
+    req.app.locals.broadcast('nudge_received', { companyId: company.id, message });
+    req.app.locals.broadcast('activity_logged', { companyId: company.id });
     triggerResume(company.id);
     res.json({ success: true, message: "Nudge sent — agent picking it up now" });
   });
@@ -323,6 +384,9 @@ export function createServer(port = 3100) {
       action: "nudge_received",
       detail: message,
     });
+    // Broadcast updates
+    req.app.locals.broadcast('nudge_received', { companyId: company.id, message });
+    req.app.locals.broadcast('activity_logged', { companyId: company.id });
     triggerResume(company.id);
     res.json({ success: true, message: "Nudge sent — agent picking it up now" });
   });
@@ -340,7 +404,7 @@ export function createServer(port = 3100) {
     }
   });
 
-  return app;
+  return { app, wss };
 }
 
 function findCompany(idOrPrefix, userId) {
@@ -356,9 +420,18 @@ function findCompany(idOrPrefix, userId) {
 }
 
 export function startServer(port = 3100) {
-  const app = createServer(port);
-  app.listen(port, () => {
+  const { app, wss } = createServer(port);
+  const server = app.listen(port, () => {
     console.log(`  Hivemind dashboard: http://localhost:${port}`);
+    console.log(`  WebSocket server ready`);
   });
-  return app;
+
+  // Handle WebSocket upgrade
+  server.on('upgrade', (req, socket, head) => {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit('connection', ws, req);
+    });
+  });
+
+  return server;
 }

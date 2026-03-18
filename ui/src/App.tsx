@@ -1,8 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { SignIn, SignUp, SignedIn, SignedOut, RedirectToSignIn, useAuth } from '@clerk/react';
-import { api, setAuthToken, Company } from './api';
+import { api, Company } from './api';
 import Layout from './components/Layout';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';

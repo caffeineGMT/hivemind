@@ -204,10 +204,34 @@ export interface BillingData {
 
 // ── Fetch helpers ──────────────────────────────────────────────────
 
+// Token management - will be set by the app
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
+
 // Try live API first, fall back to static JSON snapshots (for Vercel deployment)
-async function fetchJson<T>(url: string): Promise<T> {
+async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  // Add auth token if available
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
+  // Merge with provided headers
+  if (options?.headers) {
+    Object.assign(headers, options.headers);
+  }
+
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, {
+      ...options,
+      headers,
+    });
     if (res.ok) {
       const ct = res.headers.get('content-type') || '';
       if (ct.includes('application/json')) return res.json();
@@ -268,9 +292,11 @@ export const api = {
     fetchJson<TaskDetail>(`/api/tasks/${taskId}`),
 
   addComment: async (taskId: string, message: string) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch(`/api/tasks/${taskId}/comments`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ message }),
     });
     return res.json();
@@ -280,9 +306,11 @@ export const api = {
     fetchJson<CostData>(`/api/companies/${companyId}/costs`),
 
   nudge: async (companyId: string, message: string) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch('/api/nudge', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ companyId, message }),
     });
     return res.json();
@@ -299,18 +327,22 @@ export const api = {
     successUrl?: string;
     cancelUrl?: string;
   }) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch('/api/stripe/checkout', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(data),
     });
     return res.json() as Promise<CheckoutSession>;
   },
 
   createPortal: async (companyId: string, returnUrl?: string) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
     const res = await fetch('/api/stripe/portal', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ companyId, returnUrl }),
     });
     return res.json() as Promise<PortalSession>;
@@ -323,3 +355,48 @@ export const api = {
   getBilling: (companyId: string) =>
     fetchJson<BillingData>(`/api/companies/${companyId}/billing`),
 };
+
+// ── WebSocket Integration ──────────────────────────────────────────
+import { QueryClient } from '@tanstack/react-query';
+import { wsClient } from './websocket';
+
+let queryClientInstance: QueryClient | null = null;
+
+export function setupWebSocket(queryClient: QueryClient) {
+  queryClientInstance = queryClient;
+
+  // Connect WebSocket
+  wsClient.connect();
+
+  // Handle WebSocket messages and invalidate queries
+  wsClient.addMessageHandler((event, _data) => {
+    if (!queryClientInstance) return;
+
+    console.log('[ws] Received event:', event);
+
+    // Invalidate relevant queries based on event type
+    switch (event) {
+      case 'comment_added':
+      case 'nudge_received':
+      case 'activity_logged':
+      case 'task_updated':
+      case 'agent_status_changed':
+        // Invalidate all dashboard-related queries
+        queryClientInstance.invalidateQueries({ queryKey: ['dashboard'] });
+        queryClientInstance.invalidateQueries({ queryKey: ['activity'] });
+        queryClientInstance.invalidateQueries({ queryKey: ['tasks'] });
+        queryClientInstance.invalidateQueries({ queryKey: ['agents'] });
+        break;
+
+      case 'cost_updated':
+        queryClientInstance.invalidateQueries({ queryKey: ['costs'] });
+        break;
+
+      default:
+        // Unknown event, invalidate dashboard as a fallback
+        queryClientInstance.invalidateQueries({ queryKey: ['dashboard'] });
+    }
+  });
+}
+
+export { wsClient };

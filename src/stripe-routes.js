@@ -1,4 +1,4 @@
-import { stripe, STRIPE_PRICES, getTierFromPriceId } from "./stripe-config.js";
+import { getStripe, STRIPE_PRICES, getTierFromPriceId } from "./stripe-config.js";
 import {
   getCompanyByStripeCustomerId,
   getCompanyByStripeSubscriptionId,
@@ -11,6 +11,11 @@ import { getCompany } from "./db.js";
 
 // Create Stripe checkout session
 export async function createCheckoutSession(req, res) {
+  const stripe = getStripe();
+  if (!stripe) {
+    return res.status(500).json({ error: "Stripe not configured" });
+  }
+
   try {
     const { tier, companyId, email, successUrl, cancelUrl } = req.body;
 
@@ -85,6 +90,11 @@ export async function createCheckoutSession(req, res) {
 
 // Create Stripe billing portal session
 export async function createPortalSession(req, res) {
+  const stripe = getStripe();
+  if (!stripe) {
+    return res.status(500).json({ error: "Stripe not configured" });
+  }
+
   try {
     const { companyId, returnUrl } = req.body;
 
@@ -143,6 +153,11 @@ export async function getSubscriptionStatus(req, res) {
 
 // Stripe webhook handler
 export async function handleWebhook(req, res) {
+  const stripe = getStripe();
+  if (!stripe) {
+    return res.status(500).json({ error: "Stripe not configured" });
+  }
+
   const sig = req.headers["stripe-signature"];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 

@@ -193,20 +193,6 @@ function migrate(db) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS deployment_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id TEXT NOT NULL REFERENCES companies(id),
-      commit_sha TEXT NOT NULL,
-      git_tag TEXT NOT NULL,
-      deployment_url TEXT,
-      status TEXT NOT NULL DEFAULT 'pending',
-      health_check_passed INTEGER DEFAULT 0,
-      health_check_error TEXT,
-      deployed_at TEXT NOT NULL DEFAULT (datetime('now')),
-      rolled_back_at TEXT,
-      rollback_reason TEXT
-    );
-
     CREATE INDEX IF NOT EXISTS idx_usage_company_metric ON usage_logs(company_id, metric);
     CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_logs(timestamp);
     CREATE INDEX IF NOT EXISTS idx_analytics_company ON analytics_events(company_id);
@@ -214,20 +200,6 @@ function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_subscriptions_company ON subscriptions(company_id);
     CREATE INDEX IF NOT EXISTS idx_checkpoints_agent ON checkpoints(agent_id);
     CREATE INDEX IF NOT EXISTS idx_incidents_company ON incidents(company_id);
-    CREATE INDEX IF NOT EXISTS idx_deployments_company ON deployment_history(company_id);
-    CREATE INDEX IF NOT EXISTS idx_deployments_status ON deployment_history(status);
-
-    CREATE TABLE IF NOT EXISTS retry_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      task_id TEXT,
-      agent_name TEXT,
-      attempt INTEGER NOT NULL,
-      error_type TEXT NOT NULL,
-      error_message TEXT,
-      timestamp TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_retry_logs_task ON retry_logs(task_id);
   `);
 }
 
@@ -600,41 +572,4 @@ export function getRecentRetries(agentName, limit = 10) {
   return getDb().prepare(
     "SELECT * FROM retry_logs WHERE agent_name = ? ORDER BY timestamp DESC LIMIT ?"
   ).all(agentName, limit);
-}
-
-// ── Deployment tracking ──────────────────────────────────────────────────
-
-export function logDeployment({ companyId, commitSha, gitTag, deploymentUrl, status }) {
-  const result = getDb().prepare(
-    "INSERT INTO deployment_history (company_id, commit_sha, git_tag, deployment_url, status) VALUES (?, ?, ?, ?, ?)"
-  ).run(companyId, commitSha, gitTag, deploymentUrl || null, status || 'pending');
-  return result.lastInsertRowid;
-}
-
-export function updateDeploymentStatus(deploymentId, status, healthCheckPassed, healthCheckError) {
-  getDb().prepare(
-    "UPDATE deployment_history SET status = ?, health_check_passed = ?, health_check_error = ? WHERE id = ?"
-  ).run(status, healthCheckPassed ? 1 : 0, healthCheckError || null, deploymentId);
-}
-
-export function markDeploymentRolledBack(deploymentId, reason) {
-  getDb().prepare(
-    "UPDATE deployment_history SET rolled_back_at = datetime('now'), rollback_reason = ?, status = 'rolled_back' WHERE id = ?"
-  ).run(reason, deploymentId);
-}
-
-export function getDeploymentHistory(companyId, limit = 20) {
-  return getDb().prepare(
-    "SELECT * FROM deployment_history WHERE company_id = ? ORDER BY deployed_at DESC LIMIT ?"
-  ).all(companyId, limit);
-}
-
-export function getLastSuccessfulDeployment(companyId) {
-  return getDb().prepare(
-    "SELECT * FROM deployment_history WHERE company_id = ? AND status = 'success' AND health_check_passed = 1 ORDER BY deployed_at DESC LIMIT 1"
-  ).get(companyId);
-}
-
-export function getDeployment(deploymentId) {
-  return getDb().prepare("SELECT * FROM deployment_history WHERE id = ?").get(deploymentId);
 }
