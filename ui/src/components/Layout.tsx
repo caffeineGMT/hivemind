@@ -10,7 +10,6 @@ import {
   Hexagon,
   Menu,
   X,
-  Target,
   HeartPulse,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
@@ -32,7 +31,6 @@ const navItems = [
   { to: '/finance', icon: DollarSign, label: 'Finance' },
   { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
   { to: '/costs', icon: DollarSign, label: 'Costs' },
-  { to: '/marketing', icon: Target, label: 'Marketing' },
 ];
 
 function statusColor(status: string) {
