@@ -14,6 +14,7 @@ import {
   Building2,
   BarChart3,
   Settings as SettingsIcon,
+  Map,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Company } from '../api';
@@ -38,6 +39,7 @@ function getNavItems(companySlug: string) {
     { to: `/${companySlug}/analytics`, icon: TrendingUp, label: 'Analytics' },
     { to: `/${companySlug}/cross-project-analytics`, icon: BarChart3, label: 'Cross-Project' },
     { to: `/${companySlug}/costs`, icon: DollarSign, label: 'Costs' },
+    { to: `/${companySlug}/roadmap`, icon: Map, label: 'Roadmap' },
     { to: `/${companySlug}/settings`, icon: SettingsIcon, label: 'Settings' },
   ];
 }

@@ -38,6 +38,48 @@ function migrate(db) {
     }
   } catch {}
 
+  // Add 'account_id' column to companies if missing
+  try {
+    const cols = db.prepare("PRAGMA table_info(companies)").all();
+    if (cols.length > 0 && !cols.find(c => c.name === "account_id")) {
+      db.exec("ALTER TABLE companies ADD COLUMN account_id TEXT");
+    }
+  } catch {}
+
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS accounts (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      tier TEXT NOT NULL DEFAULT 'free',
+      tier_limits TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email);
+  `);
+
+  // Add Paddle subscription columns to accounts
+  try {
+    const acctCols = db.prepare("PRAGMA table_info(accounts)").all();
+    if (acctCols.length > 0 && !acctCols.find(c => c.name === "subscription_id")) {
+      db.exec("ALTER TABLE accounts ADD COLUMN subscription_id TEXT");
+    }
+    if (acctCols.length > 0 && !acctCols.find(c => c.name === "subscription_status")) {
+      db.exec("ALTER TABLE accounts ADD COLUMN subscription_status TEXT DEFAULT 'none'");
+    }
+    if (acctCols.length > 0 && !acctCols.find(c => c.name === "paddle_customer_id")) {
+      db.exec("ALTER TABLE accounts ADD COLUMN paddle_customer_id TEXT");
+    }
+    if (acctCols.length > 0 && !acctCols.find(c => c.name === "monthly_agent_hours_included")) {
+      db.exec("ALTER TABLE accounts ADD COLUMN monthly_agent_hours_included REAL");
+    }
+    if (acctCols.length > 0 && !acctCols.find(c => c.name === "monthly_api_spend_included")) {
+      db.exec("ALTER TABLE accounts ADD COLUMN monthly_api_spend_included REAL");
+    }
+  } catch {}
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS companies (
@@ -46,6 +88,9 @@ function migrate(db) {
       goal TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active',
       workspace TEXT,
+      sprint INTEGER NOT NULL DEFAULT 0,
+      deployment_url TEXT,
+      account_id TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -221,13 +266,44 @@ function migrate(db) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_project_config_company ON project_config(company_id);
+
+    CREATE TABLE IF NOT EXISTS usage_summary (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      agent_hours REAL NOT NULL DEFAULT 0,
+      api_spend REAL NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(account_id, date)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_usage_summary_account ON usage_summary(account_id);
+    CREATE INDEX IF NOT EXISTS idx_usage_summary_date ON usage_summary(date);
+
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id TEXT NOT NULL REFERENCES accounts(id),
+      paddle_subscription_id TEXT NOT NULL,
+      paddle_customer_id TEXT,
+      tier TEXT NOT NULL,
+      status TEXT NOT NULL,
+      trial_ends_at TEXT,
+      next_billing_date TEXT,
+      canceled_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(paddle_subscription_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_account ON subscriptions(account_id);
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_paddle_id ON subscriptions(paddle_subscription_id);
   `);
 }
 
-export function createCompany({ id, name, goal, workspace }) {
+export function createCompany({ id, name, goal, workspace, accountId }) {
   const db = getDb();
-  db.prepare("INSERT INTO companies (id, name, goal, workspace) VALUES (?, ?, ?, ?)").run(id, name, goal, workspace);
-  return { id, name, goal, workspace };
+  db.prepare("INSERT INTO companies (id, name, goal, workspace, account_id) VALUES (?, ?, ?, ?, ?)").run(id, name, goal, workspace, accountId || null);
+  return { id, name, goal, workspace, account_id: accountId || null };
 }
 
 export function getCompany(id) {
@@ -860,4 +936,201 @@ export function cleanOldLogs(daysToKeep = 30) {
   const cutoff = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000).toISOString();
   const result = getDb().prepare('DELETE FROM logs WHERE timestamp < ?').run(cutoff);
   return result.changes;
+}
+
+// ── Account management ──────────────────────────────────────────────────
+
+export function createAccount({ id, email, passwordHash, tier }) {
+  const db = getDb();
+  db.prepare(
+    "INSERT INTO accounts (id, email, password_hash, tier) VALUES (?, ?, ?, ?)"
+  ).run(id, email, passwordHash, tier || "free");
+  return { id, email, tier: tier || "free" };
+}
+
+export function getAccountByEmail(email) {
+  return getDb().prepare("SELECT * FROM accounts WHERE email = ?").get(email);
+}
+
+export function getAccountById(id) {
+  return getDb().prepare("SELECT * FROM accounts WHERE id = ?").get(id);
+}
+
+export function updateAccountTier(accountId, tier, subscriptionId = null, status = null) {
+  const db = getDb();
+  if (subscriptionId && status) {
+    db.prepare(`
+      UPDATE accounts
+      SET tier = ?,
+          subscription_id = ?,
+          subscription_status = ?,
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).run(tier, subscriptionId, status, accountId);
+  } else {
+    db.prepare("UPDATE accounts SET tier = ?, updated_at = datetime('now') WHERE id = ?").run(tier, accountId);
+  }
+}
+
+export function getCompaniesByAccount(accountId) {
+  return getDb().prepare("SELECT * FROM companies WHERE account_id = ?").all(accountId);
+}
+
+export function linkCompanyToAccount(companyId, accountId) {
+  getDb().prepare("UPDATE companies SET account_id = ? WHERE id = ?").run(accountId, companyId);
+}
+
+// ── Onboarding ──────────────────────────────────────────────────
+export function getOnboardingStatus() {
+  // For single-user mode, we use a simple key-value approach
+  const db = getDb();
+
+  // Create a simple settings table if it doesn't exist
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  const setting = db.prepare("SELECT value FROM app_settings WHERE key = ?").get('onboarding_completed');
+  return {
+    onboarding_completed: setting ? parseInt(setting.value, 10) === 1 : false
+  };
+}
+
+export function setOnboardingCompleted() {
+  const db = getDb();
+
+  db.prepare(`
+    INSERT INTO app_settings (key, value)
+    VALUES ('onboarding_completed', '1')
+    ON CONFLICT(key) DO UPDATE SET
+      value = '1',
+      updated_at = datetime('now')
+  `).run();
+}
+
+// ── Analytics events ──────────────────────────────────────────────────
+export function logAnalyticsEvent({ companyId, userId, sessionId, eventType, eventData, revenueUsd }) {
+  const db = getDb();
+
+  // Create analytics_events table if it doesn't exist
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS analytics_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT,
+      user_id TEXT,
+      session_id TEXT,
+      event_type TEXT NOT NULL,
+      event_data TEXT,
+      revenue_usd REAL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_analytics_events_type ON analytics_events(event_type);
+    CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON analytics_events(user_id);
+  `);
+
+  db.prepare(
+    `INSERT INTO analytics_events (company_id, user_id, session_id, event_type, event_data, revenue_usd)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(
+    companyId || null,
+    userId || null,
+    sessionId || null,
+    eventType,
+    eventData ? JSON.stringify(eventData) : null,
+    revenueUsd || 0
+  );
+}
+
+// ── Paddle Subscription Management ────────────────────────────────────────
+
+export function createSubscription({ accountId, paddleSubscriptionId, paddleCustomerId, tier, status, trialEndsAt }) {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO subscriptions (account_id, paddle_subscription_id, paddle_customer_id, tier, status, trial_ends_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(accountId, paddleSubscriptionId, paddleCustomerId, tier, status, trialEndsAt || null);
+}
+
+export function updateSubscriptionStatus(paddleSubscriptionId, status, canceledAt) {
+  const db = getDb();
+  const updates = ["status = ?", "updated_at = datetime('now')"];
+  const values = [status];
+
+  if (canceledAt) {
+    updates.push("canceled_at = ?");
+    values.push(canceledAt);
+  }
+
+  values.push(paddleSubscriptionId);
+
+  db.prepare(`
+    UPDATE subscriptions
+    SET ${updates.join(", ")}
+    WHERE paddle_subscription_id = ?
+  `).run(...values);
+}
+
+export function getAccountBySubscriptionId(paddleSubscriptionId) {
+  return getDb().prepare(`
+    SELECT a.*, s.paddle_subscription_id, s.status as subscription_status, s.tier
+    FROM accounts a
+    JOIN subscriptions s ON a.id = s.account_id
+    WHERE s.paddle_subscription_id = ?
+  `).get(paddleSubscriptionId);
+}
+
+// ── Usage-based billing ──────────────────────────────────────────────────
+
+export function setAccountQuotas(accountId, { monthlyAgentHours, monthlyApiSpend }) {
+  const db = getDb();
+  db.prepare(`
+    UPDATE accounts
+    SET monthly_agent_hours_included = ?,
+        monthly_api_spend_included = ?,
+        updated_at = datetime('now')
+    WHERE id = ?
+  `).run(monthlyAgentHours, monthlyApiSpend, accountId);
+}
+
+export function getAccountWithQuotas(accountId) {
+  return getDb().prepare(`
+    SELECT * FROM accounts WHERE id = ?
+  `).get(accountId);
+}
+
+export function saveDailyUsageSummaryDb(accountId, date, agentHours, apiSpend) {
+  getDb().prepare(`
+    INSERT INTO usage_summary (account_id, date, agent_hours, api_spend)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(account_id, date) DO UPDATE SET
+      agent_hours = excluded.agent_hours,
+      api_spend = excluded.api_spend
+  `).run(accountId, date, agentHours, apiSpend);
+}
+
+export function getMonthlyUsageSummaryDb(accountId, startDate) {
+  return getDb().prepare(`
+    SELECT
+      SUM(agent_hours) as total_agent_hours,
+      SUM(api_spend) as total_api_spend,
+      COUNT(*) as days_with_usage
+    FROM usage_summary
+    WHERE account_id = ?
+      AND date >= ?
+  `).get(accountId, startDate);
+}
+
+export function getAccountUsageHistory(accountId, startDate, endDate) {
+  return getDb().prepare(`
+    SELECT * FROM usage_summary
+    WHERE account_id = ?
+      AND date >= ?
+      AND date <= ?
+    ORDER BY date DESC
+  `).all(accountId, startDate, endDate);
 }

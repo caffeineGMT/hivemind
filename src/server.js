@@ -9,6 +9,7 @@ import fs from "node:fs";
 import { WebSocketServer } from "ws";
 import * as projectConfig from "./project-config.js";
 import crypto from "node:crypto";
+import * as usageTracking from "./usage-tracking.js";
 import os from "node:os";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -657,6 +658,181 @@ export function createServer(port = 3100) {
       console.error('[analytics] Error fetching cross-project data:', err);
       res.status(500).json({ error: 'Failed to fetch analytics data' });
     }
+
+  // ── Usage-based billing API ──────────────────────────────────────────────
+
+  app.get("/api/accounts/:accountId/usage", (req, res) => {
+    try {
+      const accountId = req.params.accountId;
+      const account = db.getAccount(accountId);
+      
+      if (!account) {
+        return res.status(404).json({ error: "Account not found" });
+      }
+
+      const overages = usageTracking.getOverages(accountId);
+
+      if (!overages) {
+        return res.status(500).json({ error: "Failed to calculate usage" });
+      }
+
+      res.json({
+        account_id: accountId,
+        tier: account.tier,
+        agent_hours: overages.agent_hours,
+        api_spend: overages.api_spend,
+        estimated_bill: overages.estimated_bill,
+        total_overage_charge: overages.total_overage_charge,
+      });
+    } catch (err) {
+      console.error("[usage] Error fetching usage:", err);
+      res.status(500).json({ error: "Failed to fetch usage data" });
+    }
+  });
+
+  app.get("/api/accounts/:accountId/usage/export", (req, res) => {
+    try {
+      const accountId = req.params.accountId;
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: "startDate and endDate required (YYYY-MM-DD format)" });
+      }
+
+      const account = db.getAccount(accountId);
+      if (!account) {
+        return res.status(404).json({ error: "Account not found" });
+      }
+
+      const csv = usageTracking.generateUsageExportCSV(accountId, startDate, endDate);
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="usage-${accountId}-${startDate}-to-${endDate}.csv"`);
+      res.send(csv);
+    } catch (err) {
+      console.error("[usage] Error exporting usage:", err);
+      res.status(500).json({ error: "Failed to export usage data" });
+    }
+  });
+
+  app.post("/api/accounts/:accountId/quotas", (req, res) => {
+    try {
+      const accountId = req.params.accountId;
+      const { monthlyAgentHours, monthlyApiSpend } = req.body || {};
+
+      const account = db.getAccount(accountId);
+      if (!account) {
+        return res.status(404).json({ error: "Account not found" });
+      }
+
+      db.setAccountQuotas(accountId, {
+        monthlyAgentHours,
+        monthlyApiSpend,
+      });
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("[usage] Error setting quotas:", err);
+      res.status(500).json({ error: "Failed to set quotas" });
+    }
+  });
+  });
+
+
+  // ── Paddle Payment Endpoints ────────────────────────────────────────
+
+  // Get pricing tiers
+  app.get("/api/pricing/tiers", (req, res) => {
+    res.json(TIER_LIMITS);
+  });
+
+  // Create checkout link for a tier
+  app.post("/api/paddle/checkout", requireAuth, async (req, res) => {
+    const { tier } = req.body || {};
+
+    if (!["pro", "team", "enterprise"].includes(tier)) {
+      return res.status(400).json({ error: "Invalid tier. Must be 'pro', 'team', or 'enterprise'." });
+    }
+
+    const accountId = req.user.id;
+
+    try {
+      const checkoutUrl = await createCheckoutLink(accountId, tier);
+      res.json({ success: true, checkoutUrl });
+    } catch (error) {
+      console.error("[paddle] Checkout error:", error);
+      res.status(500).json({ error: "Failed to create checkout link" });
+    }
+  });
+
+  // Handle Paddle webhooks
+  app.post("/api/paddle/webhook", express.raw({ type: "application/json" }), (req, res) => {
+    try {
+      const signature = req.headers["paddle-signature"];
+      const payload = JSON.parse(req.body.toString());
+
+      const result = handleWebhook(payload, signature);
+
+      // Update account tier based on webhook event
+      if (result.action === "activate" || result.action === "update") {
+        db.updateAccountTier(result.accountId, result.tier, result.subscriptionId, result.status);
+
+        if (result.action === "activate") {
+          db.createSubscription({
+            accountId: result.accountId,
+            paddleSubscriptionId: result.subscriptionId,
+            paddleCustomerId: payload.data.customer_id,
+            tier: result.tier,
+            status: result.status,
+            trialEndsAt: result.trialEndsAt,
+          });
+        }
+      } else if (result.action === "downgrade") {
+        db.updateAccountTier(result.accountId, "free", null, "canceled");
+        db.updateSubscriptionStatus(result.subscriptionId, "canceled", new Date().toISOString());
+      } else if (result.action === "trial_started") {
+        db.updateAccountTier(result.accountId, result.tier, result.subscriptionId, "trialing");
+        db.createSubscription({
+          accountId: result.accountId,
+          paddleSubscriptionId: result.subscriptionId,
+          paddleCustomerId: payload.data.customer_id,
+          tier: result.tier,
+          status: "trialing",
+          trialEndsAt: result.trialEndsAt,
+        });
+      }
+
+      res.json({ success: true, result });
+    } catch (error) {
+      console.error("[paddle] Webhook error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Check tier limits
+  app.get("/api/tier/check", requireAuth, (req, res) => {
+    const { action } = req.query;
+    const account = db.getAccount(req.user.id);
+
+    if (!account) {
+      return res.status(404).json({ error: "Account not found" });
+    }
+
+    // Count current resources
+    const companies = db.listCompanies().filter(c => c.account_id === req.user.id);
+    let currentCount = 0;
+
+    if (action === "create_project") {
+      currentCount = companies.length;
+    } else if (action === "create_agent") {
+      currentCount = companies.reduce((sum, c) => {
+        const agents = db.getAgentsByCompany(c.id);
+        return sum + agents.length;
+      }, 0);
+    }
+
+    const check = checkTierLimit(account.tier, action, currentCount);
+    res.json(check);
   });
 
   if (fs.existsSync(uiDist)) {

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { Settings as SettingsIcon, Zap, DollarSign, Activity, Clock, Save, RotateCcw, Archive, Trash2 } from 'lucide-react';
 
@@ -42,10 +42,14 @@ export default function Settings({ companyId }: { companyId: string }) {
       if (!res.ok) throw new Error('Failed to fetch config');
       return res.json();
     },
-    onSuccess: (data) => {
-      if (!localConfig) setLocalConfig(data.config);
-    },
   });
+
+  // Initialize localConfig when data loads
+  useEffect(() => {
+    if (data?.config && !localConfig) {
+      setLocalConfig(data.config);
+    }
+  }, [data, localConfig]);
 
   const saveMutation = useMutation({
     mutationFn: async (updates: Partial<ProjectConfig>) => {
@@ -57,7 +61,7 @@ export default function Settings({ companyId }: { companyId: string }) {
       if (!res.ok) throw new Error('Failed to save config');
       return res.json();
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['config', companyId] });
       setHasUnsavedChanges(false);
     },
@@ -73,9 +77,11 @@ export default function Settings({ companyId }: { companyId: string }) {
       if (!res.ok) throw new Error('Failed to apply preset');
       return res.json();
     },
-    onSuccess: (data) => {
+    onSettled: (data) => {
       queryClient.invalidateQueries({ queryKey: ['config', companyId] });
-      setLocalConfig(data.config);
+      if (data?.config) {
+        setLocalConfig(data.config);
+      }
       setHasUnsavedChanges(false);
     },
   });
@@ -88,7 +94,7 @@ export default function Settings({ companyId }: { companyId: string }) {
       if (!res.ok) throw new Error('Failed to reset config');
       return res.json();
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['config', companyId] });
       setHasUnsavedChanges(false);
     },
@@ -102,7 +108,7 @@ export default function Settings({ companyId }: { companyId: string }) {
       if (!res.ok) throw new Error('Failed to archive project');
       return res.json();
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
     },
   });
@@ -115,7 +121,7 @@ export default function Settings({ companyId }: { companyId: string }) {
       if (!res.ok) throw new Error('Failed to delete project');
       return res.json();
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
       window.location.href = '/';
     },
@@ -170,11 +176,11 @@ export default function Settings({ companyId }: { companyId: string }) {
             </button>
             <button
               onClick={handleSave}
-              disabled={saveMutation.isLoading}
+              disabled={saveMutation.isPending}
               className="flex items-center gap-2 rounded-lg bg-amber-600/80 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-500 disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
-              {saveMutation.isLoading ? 'Saving...' : 'Save Changes'}
+              {saveMutation.isPending ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         )}
@@ -191,7 +197,7 @@ export default function Settings({ companyId }: { companyId: string }) {
             <button
               key={preset}
               onClick={() => handlePreset(preset)}
-              disabled={presetMutation.isLoading}
+              disabled={presetMutation.isPending}
               className="rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-3 text-sm font-medium text-zinc-300 transition hover:border-amber-600/50 hover:bg-zinc-800 disabled:opacity-50"
             >
               {preset.replace(/_/g, ' ')}
@@ -384,7 +390,7 @@ export default function Settings({ companyId }: { companyId: string }) {
         <div className="space-y-3">
           <button
             onClick={() => archiveMutation.mutate()}
-            disabled={archiveMutation.isLoading}
+            disabled={archiveMutation.isPending}
             className="flex w-full items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-3 text-sm font-medium text-zinc-300 transition hover:border-red-600/50 hover:bg-zinc-800 disabled:opacity-50"
           >
             <span className="flex items-center gap-2">
@@ -419,10 +425,10 @@ export default function Settings({ companyId }: { companyId: string }) {
                 </button>
                 <button
                   onClick={() => deleteMutation.mutate()}
-                  disabled={deleteMutation.isLoading}
+                  disabled={deleteMutation.isPending}
                   className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-500 disabled:opacity-50"
                 >
-                  {deleteMutation.isLoading ? 'Deleting...' : 'Confirm Delete'}
+                  {deleteMutation.isPending ? 'Deleting...' : 'Confirm Delete'}
                 </button>
               </div>
             </div>

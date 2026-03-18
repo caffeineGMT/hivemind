@@ -7,11 +7,19 @@
     "hivemind": "./bin/hivemind.js"
   },
   "scripts": {
-    "start": "node bin/hivemind.js"
+    "start": "node bin/hivemind.js",
+    "usage:init": "node scripts/init-usage-billing.js",
+    "usage:check": "node scripts/daily-usage-check.js",
+    "usage:paddle-report": "node scripts/monthly-paddle-report.js"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "better-sqlite3": "^11.10.0",
+    "cookie-parser": "^1.4.7",
     "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^8.0.3",
+    "pg": "^8.20.0",
     "winston": "^3.19.0",
     "ws": "^8.19.0"
   }

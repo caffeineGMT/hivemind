@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hivemind-postgres
+    environment:
+      POSTGRES_DB: hivemind
+      POSTGRES_USER: hivemind
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hivemind"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: hivemind-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DB_URL: postgresql://hivemind:${POSTGRES_PASSWORD:-changeme}@postgres:5432/hivemind
+
+      # Claude API Configuration (REQUIRED)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+      # License Key (REQUIRED for on-premise)
+      HIVEMIND_LICENSE_KEY: ${HIVEMIND_LICENSE_KEY}
+
+      # Optional Configuration
+      HIVEMIND_HOME: /app/data
+      HIVEMIND_MAX_AGENTS: ${HIVEMIND_MAX_AGENTS:-2}
+      HIVEMIND_HEARTBEAT_SEC: ${HIVEMIND_HEARTBEAT_SEC:-60}
+      HIVEMIND_HEALTH_CHECK_SEC: ${HIVEMIND_HEALTH_CHECK_SEC:-30}
+
+      # Node environment
+      NODE_ENV: production
+    volumes:
+      - app-data:/app/data
+      - app-logs:/app/data/logs
+    ports:
+      - "3100:3100"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+    driver: local
+  app-data:
+    driver: local
+  app-logs:
+    driver: local

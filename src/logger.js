@@ -1,5 +1,18 @@
 import winston from 'winston';
+import { Writable } from 'node:stream';
 import * as db from './db.js';
+
+const dbStream = new Writable({
+  write(chunk, encoding, callback) {
+    try {
+      const parsed = JSON.parse(chunk.toString());
+      db.logStructured(parsed);
+    } catch (err) {
+      // Silently ignore parse errors
+    }
+    callback();
+  }
+});
 
 const logger = winston.createLogger({
   level: 'info',
@@ -11,18 +24,7 @@ const logger = winston.createLogger({
     new winston.transports.Console({
       format: winston.format.simple()
     }),
-    new winston.transports.Stream({
-      stream: {
-        write: (message) => {
-          try {
-            const parsed = JSON.parse(message);
-            db.logStructured(parsed);
-          } catch (err) {
-            // Silently ignore parse errors for console output
-          }
-        }
-      }
-    })
+    new winston.transports.Stream({ stream: dbStream })
   ]
 });
 

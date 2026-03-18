@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cursor + Hivemind: Code to Deploy in 60 Minutes</title>
+  <meta name="description" content="Deploy your Cursor projects automatically with AI agents. Full infrastructure in minutes.">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 100px 20px;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+      font-weight: 800;
+    }
+
+    .hero p {
+      font-size: 24px;
+      margin-bottom: 40px;
+      opacity: 0.9;
+    }
+
+    .cta-button {
+      display: inline-block;
+      padding: 18px 40px;
+      background: white;
+      color: #667eea;
+      text-decoration: none;
+      border-radius: 30px;
+      font-weight: 700;
+      font-size: 18px;
+      transition: transform 0.3s;
+    }
+
+    .cta-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 80px 20px;
+    }
+
+    .section {
+      margin-bottom: 80px;
+    }
+
+    .section h2 {
+      font-size: 36px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 40px;
+      margin-top: 60px;
+    }
+
+    .feature {
+      text-align: center;
+      padding: 30px;
+    }
+
+    .feature-icon {
+      font-size: 48px;
+      margin-bottom: 20px;
+    }
+
+    .feature h3 {
+      font-size: 24px;
+      margin-bottom: 15px;
+    }
+
+    .feature p {
+      color: #666;
+      font-size: 16px;
+    }
+
+    .comparison {
+      background: #f8fafc;
+      padding: 60px 40px;
+      border-radius: 10px;
+    }
+
+    .comparison table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .comparison th,
+    .comparison td {
+      padding: 20px;
+      text-align: left;
+    }
+
+    .comparison th {
+      background: #667eea;
+      color: white;
+      font-weight: 700;
+    }
+
+    .comparison tr:nth-child(even) {
+      background: #f8fafc;
+    }
+
+    .comparison .old {
+      color: #ef4444;
+    }
+
+    .comparison .new {
+      color: #10b981;
+      font-weight: 700;
+    }
+
+    .testimonials {
+      background: #667eea;
+      color: white;
+      padding: 80px 20px;
+    }
+
+    .testimonial {
+      max-width: 800px;
+      margin: 0 auto 40px;
+      padding: 40px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+    }
+
+    .testimonial p {
+      font-size: 20px;
+      font-style: italic;
+      margin-bottom: 20px;
+    }
+
+    .testimonial .author {
+      font-weight: 700;
+    }
+
+    .pricing {
+      text-align: center;
+    }
+
+    .pricing-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 30px;
+      margin-top: 60px;
+    }
+
+    .pricing-card {
+      background: white;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 40px;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .pricing-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+
+    .pricing-card.featured {
+      border-color: #667eea;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .pricing-card h3 {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    .pricing-card .price {
+      font-size: 48px;
+      font-weight: 800;
+      margin: 20px 0;
+    }
+
+    .pricing-card ul {
+      list-style: none;
+      margin: 30px 0;
+      text-align: left;
+    }
+
+    .pricing-card ul li {
+      padding: 10px 0;
+      padding-left: 30px;
+      position: relative;
+    }
+
+    .pricing-card ul li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #10b981;
+      font-weight: bold;
+    }
+
+    .pricing-card.featured ul li:before {
+      color: white;
+    }
+
+    footer {
+      background: #1a202c;
+      color: white;
+      padding: 40px 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <h1>🚀 Cursor + Hivemind</h1>
+    <p>Write code in Cursor. Deploy with AI agents. Ship in 60 minutes.</p>
+    <a href="https://hivemind.dev/signup?ref=cursor" class="cta-button">Get Started Free</a>
+  </div>
+
+  <div class="container">
+    <div class="section">
+      <h2>The Perfect Workflow</h2>
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">⚡</div>
+          <h3>Code in Cursor</h3>
+          <p>Use AI-assisted coding to build your app 10x faster</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🤖</div>
+          <h3>Deploy with Hivemind</h3>
+          <p>AI agents handle infrastructure, database, auth, payments</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">💰</div>
+          <h3>Get Customers</h3>
+          <p>Production app live in 60 minutes, ready for paying users</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section comparison">
+      <h2>Before vs After</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Task</th>
+            <th>Before Hivemind</th>
+            <th>With Hivemind</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Write Code</td>
+            <td class="old">4-5 days</td>
+            <td class="new">4-5 hours (with Cursor)</td>
+          </tr>
+          <tr>
+            <td>Set Up Database</td>
+            <td class="old">2 hours</td>
+            <td class="new">Automatic</td>
+          </tr>
+          <tr>
+            <td>Configure Deployment</td>
+            <td class="old">1 day</td>
+            <td class="new">Automatic</td>
+          </tr>
+          <tr>
+            <td>Add Authentication</td>
+            <td class="old">1-2 days</td>
+            <td class="new">Automatic</td>
+          </tr>
+          <tr>
+            <td>Integrate Payments</td>
+            <td class="old">2-3 days</td>
+            <td class="new">Automatic</td>
+          </tr>
+          <tr>
+            <td>Launch</td>
+            <td class="old">2-3 weeks</td>
+            <td class="new">60 minutes</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>How It Works</h2>
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">1️⃣</div>
+          <h3>Build in Cursor</h3>
+          <p>Write your app code using Cursor's AI assistance. Focus on features, not infrastructure.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">2️⃣</div>
+          <h3>Click "Deploy"</h3>
+          <p>Right-click your project → "Deploy with Hivemind" or run `npx hivemind deploy --ref=cursor`</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">3️⃣</div>
+          <h3>AI Agents Work</h3>
+          <p>Watch in real-time as agents set up Vercel, Supabase, Clerk, Stripe, monitoring, and more.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">4️⃣</div>
+          <h3>Ship & Scale</h3>
+          <p>Production app is live. Custom domain, SSL, auto-scaling. Get your first customer same day.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>What Gets Deployed</h2>
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">🔐</div>
+          <h3>Authentication</h3>
+          <p>Clerk setup with email, Google, GitHub login. Session management included.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">💳</div>
+          <h3>Payments</h3>
+          <p>Stripe integration with subscription billing, webhooks, customer portal.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🗄️</div>
+          <h3>Database</h3>
+          <p>PostgreSQL on Neon with connection pooling and automatic backups.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🚀</div>
+          <h3>Deployment</h3>
+          <p>Vercel hosting with edge functions, auto-scaling, and 99.99% uptime.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">📊</div>
+          <h3>Monitoring</h3>
+          <p>Sentry error tracking, PostHog analytics, uptime monitoring included.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🌐</div>
+          <h3>Custom Domain</h3>
+          <p>Your domain with SSL certificate. No "hivemind.dev" subdomain.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section pricing">
+      <h2>Pricing</h2>
+      <div class="pricing-cards">
+        <div class="pricing-card">
+          <h3>Starter</h3>
+          <div class="price">$49<span style="font-size: 20px;">/mo</span></div>
+          <ul>
+            <li>5 deployments/month</li>
+            <li>Basic auth & payments</li>
+            <li>Community support</li>
+            <li>Standard monitoring</li>
+          </ul>
+          <a href="https://hivemind.dev/signup?ref=cursor&plan=starter" class="cta-button" style="background: #667eea; color: white;">Start Free Trial</a>
+        </div>
+
+        <div class="pricing-card featured">
+          <h3>Pro</h3>
+          <div class="price">$99<span style="font-size: 20px;">/mo</span></div>
+          <ul>
+            <li>Unlimited deployments</li>
+            <li>Advanced features</li>
+            <li>Priority support</li>
+            <li>Custom integrations</li>
+            <li>Team collaboration</li>
+          </ul>
+          <a href="https://hivemind.dev/signup?ref=cursor&plan=pro" class="cta-button">Start Free Trial</a>
+        </div>
+
+        <div class="pricing-card">
+          <h3>Enterprise</h3>
+          <div class="price">Custom</div>
+          <ul>
+            <li>Unlimited everything</li>
+            <li>Dedicated support</li>
+            <li>SLA guarantee</li>
+            <li>Custom workflows</li>
+            <li>On-premise option</li>
+          </ul>
+          <a href="https://hivemind.dev/contact?ref=cursor" class="cta-button" style="background: #667eea; color: white;">Contact Sales</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="testimonials">
+    <div class="container">
+      <h2 style="color: white;">What Cursor Users Say</h2>
+      <div class="testimonial">
+        <p>"I can focus on code instead of DevOps. Cursor + Hivemind is my entire stack now."</p>
+        <div class="author">— Alex M., Full-stack Developer</div>
+      </div>
+      <div class="testimonial">
+        <p>"Built my SaaS MVP in a weekend with Cursor, deployed with Hivemind in 47 minutes. First customer 3 hours later."</p>
+        <div class="author">— Jordan K., Solo Founder</div>
+      </div>
+      <div class="testimonial">
+        <p>"This is what I wanted from the no-code movement but actually works for real apps."</p>
+        <div class="author">— Sarah L., Product Designer</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="section" style="text-align: center;">
+      <h2>Ready to Ship Faster?</h2>
+      <p style="font-size: 20px; margin: 30px 0; color: #666;">Join 500+ developers using Cursor + Hivemind</p>
+      <a href="https://hivemind.dev/signup?ref=cursor" class="cta-button">Start Free 14-Day Trial</a>
+      <p style="margin-top: 20px; color: #888;">No credit card required • Cancel anytime • Deploy in 60 minutes</p>
+    </div>
+  </div>
+
+  <footer>
+    <p>&copy; 2026 Hivemind Engine. All rights reserved.</p>
+    <p style="margin-top: 10px;">
+      <a href="/docs" style="color: white; margin: 0 10px;">Docs</a>
+      <a href="/pricing" style="color: white; margin: 0 10px;">Pricing</a>
+      <a href="/partnerships" style="color: white; margin: 0 10px;">Partners</a>
+      <a href="/contact" style="color: white; margin: 0 10px;">Contact</a>
+    </p>
+  </footer>
+
+  <script>
+    // Track page view with referral parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const ref = urlParams.get('ref') || 'cursor';
+
+    // Send tracking event
+    fetch('/api/partnerships/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ref,
+        utm_source: urlParams.get('utm_source'),
+        utm_medium: urlParams.get('utm_medium'),
+        utm_campaign: urlParams.get('utm_campaign')
+      })
+    });
+  </script>
+</body>
+</html>

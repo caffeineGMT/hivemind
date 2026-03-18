@@ -38,6 +38,48 @@ function migrate(db) {
     }
   } catch {}
 
+  // Add 'account_id' column to companies if missing
+  try {
+    const cols = db.prepare("PRAGMA table_info(companies)").all();
+    if (cols.length > 0 && !cols.find(c => c.name === "account_id")) {
+      db.exec("ALTER TABLE companies ADD COLUMN account_id TEXT");
+    }
+  } catch {}
+
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS accounts (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      tier TEXT NOT NULL DEFAULT 'free',
+      tier_limits TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email);
+  `);
+
+  // Add Paddle subscription columns to accounts
+  try {
+    const acctCols = db.prepare("PRAGMA table_info(accounts)").all();
+    if (acctCols.length > 0 && !acctCols.find(c => c.name === "subscription_id")) {
+      db.exec("ALTER TABLE accounts ADD COLUMN subscription_id TEXT");
+    }
+    if (acctCols.length > 0 && !acctCols.find(c => c.name === "subscription_status")) {
+      db.exec("ALTER TABLE accounts ADD COLUMN subscription_status TEXT DEFAULT 'none'");
+    }
+    if (acctCols.length > 0 && !acctCols.find(c => c.name === "paddle_customer_id")) {
+      db.exec("ALTER TABLE accounts ADD COLUMN paddle_customer_id TEXT");
+    }
+  } catch {}
+    if (acctCols.length > 0 && !acctCols.find(c => c.name === "monthly_agent_hours_included")) {
+      db.exec("ALTER TABLE accounts ADD COLUMN monthly_agent_hours_included REAL");
+    }
+    if (acctCols.length > 0 && !acctCols.find(c => c.name === "monthly_api_spend_included")) {
+      db.exec("ALTER TABLE accounts ADD COLUMN monthly_api_spend_included REAL");
+    }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS companies (
@@ -210,13 +252,24 @@ function migrate(db) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_budget_company ON budget_config(company_id);
+
+    CREATE TABLE IF NOT EXISTS project_config (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      config_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(company_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_project_config_company ON project_config(company_id);
   `);
 }
 
-export function createCompany({ id, name, goal, workspace }) {
+export function createCompany({ id, name, goal, workspace, accountId }) {
   const db = getDb();
-  db.prepare("INSERT INTO companies (id, name, goal, workspace) VALUES (?, ?, ?, ?)").run(id, name, goal, workspace);
-  return { id, name, goal, workspace };
+  db.prepare("INSERT INTO companies (id, name, goal, workspace, account_id) VALUES (?, ?, ?, ?, ?)").run(id, name, goal, workspace, accountId || null);
+  return { id, name, goal, workspace, account_id: accountId || null };
 }
 
 export function getCompany(id) {
@@ -225,6 +278,39 @@ export function getCompany(id) {
 
 export function getActiveCompany() {
   return getDb().prepare("SELECT * FROM companies WHERE status = 'active' ORDER BY created_at DESC LIMIT 1").get();
+}
+
+export function updateCompany(id, updates) {
+  const db = getDb();
+  const sets = [];
+  const vals = [];
+
+  if (updates.name !== undefined) { sets.push("name = ?"); vals.push(updates.name); }
+  if (updates.goal !== undefined) { sets.push("goal = ?"); vals.push(updates.goal); }
+  if (updates.status !== undefined) { sets.push("status = ?"); vals.push(updates.status); }
+
+  if (sets.length === 0) return;
+
+  sets.push("updated_at = datetime('now')");
+  vals.push(id);
+
+  db.prepare(`UPDATE companies SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
+}
+
+export function deleteCompany(id) {
+  const db = getDb();
+  // Delete in order: activity_log, comments, tasks, agents, company
+  db.prepare("DELETE FROM activity_log WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM comments WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM cost_log WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM usage_logs WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM incidents WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM deployment_history WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM budget_config WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM project_config WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM tasks WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM agents WHERE company_id = ?").run(id);
+  db.prepare("DELETE FROM companies WHERE id = ?").run(id);
 }
 
 export function listCompanies() {
@@ -503,89 +589,161 @@ export function getUsageHistory(companyId, limit = 100) {
 
 // ── Analytics tracking ──────────────────────────────────────────────────
 
-export function trackEvent({ companyId, userId, sessionId, eventType, eventData, revenueUsd }) {
-  getDb().prepare(
-    `INSERT INTO analytics_events (company_id, user_id, session_id, event_type, event_data, revenue_usd)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(companyId || null, userId || null, sessionId || null, eventType, eventData ? JSON.stringify(eventData) : null, revenueUsd || 0);
+// Cross-project analytics - aggregate metrics across ALL companies
+export function getCrossProjectCostSummary() {
+  return getDb().prepare(`
+    SELECT
+      c.id as company_id,
+      c.name as company_name,
+      c.deployment_url,
+      COUNT(cl.id) as sessions,
+      SUM(cl.input_tokens) as total_input_tokens,
+      SUM(cl.output_tokens) as total_output_tokens,
+      SUM(cl.cache_read_tokens) as total_cache_read_tokens,
+      SUM(cl.total_tokens) as total_tokens,
+      SUM(cl.cost_usd) as total_cost_usd,
+      SUM(cl.duration_ms) as total_duration_ms,
+      SUM(cl.num_turns) as total_turns
+    FROM companies c
+    LEFT JOIN cost_log cl ON c.id = cl.company_id
+    WHERE c.status = 'active'
+    GROUP BY c.id, c.name, c.deployment_url
+    ORDER BY total_cost_usd DESC
+  `).all();
 }
 
-export function getAnalyticsEvents(companyId, limit = 100) {
-  if (companyId) {
-    return getDb().prepare("SELECT * FROM analytics_events WHERE company_id = ? ORDER BY created_at DESC LIMIT ?").all(companyId, limit);
-  }
-  return getDb().prepare("SELECT * FROM analytics_events ORDER BY created_at DESC LIMIT ?").all(limit);
+export function getCrossProjectTaskMetrics() {
+  return getDb().prepare(`
+    SELECT
+      c.id as company_id,
+      c.name as company_name,
+      COUNT(DISTINCT t.id) as total_tasks,
+      SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) as done_tasks,
+      SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) as in_progress_tasks,
+      SUM(CASE WHEN t.status = 'backlog' OR t.status = 'todo' THEN 1 ELSE 0 END) as backlog_tasks,
+      SUM(CASE WHEN t.status = 'blocked' THEN 1 ELSE 0 END) as blocked_tasks,
+      SUM(CASE WHEN t.priority = 'urgent' THEN 1 ELSE 0 END) as urgent_tasks,
+      SUM(CASE WHEN t.priority = 'high' THEN 1 ELSE 0 END) as high_priority_tasks
+    FROM companies c
+    LEFT JOIN tasks t ON c.id = t.company_id
+    WHERE c.status = 'active'
+    GROUP BY c.id, c.name
+    ORDER BY total_tasks DESC
+  `).all();
 }
 
-export function getConversionFunnel(companyId) {
-  const db = getDb();
-  const where = companyId ? "WHERE company_id = ?" : "";
-  const whereAnd = companyId ? "WHERE company_id = ? AND" : "WHERE";
-  const params = companyId ? [companyId] : [];
+export function getCrossProjectAgentMetrics() {
+  return getDb().prepare(`
+    SELECT
+      c.id as company_id,
+      c.name as company_name,
+      COUNT(DISTINCT a.id) as total_agents,
+      SUM(CASE WHEN a.status = 'running' THEN 1 ELSE 0 END) as running_agents,
+      SUM(CASE WHEN a.status = 'idle' THEN 1 ELSE 0 END) as idle_agents,
+      SUM(CASE WHEN a.status = 'error' THEN 1 ELSE 0 END) as error_agents,
+      COUNT(DISTINCT i.id) as total_incidents,
+      SUM(CASE WHEN i.incident_type = 'agent_crash' THEN 1 ELSE 0 END) as total_crashes
+    FROM companies c
+    LEFT JOIN agents a ON c.id = a.company_id
+    LEFT JOIN incidents i ON a.id = i.agent_id
+    WHERE c.status = 'active'
+    GROUP BY c.id, c.name
+    ORDER BY total_agents DESC
+  `).all();
+}
 
-  const pageViews = db.prepare(`SELECT COUNT(*) as count FROM analytics_events ${whereAnd} event_type = 'page_view'`).get(...params)?.count || 0;
-  const signupStarted = db.prepare(`SELECT COUNT(DISTINCT session_id) as count FROM analytics_events ${whereAnd} event_type = 'signup_started'`).get(...params)?.count || 0;
-  const signupCompleted = db.prepare(`SELECT COUNT(DISTINCT user_id) as count FROM analytics_events ${whereAnd} event_type = 'signup_completed'`).get(...params)?.count || 0;
-  const checkoutStarted = db.prepare(`SELECT COUNT(DISTINCT session_id) as count FROM analytics_events ${whereAnd} event_type = 'checkout_started'`).get(...params)?.count || 0;
-  const checkoutCompleted = db.prepare(`SELECT COUNT(DISTINCT session_id) as count FROM analytics_events ${whereAnd} event_type = 'checkout_completed'`).get(...params)?.count || 0;
-  const companyCreated = db.prepare(`SELECT COUNT(*) as count FROM analytics_events ${whereAnd} event_type = 'company_created'`).get(...params)?.count || 0;
-  const firstTaskCompleted = db.prepare(`SELECT COUNT(DISTINCT company_id) as count FROM analytics_events ${whereAnd} event_type = 'first_task_completed'`).get(...params)?.count || 0;
+export function getCrossProjectTotals() {
+  const cost = getDb().prepare(`
+    SELECT
+      COUNT(*) as total_sessions,
+      SUM(input_tokens) as total_input_tokens,
+      SUM(output_tokens) as total_output_tokens,
+      SUM(cache_read_tokens) as total_cache_read_tokens,
+      SUM(total_tokens) as total_tokens,
+      SUM(cost_usd) as total_cost_usd,
+      SUM(duration_ms) as total_duration_ms,
+      SUM(num_turns) as total_turns
+    FROM cost_log cl
+    JOIN companies c ON cl.company_id = c.id
+    WHERE c.status = 'active'
+  `).get();
+
+  const tasks = getDb().prepare(`
+    SELECT
+      COUNT(*) as total_tasks,
+      SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done_tasks,
+      SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress_tasks,
+      SUM(CASE WHEN status = 'backlog' OR status = 'todo' THEN 1 ELSE 0 END) as backlog_tasks
+    FROM tasks t
+    JOIN companies c ON t.company_id = c.id
+    WHERE c.status = 'active'
+  `).get();
+
+  const agents = getDb().prepare(`
+    SELECT
+      COUNT(*) as total_agents,
+      SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) as running_agents,
+      SUM(CASE WHEN status = 'idle' THEN 1 ELSE 0 END) as idle_agents
+    FROM agents a
+    JOIN companies c ON a.company_id = c.id
+    WHERE c.status = 'active'
+  `).get();
+
+  const incidents = getDb().prepare(`
+    SELECT COUNT(*) as total_incidents
+    FROM incidents i
+    JOIN companies c ON i.company_id = c.id
+    WHERE c.status = 'active'
+  `).get();
 
   return {
-    page_view: pageViews,
-    signup_started: signupStarted,
-    signup_completed: signupCompleted,
-    checkout_started: checkoutStarted,
-    checkout_completed: checkoutCompleted,
-    company_created: companyCreated,
-    first_task_completed: firstTaskCompleted,
+    ...cost,
+    ...tasks,
+    ...agents,
+    total_incidents: incidents?.total_incidents || 0,
+    total_companies: getDb().prepare("SELECT COUNT(*) as count FROM companies WHERE status = 'active'").get().count,
   };
 }
 
-export function getRevenueMetrics(companyId) {
-  const db = getDb();
-  const where = companyId ? "WHERE company_id = ? AND status = 'active'" : "WHERE status = 'active'";
-  const params = companyId ? [companyId] : [];
-
-  const activeSubs = db.prepare(`SELECT * FROM subscriptions ${where}`).all(...params);
-  const mrr = activeSubs.reduce((sum, sub) => sum + (sub.mrr || 0), 0);
-  const arr = mrr * 12;
-
-  // Churn calculation (last 30 days)
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const cancelledWhere = companyId ? "WHERE company_id = ? AND cancelled_at > ?" : "WHERE cancelled_at > ?";
-  const cancelledParams = companyId ? [companyId, thirtyDaysAgo] : [thirtyDaysAgo];
-  const cancelledCount = db.prepare(`SELECT COUNT(*) as count FROM subscriptions ${cancelledWhere}`).get(...cancelledParams)?.count || 0;
-  const totalSubs = activeSubs.length + cancelledCount;
-  const churnRate = totalSubs > 0 ? (cancelledCount / totalSubs) * 100 : 0;
-
-  const avgRevenuePerUser = activeSubs.length > 0 ? mrr / activeSubs.length : 0;
-  const avgLifetimeMonths = churnRate > 0 ? 1 / (churnRate / 100) : 12; // If 10% monthly churn, avg lifetime = 10 months
-  const ltv = avgRevenuePerUser * avgLifetimeMonths;
-
-  // Total revenue from all checkout_completed events
-  const totalRevenue = db.prepare(
-    `SELECT SUM(revenue_usd) as total FROM analytics_events WHERE event_type = 'checkout_completed' ${companyId ? 'AND company_id = ?' : ''}`
-  ).get(...(companyId ? [companyId] : []))?.total || 0;
-
-  return {
-    mrr,
-    arr,
-    churnRate,
-    ltv,
-    totalRevenue,
-    activeSubscriptions: activeSubs.length,
-  };
+export function getCrossProjectCostTrend(days = 7) {
+  return getDb().prepare(`
+    SELECT
+      DATE(cl.created_at) as date,
+      COUNT(*) as sessions,
+      SUM(cl.cost_usd) as total_cost_usd,
+      SUM(cl.total_tokens) as total_tokens
+    FROM cost_log cl
+    JOIN companies c ON cl.company_id = c.id
+    WHERE c.status = 'active'
+      AND cl.created_at >= date('now', '-' || ? || ' days')
+    GROUP BY DATE(cl.created_at)
+    ORDER BY date ASC
+  `).all(days);
 }
 
-export function createSubscription({ id, companyId, userId, plan, mrr }) {
-  getDb().prepare(
-    "INSERT INTO subscriptions (id, company_id, user_id, plan, mrr) VALUES (?, ?, ?, ?, ?)"
-  ).run(id, companyId, userId || null, plan, mrr);
-}
-
-export function cancelSubscription(id) {
-  getDb().prepare("UPDATE subscriptions SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?").run(id);
+// Cross-project agent performance
+export function getCrossProjectAgentPerformance() {
+  return getDb().prepare(`
+    SELECT
+      a.name as agent_name,
+      a.role,
+      c.name as company_name,
+      c.id as company_id,
+      COUNT(DISTINCT t.id) as tasks_completed,
+      SUM(cl.cost_usd) as total_cost,
+      SUM(cl.total_tokens) as total_tokens,
+      COUNT(i.id) as incidents,
+      a.status,
+      a.last_heartbeat
+    FROM agents a
+    JOIN companies c ON a.company_id = c.id
+    LEFT JOIN tasks t ON t.assignee_id = a.id AND t.status = 'done'
+    LEFT JOIN cost_log cl ON cl.agent_name = a.name AND cl.company_id = c.id
+    LEFT JOIN incidents i ON i.agent_id = a.id
+    WHERE c.status = 'active'
+    GROUP BY a.id, a.name, a.role, c.name, c.id, a.status, a.last_heartbeat
+    ORDER BY tasks_completed DESC, total_cost DESC
+  `).all();
 }
 
 // ── Checkpoints (for agent crash recovery) ──────────────────────────────────
@@ -744,4 +902,168 @@ export function cleanOldLogs(daysToKeep = 30) {
   const cutoff = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000).toISOString();
   const result = getDb().prepare('DELETE FROM logs WHERE timestamp < ?').run(cutoff);
   return result.changes;
+}
+
+// ── Account management ──────────────────────────────────────────────────
+
+export function createAccount({ id, email, passwordHash, tier }) {
+  const db = getDb();
+  db.prepare(
+    "INSERT INTO accounts (id, email, password_hash, tier) VALUES (?, ?, ?, ?)"
+  ).run(id, email, passwordHash, tier || "free");
+  return { id, email, tier: tier || "free" };
+}
+
+export function getAccountByEmail(email) {
+  return getDb().prepare("SELECT * FROM accounts WHERE email = ?").get(email);
+}
+
+export function getAccountById(id) {
+  return getDb().prepare("SELECT * FROM accounts WHERE id = ?").get(id);
+}
+
+export function updateAccountTier(id, tier) {
+  const db = getDb();
+  db.prepare("UPDATE accounts SET tier = ?, updated_at = datetime('now') WHERE id = ?").run(tier, id);
+}
+
+export function getCompaniesByAccount(accountId) {
+  return getDb().prepare("SELECT * FROM companies WHERE account_id = ?").all(accountId);
+}
+
+export function linkCompanyToAccount(companyId, accountId) {
+  getDb().prepare("UPDATE companies SET account_id = ? WHERE id = ?").run(accountId, companyId);
+}
+
+// ── Onboarding ──────────────────────────────────────────────────
+export function getOnboardingStatus() {
+  // For single-user mode, we use a simple key-value approach
+  const db = getDb();
+
+  // Create a simple settings table if it doesn't exist
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  const setting = db.prepare("SELECT value FROM app_settings WHERE key = ?").get('onboarding_completed');
+  return {
+    onboarding_completed: setting ? parseInt(setting.value, 10) === 1 : false
+  };
+}
+
+export function setOnboardingCompleted() {
+  const db = getDb();
+
+  db.prepare(`
+    INSERT INTO app_settings (key, value)
+    VALUES ('onboarding_completed', '1')
+    ON CONFLICT(key) DO UPDATE SET
+      value = '1',
+      updated_at = datetime('now')
+  `).run();
+}
+
+// ── Analytics events ──────────────────────────────────────────────────
+export function logAnalyticsEvent({ companyId, userId, sessionId, eventType, eventData, revenueUsd }) {
+  const db = getDb();
+
+  // Create analytics_events table if it doesn't exist
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS analytics_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT,
+      user_id TEXT,
+      session_id TEXT,
+      event_type TEXT NOT NULL,
+      event_data TEXT,
+      revenue_usd REAL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_analytics_events_type ON analytics_events(event_type);
+    CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON analytics_events(user_id);
+  `);
+
+  db.prepare(
+    `INSERT INTO analytics_events (company_id, user_id, session_id, event_type, event_data, revenue_usd)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(
+    companyId || null,
+    userId || null,
+    sessionId || null,
+    eventType,
+    eventData ? JSON.stringify(eventData) : null,
+    revenueUsd || 0
+  );
+}
+
+// ── Paddle Subscription Management ────────────────────────────────────────
+
+export function updateAccountTier(accountId, tier, subscriptionId, status) {
+  const db = getDb();
+  db.prepare(`
+    UPDATE accounts
+    SET tier = ?,
+        subscription_id = ?,
+        subscription_status = ?,
+        updated_at = datetime('now')
+    WHERE id = ?
+  `).run(tier, subscriptionId, status, accountId);
+}
+
+export function createSubscription({ accountId, paddleSubscriptionId, paddleCustomerId, tier, status, trialEndsAt }) {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO subscriptions (account_id, paddle_subscription_id, paddle_customer_id, tier, status, trial_ends_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(accountId, paddleSubscriptionId, paddleCustomerId, tier, status, trialEndsAt || null);
+}
+
+export function updateSubscriptionStatus(paddleSubscriptionId, status, canceledAt) {
+  const db = getDb();
+  const updates = ["status = ?", "updated_at = datetime('now')"];
+  const values = [status];
+
+  if (canceledAt) {
+    updates.push("canceled_at = ?");
+    values.push(canceledAt);
+  }
+
+  values.push(paddleSubscriptionId);
+
+  db.prepare(`
+    UPDATE subscriptions
+    SET ${updates.join(", ")}
+    WHERE paddle_subscription_id = ?
+  `).run(...values);
+}
+
+export function getAccountBySubscriptionId(paddleSubscriptionId) {
+  return getDb().prepare(`
+    SELECT a.*, s.paddle_subscription_id, s.status as subscription_status, s.tier
+    FROM accounts a
+    JOIN subscriptions s ON a.id = s.account_id
+    WHERE s.paddle_subscription_id = ?
+  `).get(paddleSubscriptionId);
+}
+
+export function getAccount(accountId) {
+  return getDb().prepare("SELECT * FROM accounts WHERE id = ?").get(accountId);
+}
+
+export function getAccountByEmail(email) {
+  return getDb().prepare("SELECT * FROM accounts WHERE email = ?").get(email);
+}
+
+export function createAccount({ id, email, passwordHash, tier }) {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO accounts (id, email, password_hash, tier)
+    VALUES (?, ?, ?, ?)
+  `).run(id, email, passwordHash, tier || 'free');
+  return getAccount(id);
 }

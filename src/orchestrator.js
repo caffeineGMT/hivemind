@@ -561,6 +561,34 @@ export function cleanupStaleAgents(company) {
   return cleaned;
 }
 
+// ── Purge idle engineer records ──────────────────────────────────────────
+// Keep DB lean: delete engineer agents that are idle and have no in-progress tasks.
+// C-suite agents (ceo, cto, designer, cfo, cmo) are always kept.
+export function purgeIdleEngineers(company) {
+  const agents = db.getAgentsByCompany(company.id);
+  let purged = 0;
+  for (const agent of agents) {
+    if (agent.role !== "engineer") continue;
+    if (agent.status === "running") continue;
+    // Check if agent has any in-progress tasks
+    const activeTask = db.getDb().prepare(
+      "SELECT id FROM tasks WHERE assignee_id = ? AND status = 'in_progress'"
+    ).get(agent.id);
+    if (activeTask) continue;
+    // Clear FK references before deleting
+    db.getDb().prepare("UPDATE tasks SET assignee_id = NULL WHERE assignee_id = ?").run(agent.id);
+    db.getDb().prepare("DELETE FROM checkpoints WHERE agent_id = ?").run(agent.id);
+    db.getDb().prepare("DELETE FROM incidents WHERE agent_id = ?").run(agent.id);
+    db.getDb().prepare("DELETE FROM activity_log WHERE agent_id = ?").run(agent.id);
+    db.getDb().prepare("DELETE FROM agents WHERE id = ?").run(agent.id);
+    purged++;
+  }
+  if (purged > 0) {
+    log(company.id, "PURGE", `Removed ${purged} idle engineer record(s) to keep DB lean.`);
+  }
+  return purged;
+}
+
 // ── Check running agents ─────────────────────────────────────────────────
 
 function checkRunningAgents(company) {
@@ -777,6 +805,9 @@ async function runHeartbeatLoop(companyId) {
 
       // Clean up agents whose PIDs died (e.g. after orchestrator restart)
       const cleanedUp = cleanupStaleAgents(company);
+
+      // Purge idle engineer DB records to keep agent count sane
+      purgeIdleEngineers(company);
 
       // Clean up old logs once per day (at midnight)
       const today = new Date().toDateString();

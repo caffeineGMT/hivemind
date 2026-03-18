@@ -7,6 +7,10 @@ import { readAgentLog } from "./claude.js";
 import { LOGS_DIR } from "./config.js";
 import fs from "node:fs";
 import { WebSocketServer } from "ws";
+import * as projectConfig from "./project-config.js";
+import crypto from "node:crypto";
+import * as usageTracking from "./usage-tracking.js";
+import os from "node:os";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -88,13 +92,34 @@ export function createServer(port = 3100) {
     res.json(company);
   });
 
+  app.post("/api/companies", (req, res) => {
+    const { name, goal } = req.body || {};
+    if (!name || !goal) {
+      return res.status(400).json({ error: "Name and goal required" });
+    }
+    const id = crypto.randomUUID();
+    const workspace = path.join(os.homedir(), `.hivemind/companies/${id.slice(0, 8)}`);
+    const company = db.createCompany({ id, name, goal, workspace });
+    res.json(company);
+  });
+
   app.patch("/api/companies/:id", (req, res) => {
     const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
-    const { deployment_url } = req.body || {};
+    const { deployment_url, name, goal, status } = req.body || {};
     if (deployment_url !== undefined) {
       db.updateCompanyDeploymentUrl(company.id, deployment_url);
     }
+    if (name || goal || status) {
+      db.updateCompany(company.id, { name, goal, status });
+    }
+    res.json({ success: true });
+  });
+
+  app.delete("/api/companies/:id", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+    db.deleteCompany(company.id);
     res.json({ success: true });
   });
 
@@ -368,31 +393,6 @@ export function createServer(port = 3100) {
     });
   });
 
-  app.get("/api/analytics/events", (req, res) => {
-    const companyId = req.query.companyId;
-    const limit = parseInt(req.query.limit || "100", 10);
-    const events = db.getAnalyticsEvents(companyId || null, limit);
-    res.json(events);
-  });
-
-  app.get("/api/analytics/funnel", (req, res) => {
-    const companyId = req.query.companyId;
-    const funnel = db.getConversionFunnel(companyId || null);
-    res.json(funnel);
-  });
-
-  app.get("/api/analytics/revenue", (req, res) => {
-    const companyId = req.query.companyId;
-    const metrics = db.getRevenueMetrics(companyId || null);
-    res.json(metrics);
-  });
-
-  app.post("/api/analytics/track", (req, res) => {
-    const { companyId, userId, sessionId, eventType, eventData, revenueUsd } = req.body || {};
-    if (!eventType) return res.status(400).json({ error: "eventType required" });
-    db.trackEvent({ companyId, userId, sessionId, eventType, eventData, revenueUsd });
-    res.json({ success: true });
-  });
 
   app.get("/api/tasks/:id", (req, res) => {
     const task = db.getTask(req.params.id);
@@ -475,57 +475,267 @@ export function createServer(port = 3100) {
     res.json({ success: true, message: "Nudge sent — agent picking it up now" });
   });
 
-  // Testimonials endpoints
-  app.post("/api/testimonials", (req, res) => {
-    const { userId, userName, userEmail, userRole, userCompany, rating, quote, feedback } = req.body || {};
+  // ── Project Configuration API ──────────────────────────────────────────
 
-    if (!userName || !userEmail || !rating || !quote) {
-      return res.status(400).json({ error: "userName, userEmail, rating, and quote are required" });
-    }
+  app.get("/api/companies/:id/config", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
 
-    if (rating < 1 || rating > 5) {
-      return res.status(400).json({ error: "rating must be between 1 and 5" });
-    }
+    const config = projectConfig.getProjectConfig(company.id);
+    const budgetStatus = projectConfig.getBudgetStatus(company.id);
+    const availableSlots = projectConfig.getAvailableAgentSlots(company.id);
+    const resources = projectConfig.getProjectResources(company.id);
 
-    try {
-      const result = db.createTestimonial({
-        userId,
-        userName,
-        userEmail,
-        userRole: userRole || null,
-        userCompany: userCompany || null,
-        rating,
-        quote,
-        feedback: feedback || null,
+    res.json({
+      config,
+      budgetStatus,
+      availableSlots,
+      resources,
+      presets: Object.keys(projectConfig.CONFIG_PRESETS),
+    });
+  });
+
+  app.post("/api/companies/:id/config", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const updates = req.body || {};
+    const config = projectConfig.setProjectConfig(company.id, updates);
+
+    db.logActivity({
+      companyId: company.id,
+      action: "config_updated",
+      detail: `Updated project configuration: ${JSON.stringify(updates)}`,
+    });
+
+    req.app.locals.broadcast('config_updated', { companyId: company.id, config });
+
+    res.json({ success: true, config });
+  });
+
+  app.post("/api/companies/:id/config/preset", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const { preset } = req.body || {};
+    if (!preset || !projectConfig.CONFIG_PRESETS[preset]) {
+      return res.status(400).json({
+        error: "Invalid preset",
+        available: Object.keys(projectConfig.CONFIG_PRESETS),
       });
-      res.json({ success: true, id: result.lastInsertRowid });
+    }
+
+    const config = projectConfig.applyConfigPreset(company.id, preset);
+
+    db.logActivity({
+      companyId: company.id,
+      action: "preset_applied",
+      detail: `Applied ${preset} preset`,
+    });
+
+    req.app.locals.broadcast('config_updated', { companyId: company.id, config, preset });
+
+    res.json({ success: true, config, preset });
+  });
+
+  app.delete("/api/companies/:id/config", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    projectConfig.deleteProjectConfig(company.id);
+
+    db.logActivity({
+      companyId: company.id,
+      action: "config_reset",
+      detail: "Reset to default configuration",
+    });
+
+    req.app.locals.broadcast('config_updated', { companyId: company.id, reset: true });
+
+    res.json({ success: true, message: "Configuration reset to defaults" });
+  });
+
+  app.post("/api/companies/:id/archive", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    projectConfig.archiveProject(company.id);
+
+    db.logActivity({
+      companyId: company.id,
+      action: "project_archived",
+      detail: "Project archived — all agents stopped",
+    });
+
+    req.app.locals.broadcast('project_archived', { companyId: company.id });
+
+    res.json({ success: true, message: "Project archived" });
+  });
+
+  app.delete("/api/companies/:id", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const { confirm } = req.query;
+    if (confirm !== "true") {
+      return res.status(400).json({
+        error: "Confirmation required",
+        message: "Add ?confirm=true to delete all project data (IRREVERSIBLE)",
+      });
+    }
+
+    projectConfig.deleteProjectData(company.id);
+
+    req.app.locals.broadcast('project_deleted', { companyId: company.id });
+
+    res.json({ success: true, message: "Project and all data deleted" });
+  });
+
+  app.get("/api/companies/:id/isolation-check", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const agents = db.getAgentsByCompany(company.id);
+    const tasks = db.getTasksByCompany(company.id);
+
+    const isolationIssues = [];
+
+    // Check agent isolation
+    for (const agent of agents) {
+      if (agent.company_id !== company.id) {
+        isolationIssues.push({
+          type: "agent_isolation_violation",
+          agent_id: agent.id,
+          expected: company.id,
+          actual: agent.company_id,
+        });
+      }
+    }
+
+    // Check task isolation
+    for (const task of tasks) {
+      if (task.company_id !== company.id) {
+        isolationIssues.push({
+          type: "task_isolation_violation",
+          task_id: task.id,
+          expected: company.id,
+          actual: task.company_id,
+        });
+      }
+    }
+
+    const isolated = isolationIssues.length === 0;
+
+    res.json({
+      isolated,
+      issues: isolationIssues,
+      resources: {
+        agents: agents.length,
+        tasks: tasks.length,
+      },
+    });
+  });
+
+  // Cross-project analytics endpoint
+  app.get("/api/analytics/cross-project", (req, res) => {
+    try {
+      const costSummary = db.getCrossProjectCostSummary();
+      const taskMetrics = db.getCrossProjectTaskMetrics();
+      const agentMetrics = db.getCrossProjectAgentMetrics();
+      const totals = db.getCrossProjectTotals();
+      const costTrend = db.getCrossProjectCostTrend(7);
+      const agentPerformance = db.getCrossProjectAgentPerformance();
+
+      res.json({
+        costSummary,
+        taskMetrics,
+        agentMetrics,
+        totals,
+        costTrend,
+        agentPerformance,
+      });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[analytics] Error fetching cross-project data:', err);
+      res.status(500).json({ error: 'Failed to fetch analytics data' });
+    }
+
+  // ── Usage-based billing API ──────────────────────────────────────────────
+
+  app.get("/api/accounts/:accountId/usage", (req, res) => {
+    try {
+      const accountId = req.params.accountId;
+      const account = db.getAccount(accountId);
+      
+      if (!account) {
+        return res.status(404).json({ error: "Account not found" });
+      }
+
+      const overages = usageTracking.getOverages(accountId);
+
+      if (!overages) {
+        return res.status(500).json({ error: "Failed to calculate usage" });
+      }
+
+      res.json({
+        account_id: accountId,
+        tier: account.tier,
+        agent_hours: overages.agent_hours,
+        api_spend: overages.api_spend,
+        estimated_bill: overages.estimated_bill,
+        total_overage_charge: overages.total_overage_charge,
+      });
+    } catch (err) {
+      console.error("[usage] Error fetching usage:", err);
+      res.status(500).json({ error: "Failed to fetch usage data" });
     }
   });
 
-  app.get("/api/testimonials", (req, res) => {
-    const approved = req.query.approved === "true" ? true : req.query.approved === "false" ? false : undefined;
-    const featured = req.query.featured === "true" ? true : req.query.featured === "false" ? false : undefined;
-    const limit = parseInt(req.query.limit || "100", 10);
+  app.get("/api/accounts/:accountId/usage/export", (req, res) => {
+    try {
+      const accountId = req.params.accountId;
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: "startDate and endDate required (YYYY-MM-DD format)" });
+      }
 
-    const testimonials = db.getTestimonials({ approved, featured, limit });
-    res.json(testimonials);
+      const account = db.getAccount(accountId);
+      if (!account) {
+        return res.status(404).json({ error: "Account not found" });
+      }
+
+      const csv = usageTracking.generateUsageExportCSV(accountId, startDate, endDate);
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="usage-${accountId}-${startDate}-to-${endDate}.csv"`);
+      res.send(csv);
+    } catch (err) {
+      console.error("[usage] Error exporting usage:", err);
+      res.status(500).json({ error: "Failed to export usage data" });
+    }
   });
 
-  app.get("/api/testimonials/:id", (req, res) => {
-    const testimonial = db.getTestimonial(req.params.id);
-    if (!testimonial) return res.status(404).json({ error: "Not found" });
-    res.json(testimonial);
+  app.post("/api/accounts/:accountId/quotas", (req, res) => {
+    try {
+      const accountId = req.params.accountId;
+      const { monthlyAgentHours, monthlyApiSpend } = req.body || {};
+
+      const account = db.getAccount(accountId);
+      if (!account) {
+        return res.status(404).json({ error: "Account not found" });
+      }
+
+      db.setAccountQuotas(accountId, {
+        monthlyAgentHours,
+        monthlyApiSpend,
+      });
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("[usage] Error setting quotas:", err);
+      res.status(500).json({ error: "Failed to set quotas" });
+    }
   });
-
-  app.patch("/api/testimonials/:id", (req, res) => {
-    const testimonial = db.getTestimonial(req.params.id);
-    if (!testimonial) return res.status(404).json({ error: "Not found" });
-
-    const { approved, featured } = req.body || {};
-    db.updateTestimonial(req.params.id, { approved, featured });
-    res.json({ success: true });
   });
 
   if (fs.existsSync(uiDist)) {
