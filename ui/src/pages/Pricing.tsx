@@ -67,8 +67,8 @@ export default function Pricing() {
   // Prepare funnel data for visualization
   const funnelData = useMemo(() => {
     if (!funnelDropoff) return [];
-    return funnelDropoff.map(stage => ({
-      name: stage.stage.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+    return funnelDropoff.map((stage: any) => ({
+      name: stage.stage.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
       value: stage.count,
       dropoff: stage.dropoff,
     }));
@@ -77,7 +77,7 @@ export default function Pricing() {
   // Revenue forecast chart data
   const forecastData = useMemo(() => {
     if (!forecast?.forecast) return [];
-    return forecast.forecast.map(f => ({
+    return forecast.forecast.map((f: any) => ({
       month: f.month,
       MRR: f.projectedMrr,
       ARR: f.projectedArr / 1000, // Convert to thousands for readability
@@ -185,7 +185,7 @@ export default function Pricing() {
                 <AlertCircle size={16} className="text-amber-400 mt-1 flex-shrink-0" />
                 <div className="flex-1">
                   <div className="text-white font-medium text-sm mb-1">
-                    {rec.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    {rec.type.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                   </div>
                   <div className="text-zinc-400 text-sm">{rec.reason}</div>
                   <div className="text-zinc-500 text-xs mt-1">

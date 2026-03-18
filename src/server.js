@@ -7,23 +7,6 @@ import { readAgentLog } from "./claude.js";
 import { LOGS_DIR } from "./config.js";
 import fs from "node:fs";
 import { WebSocketServer } from "ws";
-import { clerkMiddleware, requireAuth, getAuth } from "@clerk/express";
-
-// Stripe routes — lazy import, no-op if not configured
-let createCheckoutSession, createPortalSession, getSubscriptionStatus, handleWebhook;
-try {
-  const stripeRoutes = await import("./stripe-routes.js");
-  createCheckoutSession = stripeRoutes.createCheckoutSession;
-  createPortalSession = stripeRoutes.createPortalSession;
-  getSubscriptionStatus = stripeRoutes.getSubscriptionStatus;
-  handleWebhook = stripeRoutes.handleWebhook;
-} catch {
-  const stub = (req, res) => res.status(501).json({ error: "Stripe not configured" });
-  createCheckoutSession = stub;
-  createPortalSession = stub;
-  getSubscriptionStatus = stub;
-  handleWebhook = stub;
-}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -60,79 +43,53 @@ function triggerResume(companyId) {
 export function createServer(port = 3100) {
   const app = express();
 
-  // WebSocket server setup
   const wss = new WebSocketServer({ noServer: true });
   const clients = new Set();
 
   wss.on('connection', (ws) => {
     clients.add(ws);
     console.log('[ws] Client connected. Total:', clients.size);
-
     ws.on('close', () => {
       clients.delete(ws);
       console.log('[ws] Client disconnected. Total:', clients.size);
     });
   });
 
-  // Broadcast helper function
   function broadcast(event, data) {
     const message = JSON.stringify({ event, data, timestamp: new Date().toISOString() });
     clients.forEach(client => {
-      if (client.readyState === 1) { // WebSocket.OPEN
-        client.send(message);
-      }
+      if (client.readyState === 1) client.send(message);
     });
   }
 
-  // Store broadcast function on app for use in routes
   app.locals.broadcast = broadcast;
-
-  app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), handleWebhook);
   app.use(express.json());
   const uiDist = path.join(__dirname, "../ui/dist");
 
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
     if (req.method === "OPTIONS") return res.sendStatus(200);
     next();
   });
-
-  app.use(clerkMiddleware());
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", version: "0.1.0" });
   });
 
-  app.get("/api/auth/me", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    res.json({ userId, authenticated: true });
+  app.get("/api/companies", (req, res) => {
+    res.json(db.listCompanies());
   });
 
-  app.post("/api/auth/signout", (req, res) => {
-    res.json({ success: true });
-  });
-
-  app.post("/api/stripe/checkout", createCheckoutSession);
-  app.post("/api/stripe/portal", createPortalSession);
-  app.get("/api/stripe/subscription/:companyId", getSubscriptionStatus);
-
-  app.get("/api/companies", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    res.json(db.listCompanies(userId));
-  });
-
-  app.get("/api/companies/:id", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  app.get("/api/companies/:id", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     res.json(company);
   });
 
-  app.patch("/api/companies/:id", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  app.patch("/api/companies/:id", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     const { deployment_url } = req.body || {};
     if (deployment_url !== undefined) {
@@ -141,9 +98,8 @@ export function createServer(port = 3100) {
     res.json({ success: true });
   });
 
-  app.get("/api/companies/:id/dashboard", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  app.get("/api/companies/:id/dashboard", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     const agents = db.getAgentsByCompany(company.id);
     const tasks = db.getTasksByCompany(company.id);
@@ -176,82 +132,21 @@ export function createServer(port = 3100) {
     });
   });
 
-  app.get("/api/companies/:id/agents", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  app.get("/api/companies/:id/agents", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     res.json(db.getAgentsByCompany(company.id));
   });
 
-  app.get("/api/companies/:id/tasks", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  app.get("/api/companies/:id/tasks", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     const status = req.query.status;
     res.json(db.getTasksByCompany(company.id, status || undefined));
-  // Bulk task updates
-  app.patch("/api/tasks/bulk", requireAuth(), (req, res) => {
-    const { taskIds, updates } = req.body || {};
-    if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
-      return res.status(400).json({ error: "taskIds array required" });
-    }
-    if (!updates || typeof updates !== 'object') {
-      return res.status(400).json({ error: "updates object required" });
-    }
-
-    try {
-      for (const id of taskIds) {
-        const task = db.getTask(id);
-        if (!task) continue;
-
-        if (updates.status !== undefined) {
-          db.updateTaskStatus(id, updates.status, task.result);
-        }
-        if (updates.assignee_id !== undefined) {
-          db.assignTask(id, updates.assignee_id);
-        }
-
-        // Log activity for each task updated
-        db.logActivity({
-          companyId: task.company_id,
-          taskId: id,
-          action: 'bulk_update',
-          detail: `Updated: ${JSON.stringify(updates)}`,
-        });
-      }
-
-      res.json({ success: true, updated: taskIds.length });
-    } catch (err) {
-      console.error('[server] Bulk update error:', err);
-      res.status(500).json({ error: 'Bulk update failed' });
-    }
   });
 
-  // Delete task
-  app.delete("/api/tasks/:id", requireAuth(), (req, res) => {
-    const task = db.getTask(req.params.id);
-    if (!task) return res.status(404).json({ error: "Task not found" });
-
-    try {
-      db.getDb().prepare('DELETE FROM tasks WHERE id = ?').run(req.params.id);
-      db.logActivity({
-        companyId: task.company_id,
-        taskId: req.params.id,
-        action: 'task_deleted',
-        detail: task.title,
-      });
-      res.json({ success: true });
-    } catch (err) {
-      console.error('[server] Delete task error:', err);
-      res.status(500).json({ error: 'Delete failed' });
-    }
-  });
-
-  });
-
-  app.get("/api/companies/:id/activity", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  app.get("/api/companies/:id/activity", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     const limit = parseInt(req.query.limit || "50", 10);
     res.json(db.getRecentActivity(company.id, limit));
@@ -300,9 +195,8 @@ export function createServer(port = 3100) {
     }
   });
 
-  app.get("/api/companies/:id/costs", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  app.get("/api/companies/:id/costs", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     const summary = db.getCostSummary(company.id);
     const totals = db.getCostTotals(company.id);
@@ -310,18 +204,15 @@ export function createServer(port = 3100) {
     res.json({ summary, totals, recent: recent.slice(0, 50) });
   });
 
-  // Incidents endpoint (crash logs and health monitoring)
-  app.get("/api/companies/:id/incidents", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  app.get("/api/companies/:id/incidents", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     const limit = parseInt(req.query.limit || "50", 10);
     const incidents = db.getIncidents(company.id, limit);
     res.json(incidents);
   });
 
-  // Agent incidents
-  app.get("/api/agents/:id/incidents", requireAuth(), (req, res) => {
+  app.get("/api/agents/:id/incidents", (req, res) => {
     const limit = parseInt(req.query.limit || "20", 10);
     const incidents = db.getIncidentsByAgent(req.params.id, limit);
     res.json(incidents);
@@ -353,117 +244,16 @@ export function createServer(port = 3100) {
     res.json({ success: true });
   });
 
-  // Pricing Optimization endpoints
-  const pricingOptimizer = await import("./pricing-optimizer.js");
-
-  app.get("/api/pricing/cohorts", (req, res) => {
-    const cohorts = pricingOptimizer.getUserCohorts();
-    res.json(cohorts);
-  });
-
-  app.get("/api/pricing/elasticity", (req, res) => {
-    const elasticity = pricingOptimizer.getPricingElasticity();
-    res.json(elasticity);
-  });
-
-  app.get("/api/pricing/funnel-dropoff", (req, res) => {
-    const dropoff = pricingOptimizer.getFunnelDropoff();
-    res.json(dropoff);
-  });
-
-  app.get("/api/pricing/time-to-conversion", (req, res) => {
-    const conversion = pricingOptimizer.getTimeToConversion();
-    res.json(conversion);
-  });
-
-  app.get("/api/pricing/recommendations", (req, res) => {
-    const recommendations = pricingOptimizer.recommendOptimalPricing();
-    res.json(recommendations);
-  });
-
-  app.get("/api/pricing/forecast", (req, res) => {
-    const months = parseInt(req.query.months || "6", 10);
-    const forecast = pricingOptimizer.forecastRevenue(months);
-    res.json(forecast);
-  });
-
-  app.post("/api/pricing/ab-test", (req, res) => {
-    const { testName, variants, startDate, endDate } = req.body || {};
-    if (!testName || !variants) {
-      return res.status(400).json({ error: "testName and variants required" });
-    }
-    const test = pricingOptimizer.createPricingTest({ testName, variants, startDate, endDate });
-    res.json(test);
-  });
-
-  app.get("/api/pricing/ab-test/:testId", (req, res) => {
-    const results = pricingOptimizer.getPricingTestResults(req.params.testId);
-    res.json(results);
-  });
-
-  app.post("/api/pricing/ab-test/:testId/assign", (req, res) => {
-    const { userId, sessionId } = req.body || {};
-    if (!userId || !sessionId) {
-      return res.status(400).json({ error: "userId and sessionId required" });
-    }
-    const variant = pricingOptimizer.assignVariant(req.params.testId, userId, sessionId);
-    res.json({ variant });
-  });
-
-  app.get("/api/companies/:id/deployments", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
-    if (!company) return res.status(404).json({ error: "Not found" });
-    const limit = parseInt(req.query.limit || "20", 10);
-    const deployments = db.getDeploymentHistory(company.id, limit);
-    res.json(deployments);
-  });
-
-  app.post("/api/companies/:id/rollback", requireAuth(), async (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
-    if (!company) return res.status(404).json({ error: "Not found" });
-
-    const { reason } = req.body || {};
-    if (!reason) return res.status(400).json({ error: "Rollback reason required" });
-
-    const { rollbackDeployment } = await import("./deployment.js");
-
-    try {
-      const result = await rollbackDeployment(company.id, company.workspace, reason);
-
-      if (result.success) {
-        // Broadcast rollback event
-        req.app.locals.broadcast('deployment_rolled_back', { companyId: company.id, deploymentUrl: result.deploymentUrl });
-        res.json({ success: true, deploymentUrl: result.deploymentUrl });
-      } else {
-        res.status(500).json({ error: result.error });
-      }
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.get("/api/tasks/:id", requireAuth(), (req, res) => {
+  app.get("/api/tasks/:id", (req, res) => {
     const task = db.getTask(req.params.id);
     if (!task) return res.status(404).json({ error: "Not found" });
-    const { userId } = getAuth(req);
-    const company = db.getCompany(task.company_id);
-    if (company && company.user_id && company.user_id !== userId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
     const comments = db.getComments(req.params.id);
     res.json({ task, comments });
   });
 
-  app.post("/api/tasks/:id/comments", requireAuth(), (req, res) => {
+  app.post("/api/tasks/:id/comments", (req, res) => {
     const task = db.getTask(req.params.id);
     if (!task) return res.status(404).json({ error: "Not found" });
-    const { userId } = getAuth(req);
-    const company = db.getCompany(task.company_id);
-    if (company && company.user_id && company.user_id !== userId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
     const { message } = req.body || {};
     if (!message) return res.status(400).json({ error: "Message required" });
     db.addComment({
@@ -478,36 +268,14 @@ export function createServer(port = 3100) {
       action: "comment_added",
       detail: message.slice(0, 100),
     });
-    // Broadcast updates
     req.app.locals.broadcast('comment_added', { taskId: task.id, message });
     req.app.locals.broadcast('activity_logged', { companyId: task.company_id, taskId: task.id });
-
-  // Structured logs endpoints
-  app.get("/api/logs/search", (req, res) => {
-    const { companyId, level, source, keyword, limit } = req.query;
-    const logs = db.searchLogs({
-      companyId: companyId || null,
-      level: level || null,
-      source: source || null,
-      keyword: keyword || null,
-      limit: parseInt(limit || "1000", 10),
-    });
-    res.json(logs);
-  });
-
-  app.post("/api/logs/export", (req, res) => {
-    const { companyId } = req.body || {};
-    const logs = db.searchLogs({ companyId, limit: 100000 });
-    res.setHeader("Content-Disposition", \`attachment; filename=logs-\${Date.now()}.json\`);
-    res.json(logs);
-  });
     triggerResume(task.company_id);
     res.json({ success: true });
   });
 
-  app.post("/api/companies/:id/nudge", requireAuth(), async (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  app.post("/api/companies/:id/nudge", async (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     const { message } = req.body || {};
     if (!message) return res.status(400).json({ error: "Message required" });
@@ -522,23 +290,21 @@ export function createServer(port = 3100) {
       action: "nudge_received",
       detail: message,
     });
-    // Broadcast updates
     req.app.locals.broadcast('nudge_received', { companyId: company.id, message });
     req.app.locals.broadcast('activity_logged', { companyId: company.id });
     triggerResume(company.id);
     res.json({ success: true, message: "Nudge sent — agent picking it up now" });
   });
 
-  app.post("/api/nudge", requireAuth(), async (req, res) => {
-    const { userId } = getAuth(req);
+  app.post("/api/nudge", async (req, res) => {
     const { companyId, message } = req.body || {};
     if (!message) return res.status(400).json({ error: "Message required" });
     let company;
     if (companyId) {
-      company = findCompany(companyId, userId);
+      company = findCompany(companyId);
       if (!company) return res.status(404).json({ error: "Company not found" });
     } else {
-      const companies = db.listCompanies(userId);
+      const companies = db.listCompanies();
       company = companies.find(c => c.status === "active") || companies[0];
       if (!company) return res.status(404).json({ error: "No companies found" });
     }
@@ -553,7 +319,6 @@ export function createServer(port = 3100) {
       action: "nudge_received",
       detail: message,
     });
-    // Broadcast updates
     req.app.locals.broadcast('nudge_received', { companyId: company.id, message });
     req.app.locals.broadcast('activity_logged', { companyId: company.id });
     triggerResume(company.id);
@@ -576,15 +341,10 @@ export function createServer(port = 3100) {
   return { app, wss };
 }
 
-function findCompany(idOrPrefix, userId) {
+function findCompany(idOrPrefix) {
   let company = db.getCompany(idOrPrefix);
-  if (company) {
-    if (userId && company.user_id && company.user_id !== userId) {
-      return null;
-    }
-    return company;
-  }
-  const all = db.listCompanies(userId);
+  if (company) return company;
+  const all = db.listCompanies();
   return all.find(c => c.id.startsWith(idOrPrefix)) || null;
 }
 
@@ -595,7 +355,6 @@ export function startServer(port = 3100) {
     console.log(`  WebSocket server ready`);
   });
 
-  // Handle WebSocket upgrade
   server.on('upgrade', (req, socket, head) => {
     wss.handleUpgrade(req, socket, head, (ws) => {
       wss.emit('connection', ws, req);

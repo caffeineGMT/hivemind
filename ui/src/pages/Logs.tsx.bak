@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../api';
+import { searchLogs } from '../api';
 
 interface LogEntry {
   id: number;
@@ -24,7 +24,7 @@ export default function Logs() {
 
   useEffect(() => {
     setLoading(true);
-    api.searchLogs(filters)
+    searchLogs(filters)
       .then(setLogs)
       .finally(() => setLoading(false));
   }, [filters]);

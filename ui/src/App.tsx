@@ -50,6 +50,9 @@ function SignUpPage() {
 
 function AppRoutes() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
+    return !localStorage.getItem('hivemind_onboarding_completed');
+  });
   const location = useLocation();
   const { getToken, isLoaded } = useAuth();
   const { isSignedIn } = useUser();
@@ -134,28 +137,43 @@ function AppRoutes() {
 
   const selectedCompany = companies.find((c: Company) => c.id === selectedCompanyId) || companies[0];
 
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('hivemind_onboarding_completed', 'true');
+    setShowOnboarding(false);
+  };
+
+  const handleOnboardingSkip = () => {
+    localStorage.setItem('hivemind_onboarding_completed', 'true');
+    setShowOnboarding(false);
+  };
+
   return (
-    <Layout
-      companies={companies}
-      selectedCompany={selectedCompany}
-      onSelectCompany={setSelectedCompanyId}
-    >
-      <Routes>
-        <Route path="/" element={<Dashboard companyId={selectedCompany.id} />} />
-        <Route path="/tasks" element={<Tasks companyId={selectedCompany.id} />} />
-        <Route path="/agents" element={<Agents companyId={selectedCompany.id} />} />
-        <Route path="/activity" element={<Activity companyId={selectedCompany.id} />} />
-        <Route path="/finance" element={<Finance companyId={selectedCompany.id} />} />
-        <Route path="/analytics" element={<Analytics companyId={selectedCompany.id} />} />
-        <Route path="/billing" element={<Billing companyId={selectedCompany.id} />} />
-        <Route path="/costs" element={<Costs companyId={selectedCompany.id} />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/logs-view" element={<Logs />} />
-        <Route path="/tasks/:taskId" element={<TaskDetail />} />
-        <Route path="/logs/:agentName" element={<AgentLog />} />
-        <Route path="*" element={<Navigate to="/app" replace />} />
-      </Routes>
-    </Layout>
+    <>
+      {showOnboarding && (
+        <Onboarding onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
+      )}
+      <Layout
+        companies={companies}
+        selectedCompany={selectedCompany}
+        onSelectCompany={setSelectedCompanyId}
+      >
+        <Routes>
+          <Route path="/" element={<Dashboard companyId={selectedCompany.id} />} />
+          <Route path="/tasks" element={<Tasks companyId={selectedCompany.id} />} />
+          <Route path="/agents" element={<Agents companyId={selectedCompany.id} />} />
+          <Route path="/activity" element={<Activity companyId={selectedCompany.id} />} />
+          <Route path="/finance" element={<Finance companyId={selectedCompany.id} />} />
+          <Route path="/analytics" element={<Analytics companyId={selectedCompany.id} />} />
+          <Route path="/billing" element={<Billing companyId={selectedCompany.id} />} />
+          <Route path="/costs" element={<Costs companyId={selectedCompany.id} />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/logs-view" element={<Logs />} />
+          <Route path="/tasks/:taskId" element={<TaskDetail />} />
+          <Route path="/logs/:agentName" element={<AgentLog />} />
+          <Route path="*" element={<Navigate to="/app" replace />} />
+        </Routes>
+      </Layout>
+    </>
   );
 }
 

@@ -24,7 +24,7 @@ export default function Logs() {
 
   useEffect(() => {
     setLoading(true);
-    api.searchLogs(filters)
+    searchLogs(filters)
       .then(setLogs)
       .finally(() => setLoading(false));
   }, [filters]);

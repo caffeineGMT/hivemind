@@ -7,6 +7,7 @@ import {
   DollarSign,
   TrendingUp,
   Receipt,
+  Target,
   ChevronDown,
   Hexagon,
   Menu,
@@ -29,6 +30,7 @@ const navItems = [
   { to: '/app/activity', icon: Activity, label: 'Activity' },
   { to: '/app/finance', icon: DollarSign, label: 'Finance' },
   { to: '/app/analytics', icon: TrendingUp, label: 'Analytics' },
+  { to: '/app/pricing', icon: Target, label: 'Pricing' },
   { to: '/app/costs', icon: Receipt, label: 'Costs' },
 ];
 

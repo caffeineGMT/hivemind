@@ -354,6 +354,54 @@ export const api = {
 
   getBilling: (companyId: string) =>
     fetchJson<BillingData>(`/api/companies/${companyId}/billing`),
+
+  // Structured logs
+  searchLogs: async (filters: { keyword?: string; level?: string; source?: string }) => {
+    const params = new URLSearchParams();
+    if (filters.keyword) params.set('keyword', filters.keyword);
+    if (filters.level) params.set('level', filters.level);
+    if (filters.source) params.set('source', filters.source);
+    const res = await fetch(`/api/logs/search?${params}`);
+    return res.json();
+  },
+
+  // Pricing Optimization APIs
+  getPricingCohorts: () =>
+    fetchJson<any[]>('/api/pricing/cohorts'),
+
+  getPricingElasticity: () =>
+    fetchJson<any[]>('/api/pricing/elasticity'),
+
+  getPricingFunnelDropoff: () =>
+    fetchJson<any[]>('/api/pricing/funnel-dropoff'),
+
+  getPricingTimeToConversion: () =>
+    fetchJson<any>('/api/pricing/time-to-conversion'),
+
+  getPricingRecommendations: () =>
+    fetchJson<any[]>('/api/pricing/recommendations'),
+
+  getPricingForecast: (months = 6) =>
+    fetchJson<any>(`/api/pricing/forecast?months=${months}`),
+
+  createPricingTest: async (data: {
+    testName: string;
+    variants: string[];
+    startDate: string;
+    endDate?: string;
+  }) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch('/api/pricing/ab-test', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  getPricingTestResults: (testId: string) =>
+    fetchJson<any>(`/api/pricing/ab-test/${testId}`),
 };
 
 // ── WebSocket Integration ──────────────────────────────────────────
