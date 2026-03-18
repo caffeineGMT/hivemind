@@ -32,84 +32,28 @@ function buildClaudeEnv() {
 }
 
 /**
- * Run claude in "think" mode — one-shot, no tool use, returns text.
- * Used for CEO/CTO planning tasks.
+ * Spawn a full Claude Code session — every agent gets the same capabilities.
+ * Uses `-p --dangerously-skip-permissions` for full tool access (Read, Write,
+ * Edit, Bash, Grep, Glob — everything). Output streams to a log file in
+ * real-time so you can watch each agent work via the dashboard.
+ *
+ * Returns a handle to monitor the process.
  */
-export async function claudeThink(prompt, opts = {}) {
-  const { cwd, timeout = 180000 } = opts;
-  ensureDirs();
-
-  const args = [...CLAUDE.args, "--print", "-"];
-  if (opts.model) args.push("--model", opts.model);
-
-  return new Promise((resolve, reject) => {
-    const proc = spawn(CLAUDE.cmd, args, {
-      cwd: cwd || process.cwd(),
-      env: buildClaudeEnv(),
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    let stderr = "";
-    proc.stdout.on("data", d => stdout += d);
-    proc.stderr.on("data", d => stderr += d);
-    proc.stdin.write(prompt);
-    proc.stdin.end();
-
-    const timer = setTimeout(() => {
-      proc.kill("SIGTERM");
-      reject(new Error(`claude timed out after ${timeout / 1000}s`));
-    }, timeout);
-
-    proc.on("close", code => {
-      clearTimeout(timer);
-      if (code !== 0 && !stdout.trim()) {
-        reject(new Error(`claude exited ${code}: ${stderr.trim().slice(0, 500)}`));
-      } else {
-        resolve(stdout.trim());
-      }
-    });
-    proc.on("error", reject);
-  });
-}
-
-/**
- * Parse JSON from claude output, handling markdown code blocks.
- */
-export function parseJsonResponse(text) {
-  if (!text) return null;
-  try { return JSON.parse(text); } catch {}
-
-  const jsonBlock = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-  if (jsonBlock) {
-    try { return JSON.parse(jsonBlock[1].trim()); } catch {}
-  }
-
-  const first = text.indexOf("{");
-  const last = text.lastIndexOf("}");
-  if (first !== -1 && last !== -1 && last > first) {
-    try { return JSON.parse(text.slice(first, last + 1)); } catch {}
-  }
-
-  return null;
-}
-
-/**
- * Run claude in "execute" mode — full tool use, runs as background subprocess.
- * Used for engineer tasks. Returns a handle to monitor the process.
- */
-export function claudeExecute(agentId, prompt, opts = {}) {
-  const { cwd, logFile, maxTurns = 50 } = opts;
+export function claudeSession(agentId, prompt, opts = {}) {
+  const { cwd, logFile, maxTurns = 50, timeout } = opts;
   ensureDirs();
 
   const logPath = logFile || path.join(LOGS_DIR, `${agentId}.log`);
   const logStream = fs.createWriteStream(logPath, { flags: "a" });
 
-  const args = [...CLAUDE.args, "-p", prompt, "--dangerously-skip-permissions", "--output-format", "json"];
+  // Full session: -p for non-interactive, --dangerously-skip-permissions for all tools
+  // NO --output-format json — we want streaming text output visible in logs
+  const args = [...CLAUDE.args, "-p", prompt, "--dangerously-skip-permissions"];
   if (opts.model) args.push("--model", opts.model);
   if (maxTurns) args.push("--max-turns", String(maxTurns));
 
-  logStream.write(`\n${"=".repeat(60)}\n[${new Date().toISOString()}] Starting agent: ${agentId}\nCWD: ${cwd}\n${"=".repeat(60)}\n\n`);
+  const ts = new Date().toISOString();
+  logStream.write(`\n${"=".repeat(60)}\n[${ts}] Agent: ${agentId}\nCWD: ${cwd}\nCmd: ${CLAUDE.cmd} ${args.slice(0, 3).join(" ")} ...\n${"=".repeat(60)}\n\n`);
 
   const proc = spawn(CLAUDE.cmd, args, {
     cwd: cwd || process.cwd(),
@@ -142,17 +86,29 @@ export function claudeExecute(agentId, prompt, opts = {}) {
     proc,
   };
 
+  // Optional timeout
+  let timer;
+  if (timeout) {
+    timer = setTimeout(() => {
+      proc.kill("SIGTERM");
+      logStream.write(`\n[TIMEOUT] Agent killed after ${timeout / 1000}s\n`);
+    }, timeout);
+  }
+
   proc.on("close", code => {
+    if (timer) clearTimeout(timer);
     handle.done = true;
     handle.exitCode = code;
     handle.stdout = stdout;
     handle.stderr = stderr;
-    handle.result = parseJsonResponse(stdout);
+    // Try to extract structured result from the text output
+    handle.result = parseJsonResponse(stdout) || { summary: extractSummary(stdout) };
     logStream.write(`\n[${new Date().toISOString()}] Agent finished with exit code ${code}\n`);
     logStream.end();
   });
 
   proc.on("error", err => {
+    if (timer) clearTimeout(timer);
     handle.done = true;
     handle.exitCode = -1;
     handle.stderr = err.message;
@@ -161,6 +117,74 @@ export function claudeExecute(agentId, prompt, opts = {}) {
   });
 
   return handle;
+}
+
+/**
+ * Run a full Claude session synchronously — waits for completion.
+ * Used for planning agents (CEO, CTO, Designer) where we need the result
+ * before proceeding to the next phase. Same full capabilities as async version.
+ */
+export async function claudeSessionSync(agentId, prompt, opts = {}) {
+  const handle = claudeSession(agentId, prompt, opts);
+  return new Promise((resolve, reject) => {
+    const check = setInterval(() => {
+      if (handle.done) {
+        clearInterval(check);
+        if (handle.exitCode !== 0 && !handle.stdout.trim()) {
+          reject(new Error(`Agent ${agentId} exited ${handle.exitCode}: ${handle.stderr.slice(0, 500)}`));
+        } else {
+          resolve(handle.stdout.trim());
+        }
+      }
+    }, 500);
+  });
+}
+
+// ── Legacy aliases (for backward compat) ────────────────────────────────
+
+/** @deprecated Use claudeSessionSync instead */
+export async function claudeThink(prompt, opts = {}) {
+  // CEO/CTO/Designer now get full tool access too
+  const agentId = opts.agentId || "planner";
+  return claudeSessionSync(agentId, prompt, { ...opts, maxTurns: opts.maxTurns || 20 });
+}
+
+/** @deprecated Use claudeSession instead */
+export function claudeExecute(agentId, prompt, opts = {}) {
+  return claudeSession(agentId, prompt, opts);
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────
+
+/**
+ * Parse JSON from claude output, handling markdown code blocks.
+ */
+export function parseJsonResponse(text) {
+  if (!text) return null;
+  try { return JSON.parse(text); } catch {}
+
+  const jsonBlock = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+  if (jsonBlock) {
+    try { return JSON.parse(jsonBlock[1].trim()); } catch {}
+  }
+
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first !== -1 && last !== -1 && last > first) {
+    try { return JSON.parse(text.slice(first, last + 1)); } catch {}
+  }
+
+  return null;
+}
+
+/**
+ * Extract a summary from verbose claude output (last meaningful paragraph).
+ */
+function extractSummary(text) {
+  if (!text) return "No output";
+  const lines = text.split("\n").filter(l => l.trim());
+  // Take last 5 non-empty lines as summary
+  return lines.slice(-5).join("\n").slice(0, 500);
 }
 
 /**

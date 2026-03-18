@@ -9,16 +9,37 @@ function uid() { return crypto.randomUUID(); }
 // Track running agent handles (in-memory, keyed by agent id)
 const runningAgents = new Map();
 
-/**
- * Phase 1: CEO decomposes goal into strategy + tasks
- */
+// ── Helper to mark agent status in DB ────────────────────────────────────
+
+function setAgentRunning(companyId, name) {
+  const agent = db.getDb().prepare("SELECT * FROM agents WHERE company_id = ? AND name = ?").get(companyId, name);
+  if (agent) db.updateAgentStatus(agent.id, "running");
+  return agent;
+}
+
+function setAgentIdle(companyId, name) {
+  const agent = db.getDb().prepare("SELECT * FROM agents WHERE company_id = ? AND name = ?").get(companyId, name);
+  if (agent) db.updateAgentStatus(agent.id, "idle");
+}
+
+// ── Phase 1: CEO ─────────────────────────────────────────────────────────
+
 async function runCeoPlanning(company) {
   log(company.id, "CEO", "Analyzing goal and creating strategy...");
+  setAgentRunning(company.id, "ceo");
+  db.logActivity({ companyId: company.id, agentId: "ceo", action: "ceo_started", detail: "Planning strategy" });
+
   const existingTasks = db.getTasksByCompany(company.id);
   const prompt = prompts.ceoPrompt(company, existingTasks);
 
-  const raw = await claude.claudeThink(prompt, { cwd: company.workspace, timeout: 300000 });
+  const raw = await claude.claudeSessionSync("ceo", prompt, {
+    cwd: company.workspace,
+    timeout: 300000,
+    maxTurns: 20,
+  });
   const plan = claude.parseJsonResponse(raw);
+
+  setAgentIdle(company.id, "ceo");
 
   if (!plan || !plan.projects) {
     log(company.id, "CEO", `Failed to parse strategy. Raw output: ${raw.slice(0, 300)}`);
@@ -58,11 +79,13 @@ async function runCeoPlanning(company) {
   return plan;
 }
 
-/**
- * Phase 2: CTO refines tasks with technical specificity
- */
+// ── Phase 2: CTO ─────────────────────────────────────────────────────────
+
 async function runCtoRefinement(company) {
   log(company.id, "CTO", "Refining tasks with technical details...");
+  setAgentRunning(company.id, "cto");
+  db.logActivity({ companyId: company.id, agentId: "cto", action: "cto_started", detail: "Refining tasks" });
+
   const allTasks = db.getTasksByCompany(company.id);
   const projects = allTasks.filter(t => t.title.startsWith("[PROJECT]"));
 
@@ -76,7 +99,11 @@ async function runCtoRefinement(company) {
     }, childTasks);
 
     try {
-      const raw = await claude.claudeThink(prompt, { cwd: company.workspace, timeout: 300000 });
+      const raw = await claude.claudeSessionSync("cto", prompt, {
+        cwd: company.workspace,
+        timeout: 300000,
+        maxTurns: 20,
+      });
       const refined = claude.parseJsonResponse(raw);
 
       if (!refined || !refined.refined_tasks) {
@@ -108,11 +135,12 @@ async function runCtoRefinement(company) {
       log(company.id, "CTO", `Refinement error: ${err.message}`);
     }
   }
+
+  setAgentIdle(company.id, "cto");
 }
 
-/**
- * Phase 2.5: Designer creates UI/UX specs for tasks
- */
+// ── Phase 2.5: Designer ──────────────────────────────────────────────────
+
 async function runDesignerPhase(company) {
   const allTasks = db.getTasksByCompany(company.id);
   const work = allTasks.filter(t => !t.title.startsWith("[PROJECT]"));
@@ -120,11 +148,19 @@ async function runDesignerPhase(company) {
   if (work.length === 0) return null;
 
   log(company.id, "DESIGNER", "Creating design specs and UI guidelines...");
+  setAgentRunning(company.id, "designer");
+  db.logActivity({ companyId: company.id, agentId: "designer", action: "designer_started", detail: "Creating design specs" });
 
   try {
     const prompt = prompts.designerPrompt(company, work);
-    const raw = await claude.claudeThink(prompt, { cwd: company.workspace, timeout: 300000 });
+    const raw = await claude.claudeSessionSync("designer", prompt, {
+      cwd: company.workspace,
+      timeout: 300000,
+      maxTurns: 20,
+    });
     const specs = claude.parseJsonResponse(raw);
+
+    setAgentIdle(company.id, "designer");
 
     if (!specs) {
       log(company.id, "DESIGNER", "Could not generate design specs, engineers will proceed without.");
@@ -148,17 +184,18 @@ async function runDesignerPhase(company) {
 
     return specs;
   } catch (err) {
+    setAgentIdle(company.id, "designer");
     log(company.id, "DESIGNER", `Design phase error: ${err.message}`);
     return null;
   }
 }
 
-// Store design specs in memory for engineer dispatch
+// ── Store design specs ───────────────────────────────────────────────────
+
 let _designSpecs = null;
 
-/**
- * Phase 3: Dispatch tasks to engineer agents as subprocesses
- */
+// ── Phase 3: Dispatch engineers ──────────────────────────────────────────
+
 function dispatchEngineers(company, designSpecs) {
   if (designSpecs !== undefined) _designSpecs = designSpecs;
   const tasks = db.getTasksByCompany(company.id);
@@ -233,7 +270,8 @@ function dispatchEngineers(company, designSpecs) {
     }
 
     const prompt = prompts.engineerPrompt(company, task, projectContext);
-    const handle = claude.claudeExecute(agentName, prompt, {
+    // Each engineer is a full Claude session with all capabilities
+    const handle = claude.claudeSession(agentName, prompt, {
       cwd: company.workspace,
       maxTurns: 50,
     });
@@ -257,9 +295,8 @@ function dispatchEngineers(company, designSpecs) {
   return toDispatch.length;
 }
 
-/**
- * Check on running agents, mark completed tasks
- */
+// ── Check running agents ─────────────────────────────────────────────────
+
 function checkRunningAgents(company) {
   let completed = 0;
 
@@ -297,6 +334,8 @@ function checkRunningAgents(company) {
   return completed;
 }
 
+// ── Logging + Progress ───────────────────────────────────────────────────
+
 function log(companyId, source, message) {
   const ts = new Date().toLocaleTimeString();
   console.log(`  [${ts}] [${source}] ${message}`);
@@ -314,9 +353,8 @@ function printProgress(company) {
   console.log(`  [${new Date().toLocaleTimeString()}] [${bar}] ${done}/${total} done (${pct}%), ${running} running`);
 }
 
-/**
- * Main entry: start an autonomous AI company
- */
+// ── Main entry ───────────────────────────────────────────────────────────
+
 export async function startCompany(goal, opts = {}) {
   const workspace = opts.workspace || process.cwd();
   const companyId = uid();
@@ -332,6 +370,7 @@ export async function startCompany(goal, opts = {}) {
   console.log(`  ID      : ${companyId.slice(0, 8)}`);
   console.log(`  Agents  : up to ${MAX_CONCURRENT_AGENTS} concurrent`);
   console.log(`  Logs    : ${LOGS_DIR}`);
+  console.log(`  Dashboard: http://localhost:3100`);
   console.log("");
 
   db.createCompany({ id: companyId, name, goal, workspace });
@@ -339,28 +378,30 @@ export async function startCompany(goal, opts = {}) {
   db.createAgent({ id: uid(), companyId, name: "cto", role: "cto", title: "CTO" });
   db.createAgent({ id: uid(), companyId, name: "designer", role: "designer", title: "Lead Designer" });
 
-  // Phase 1: CEO
+  // Phase 1: CEO — full session, can read files, explore workspace
   const plan = await runCeoPlanning(db.getCompany(companyId));
   if (!plan) {
     console.error("\n  [FATAL] CEO planning failed. Aborting.");
     return;
   }
 
-  // Phase 2: CTO
+  // Phase 2: CTO — full session, can read existing code, make tech decisions
   await runCtoRefinement(db.getCompany(companyId));
 
-  // Phase 2.5: Designer
+  // Phase 2.5: Designer — full session, can create design files, review code
   const designSpecs = await runDesignerPhase(db.getCompany(companyId));
 
-  // Phase 3: Dispatch
+  // Phase 3: Engineers — full sessions, each one has all Claude capabilities
   dispatchEngineers(db.getCompany(companyId), designSpecs);
 
   // Phase 4: Monitor loop
   console.log(`\n  Heartbeat every ${HEARTBEAT_INTERVAL_SEC}s. Press Ctrl+C to stop monitoring.`);
-  console.log(`  (Agents run as subprocesses — they continue even if you stop this.)\n`);
+  console.log(`  (Every agent is a standalone Claude session with full tool access.)\n`);
 
   await runHeartbeatLoop(companyId);
 }
+
+// ── Heartbeat loop ───────────────────────────────────────────────────────
 
 async function runHeartbeatLoop(companyId) {
   return new Promise((resolve) => {
@@ -404,9 +445,8 @@ async function runHeartbeatLoop(companyId) {
   });
 }
 
-/**
- * Resume monitoring an existing company
- */
+// ── Resume ───────────────────────────────────────────────────────────────
+
 export async function resumeMonitoring(companyIdPrefix) {
   const companies = db.listCompanies();
   const company = companyIdPrefix
@@ -420,13 +460,12 @@ export async function resumeMonitoring(companyIdPrefix) {
 
   console.log(`\n  Resuming: ${company.name} (${company.id.slice(0, 8)})`);
   checkRunningAgents(company);
-  dispatchEngineers(company);
+  dispatchEngineers(company, undefined);
   await runHeartbeatLoop(company.id);
 }
 
-/**
- * Show company status
- */
+// ── Status ───────────────────────────────────────────────────────────────
+
 export function showStatus(companyIdPrefix) {
   const companies = db.listCompanies();
   const company = companyIdPrefix
@@ -478,9 +517,8 @@ export function showStatus(companyIdPrefix) {
   console.log("");
 }
 
-/**
- * Nudge — CEO reassesses and dispatches more work
- */
+// ── Nudge ────────────────────────────────────────────────────────────────
+
 export async function nudge(companyIdPrefix, message) {
   const companies = db.listCompanies();
   const company = companyIdPrefix
@@ -495,13 +533,18 @@ export async function nudge(companyIdPrefix, message) {
   console.log(`\n  Nudging ${company.name}...`);
   checkRunningAgents(company);
 
+  setAgentRunning(company.id, "ceo");
   const agents = db.getAgentsByCompany(company.id);
   const tasks = db.getTasksByCompany(company.id);
   const prompt = prompts.heartbeatPrompt(company, agents, tasks) +
     (message ? `\n\nDirective from the board: ${message}` : "");
 
   try {
-    const raw = await claude.claudeThink(prompt, { cwd: company.workspace, timeout: 120000 });
+    const raw = await claude.claudeSessionSync("ceo-nudge", prompt, {
+      cwd: company.workspace,
+      timeout: 120000,
+      maxTurns: 20,
+    });
     const assessment = claude.parseJsonResponse(raw);
 
     if (assessment) {
@@ -527,5 +570,6 @@ export async function nudge(companyIdPrefix, message) {
     log(company.id, "CEO", `Assessment failed: ${err.message}`);
   }
 
+  setAgentIdle(company.id, "ceo");
   dispatchEngineers(company, undefined);
 }

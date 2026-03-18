@@ -61,15 +61,13 @@ export default function AgentCard({ agent }: { agent: Agent }) {
         </div>
         <span className="font-mono text-[10px] text-zinc-600" title={agent.id}>{agent.id.slice(0, 8)}</span>
       </div>
-      {agent.role === 'engineer' && (
-        <Link
-          to={`/logs/${agent.name}`}
-          className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-zinc-800/40 bg-zinc-800/20 px-3 py-1.5 text-xs text-zinc-400 transition hover:border-zinc-700/60 hover:bg-zinc-800/40 hover:text-zinc-200"
-        >
-          <Terminal className="h-3 w-3" />
-          View Live Output
-        </Link>
-      )}
+      <Link
+        to={`/logs/${agent.name}`}
+        className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-zinc-800/40 bg-zinc-800/20 px-3 py-1.5 text-xs text-zinc-400 transition hover:border-zinc-700/60 hover:bg-zinc-800/40 hover:text-zinc-200"
+      >
+        <Terminal className="h-3 w-3" />
+        View Live Output
+      </Link>
     </div>
   );
 }
