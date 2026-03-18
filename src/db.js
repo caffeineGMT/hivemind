@@ -136,7 +136,7 @@ export function updateTaskStatus(id, status, result) {
 }
 
 export function assignTask(taskId, agentId) {
-  getDb().prepare("UPDATE tasks SET assignee_id = ?, status = 'todo', updated_at = datetime('now') WHERE id = ?").run(agentId, taskId);
+  getDb().prepare("UPDATE tasks SET assignee_id = ?, status = 'in_progress', updated_at = datetime('now') WHERE id = ?").run(agentId, taskId);
 }
 
 export function logActivity({ companyId, agentId, taskId, action, detail }) {

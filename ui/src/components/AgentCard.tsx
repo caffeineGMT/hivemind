@@ -1,16 +1,19 @@
-import { User, Crown, Monitor, Code2 } from 'lucide-react';
+import { User, Crown, Monitor, Code2, Palette, Terminal } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { StatusBadge } from './StatusBadge';
 import { Agent } from '../api';
 
 const roleIcon: Record<string, React.ReactNode> = {
   ceo: <Crown className="h-5 w-5 text-amber-400" />,
   cto: <Monitor className="h-5 w-5 text-blue-400" />,
+  designer: <Palette className="h-5 w-5 text-purple-400" />,
   engineer: <Code2 className="h-5 w-5 text-emerald-400" />,
 };
 
 const roleBg: Record<string, string> = {
   ceo: 'bg-amber-950/30 border-amber-900/30',
   cto: 'bg-blue-950/30 border-blue-900/30',
+  designer: 'bg-purple-950/30 border-purple-900/30',
   engineer: 'bg-emerald-950/30 border-emerald-900/30',
 };
 
@@ -58,6 +61,15 @@ export default function AgentCard({ agent }: { agent: Agent }) {
         </div>
         <span className="font-mono text-[10px] text-zinc-600" title={agent.id}>{agent.id.slice(0, 8)}</span>
       </div>
+      {agent.role === 'engineer' && (
+        <Link
+          to={`/logs/${agent.name}`}
+          className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-zinc-800/40 bg-zinc-800/20 px-3 py-1.5 text-xs text-zinc-400 transition hover:border-zinc-700/60 hover:bg-zinc-800/40 hover:text-zinc-200"
+        >
+          <Terminal className="h-3 w-3" />
+          View Live Output
+        </Link>
+      )}
     </div>
   );
 }

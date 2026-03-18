@@ -10,11 +10,17 @@ export const TMUX_SESSION_PREFIX = "hive";
 export const HEARTBEAT_INTERVAL_SEC = parseInt(process.env.HIVEMIND_HEARTBEAT_SEC || "120", 10);
 export const MAX_CONCURRENT_AGENTS = parseInt(process.env.HIVEMIND_MAX_AGENTS || "5", 10);
 
-// Resolve claude command — try direct node path first to bypass sandbox-exec on Mac
+// Resolve claude command — use native binary to bypass sandbox-exec
 function resolveClaudeCmd() {
   if (process.env.HIVEMIND_CLAUDE_CMD) return { cmd: process.env.HIVEMIND_CLAUDE_CMD, args: [] };
 
-  // Meta internal: use node + cli.js directly (bypasses sandbox-exec which can fail)
+  // Meta internal: native binary (bypasses sandbox-exec wrapper)
+  const nativeBin = "/usr/local/bin/claude_code/native/claude";
+  if (existsSync(nativeBin)) {
+    return { cmd: nativeBin, args: [] };
+  }
+
+  // Fallback: node + cli.js
   const metaNode = "/usr/local/bin/claude_code/node";
   const metaCli = "/usr/local/bin/claude_code/node_modules/@anthropic-ai/claude-code/cli.js";
   if (existsSync(metaNode) && existsSync(metaCli)) {

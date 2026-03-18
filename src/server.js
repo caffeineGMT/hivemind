@@ -115,6 +115,38 @@ export function createServer(port = 3100) {
     res.json({ agentName: req.params.agentName, log });
   });
 
+  // Live agent log stream (SSE)
+  app.get("/api/logs/:agentName/stream", (req, res) => {
+    const logPath = path.join(LOGS_DIR, `${req.params.agentName}.log`);
+    if (!fs.existsSync(logPath)) return res.status(404).json({ error: "No logs found" });
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+    });
+
+    let lastSize = 0;
+    const sendUpdate = () => {
+      try {
+        const stat = fs.statSync(logPath);
+        if (stat.size > lastSize) {
+          const fd = fs.openSync(logPath, "r");
+          const buf = Buffer.alloc(stat.size - lastSize);
+          fs.readSync(fd, buf, 0, buf.length, lastSize);
+          fs.closeSync(fd);
+          lastSize = stat.size;
+          res.write(`data: ${JSON.stringify({ text: buf.toString("utf-8") })}\n\n`);
+        }
+      } catch {}
+    };
+
+    sendUpdate();
+    const interval = setInterval(sendUpdate, 1000);
+    req.on("close", () => clearInterval(interval));
+  });
+
   // List all log files
   app.get("/api/logs", (req, res) => {
     try {
