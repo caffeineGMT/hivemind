@@ -36,7 +36,7 @@ export default function TaskRow({ task }: { task: Task }) {
   const handleClick = (e: React.MouseEvent) => {
     // Allow swipe gestures on mobile without navigating
     if (!swipeAction) {
-      navigate(`/tasks/${task.id}`);
+      navigate(`tasks/${task.id}`);
     }
   };
 

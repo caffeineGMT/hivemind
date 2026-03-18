@@ -41,7 +41,7 @@ export default function TaskDetail() {
     <div className="animate-fade-in space-y-6">
       <div className="flex items-center gap-3">
         <Link
-          to="/tasks"
+          to="../tasks"
           className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800/60 text-zinc-400 transition hover:bg-zinc-700/60 hover:text-zinc-200"
         >
           <ArrowLeft className="h-4 w-4" />
