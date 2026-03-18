@@ -1,6 +1,6 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { api, Company } from './api';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -18,22 +18,38 @@ import Companies from './pages/Companies';
 import CrossProjectAnalytics from './pages/CrossProjectAnalytics';
 import Settings from './pages/Settings';
 
-export default function App() {
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+// Helper to create URL-safe slugs from company names
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+// Helper to find company by slug
+function findCompanyBySlug(companies: Company[], slug: string): Company | undefined {
+  return companies.find(c => slugify(c.name) === slug);
+}
+
+// Company routes wrapper - handles URL param for company selection
+function CompanyRoutes() {
+  const { companySlug } = useParams<{ companySlug: string }>();
+  const navigate = useNavigate();
 
   const { data: companies, isLoading, error } = useQuery({
     queryKey: ['companies'],
     queryFn: api.getCompanies,
   });
 
+  // Redirect to first company if no slug provided
   useEffect(() => {
-    if (companies && companies.length > 0 && !selectedCompanyId) {
+    if (!companySlug && companies && companies.length > 0) {
       const sorted = [...companies].sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
-      setSelectedCompanyId(sorted[0].id);
+      navigate(`/${slugify(sorted[0].name)}`, { replace: true });
     }
-  }, [companies, selectedCompanyId]);
+  }, [companySlug, companies, navigate]);
 
   if (isLoading) {
     return (
@@ -66,31 +82,51 @@ export default function App() {
     );
   }
 
-  const selectedCompany = companies.find((c: Company) => c.id === selectedCompanyId) || companies[0];
+  // Find company by URL slug
+  const selectedCompany = companySlug
+    ? findCompanyBySlug(companies, companySlug) || companies[0]
+    : companies[0];
+
+  const handleSelectCompany = (id: string) => {
+    const company = companies.find(c => c.id === id);
+    if (company) {
+      navigate(`/${slugify(company.name)}`);
+    }
+  };
 
   return (
     <Layout
       companies={companies}
       selectedCompany={selectedCompany}
-      onSelectCompany={setSelectedCompanyId}
+      onSelectCompany={handleSelectCompany}
+      companySlug={slugify(selectedCompany.name)}
     >
       <Routes>
         <Route path="/" element={<Dashboard companyId={selectedCompany.id} />} />
-        <Route path="/companies" element={<Companies />} />
-        <Route path="/tasks" element={<Tasks companyId={selectedCompany.id} />} />
-        <Route path="/agents" element={<Agents companyId={selectedCompany.id} />} />
-        <Route path="/agent-health" element={<AgentHealth companyId={selectedCompany.id} />} />
-        <Route path="/activity" element={<Activity companyId={selectedCompany.id} />} />
-        <Route path="/finance" element={<Finance companyId={selectedCompany.id} />} />
-        <Route path="/analytics" element={<Analytics companyId={selectedCompany.id} />} />
-        <Route path="/cross-project-analytics" element={<CrossProjectAnalytics />} />
-        <Route path="/costs" element={<Costs companyId={selectedCompany.id} />} />
-        <Route path="/logs-view" element={<Logs />} />
-        <Route path="/settings" element={<Settings companyId={selectedCompany.id} />} />
-        <Route path="/tasks/:taskId" element={<TaskDetail />} />
-        <Route path="/logs/:agentName" element={<AgentLog />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="companies" element={<Companies />} />
+        <Route path="tasks" element={<Tasks companyId={selectedCompany.id} />} />
+        <Route path="agents" element={<Agents companyId={selectedCompany.id} />} />
+        <Route path="agent-health" element={<AgentHealth companyId={selectedCompany.id} />} />
+        <Route path="activity" element={<Activity companyId={selectedCompany.id} />} />
+        <Route path="finance" element={<Finance companyId={selectedCompany.id} />} />
+        <Route path="analytics" element={<Analytics companyId={selectedCompany.id} />} />
+        <Route path="cross-project-analytics" element={<CrossProjectAnalytics />} />
+        <Route path="costs" element={<Costs companyId={selectedCompany.id} />} />
+        <Route path="logs-view" element={<Logs />} />
+        <Route path="settings" element={<Settings companyId={selectedCompany.id} />} />
+        <Route path="tasks/:taskId" element={<TaskDetail />} />
+        <Route path="logs/:agentName" element={<AgentLog />} />
+        <Route path="*" element={<Navigate to={`/${slugify(selectedCompany.name)}`} replace />} />
       </Routes>
     </Layout>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<CompanyRoutes />} />
+      <Route path="/:companySlug/*" element={<CompanyRoutes />} />
+    </Routes>
   );
 }

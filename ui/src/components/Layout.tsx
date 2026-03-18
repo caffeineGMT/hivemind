@@ -22,22 +22,25 @@ interface LayoutProps {
   companies: Company[];
   selectedCompany: Company;
   onSelectCompany: (id: string) => void;
+  companySlug: string;
   children: React.ReactNode;
 }
 
-const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/companies', icon: Building2, label: 'Companies' },
-  { to: '/tasks', icon: ListTodo, label: 'Tasks' },
-  { to: '/agents', icon: Users, label: 'Agents' },
-  { to: '/agent-health', icon: HeartPulse, label: 'Health' },
-  { to: '/activity', icon: Activity, label: 'Activity' },
-  { to: '/finance', icon: DollarSign, label: 'Finance' },
-  { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
-  { to: '/cross-project-analytics', icon: BarChart3, label: 'Cross-Project' },
-  { to: '/costs', icon: DollarSign, label: 'Costs' },
-  { to: '/settings', icon: SettingsIcon, label: 'Settings' },
-];
+function getNavItems(companySlug: string) {
+  return [
+    { to: `/${companySlug}`, icon: LayoutDashboard, label: 'Dashboard' },
+    { to: `/${companySlug}/companies`, icon: Building2, label: 'Companies' },
+    { to: `/${companySlug}/tasks`, icon: ListTodo, label: 'Tasks' },
+    { to: `/${companySlug}/agents`, icon: Users, label: 'Agents' },
+    { to: `/${companySlug}/agent-health`, icon: HeartPulse, label: 'Health' },
+    { to: `/${companySlug}/activity`, icon: Activity, label: 'Activity' },
+    { to: `/${companySlug}/finance`, icon: DollarSign, label: 'Finance' },
+    { to: `/${companySlug}/analytics`, icon: TrendingUp, label: 'Analytics' },
+    { to: `/${companySlug}/cross-project-analytics`, icon: BarChart3, label: 'Cross-Project' },
+    { to: `/${companySlug}/costs`, icon: DollarSign, label: 'Costs' },
+    { to: `/${companySlug}/settings`, icon: SettingsIcon, label: 'Settings' },
+  ];
+}
 
 function statusColor(status: string) {
   switch (status) {
@@ -50,10 +53,11 @@ function statusColor(status: string) {
   }
 }
 
-export default function Layout({ companies, selectedCompany, onSelectCompany, children }: LayoutProps) {
+export default function Layout({ companies, selectedCompany, onSelectCompany, companySlug, children }: LayoutProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const navItems = getNavItems(companySlug);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -125,7 +129,7 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, ch
           <NavLink
             key={to}
             to={to}
-            end={to === '/'}
+            end={to === `/${companySlug}`}
             onClick={closeSidebar}
             className={({ isActive }) =>
               `flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
@@ -207,7 +211,7 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, ch
           <NavLink
             key={to}
             to={to}
-            end={to === '/'}
+            end={to === `/${companySlug}`}
             className={({ isActive }) =>
               `flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition min-h-[56px] justify-center active:bg-zinc-800/30 ${
                 isActive ? 'text-amber-400' : 'text-zinc-500'
