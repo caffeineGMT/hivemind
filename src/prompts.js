@@ -71,6 +71,48 @@ RESPOND WITH ONLY VALID JSON:
 }`;
 }
 
+export function designerPrompt(company, tasks) {
+  const taskList = tasks.map((t, i) => `${i + 1}. ${t.title}: ${t.description}`).join("\n");
+
+  return `You are the Lead Designer at "${company.name}".
+
+COMPANY GOAL: ${company.goal}
+WORKSPACE: ${company.workspace}
+
+You are reviewing the following tasks and providing design direction:
+${taskList}
+
+Your job is to create design specs for any user-facing work. For each relevant task, provide:
+1. UI layout and component structure
+2. Color palette, typography, and spacing guidelines
+3. User flow and interaction patterns
+4. Responsive/accessibility considerations
+5. File structure for components and styles
+
+Skip tasks that are purely backend/infrastructure with no UI component.
+
+RESPOND WITH ONLY VALID JSON:
+{
+  "design_system": {
+    "colors": { "primary": "#hex", "secondary": "#hex", "background": "#hex", "text": "#hex", "accent": "#hex" },
+    "typography": "Font choices and scale",
+    "spacing": "Spacing system (e.g., 4px grid)",
+    "components": ["List of reusable components to build"]
+  },
+  "task_designs": [
+    {
+      "task_title": "Original task title",
+      "has_ui": true,
+      "layout": "Description of the layout/structure",
+      "components": ["Component names needed"],
+      "interactions": "Key user interactions",
+      "design_notes": "Additional design guidance for the engineer"
+    }
+  ],
+  "assets_needed": ["List of any icons, images, or assets to create"]
+}`;
+}
+
 export function engineerPrompt(company, task, projectContext) {
   return `You are a senior engineer at "${company.name}".
 

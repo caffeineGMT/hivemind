@@ -111,9 +111,56 @@ async function runCtoRefinement(company) {
 }
 
 /**
+ * Phase 2.5: Designer creates UI/UX specs for tasks
+ */
+async function runDesignerPhase(company) {
+  const allTasks = db.getTasksByCompany(company.id);
+  const work = allTasks.filter(t => !t.title.startsWith("[PROJECT]"));
+
+  if (work.length === 0) return null;
+
+  log(company.id, "DESIGNER", "Creating design specs and UI guidelines...");
+
+  try {
+    const prompt = prompts.designerPrompt(company, work);
+    const raw = await claude.claudeThink(prompt, { cwd: company.workspace, timeout: 300000 });
+    const specs = claude.parseJsonResponse(raw);
+
+    if (!specs) {
+      log(company.id, "DESIGNER", "Could not generate design specs, engineers will proceed without.");
+      return null;
+    }
+
+    if (specs.design_system) {
+      log(company.id, "DESIGNER", `Design system: ${specs.design_system.components?.length || 0} components defined`);
+    }
+    if (specs.task_designs) {
+      const uiTasks = specs.task_designs.filter(t => t.has_ui);
+      log(company.id, "DESIGNER", `Created design specs for ${uiTasks.length} UI tasks`);
+    }
+
+    db.logActivity({
+      companyId: company.id,
+      agentId: "designer",
+      action: "design_specs_created",
+      detail: `Design system + ${specs.task_designs?.length || 0} task designs`,
+    });
+
+    return specs;
+  } catch (err) {
+    log(company.id, "DESIGNER", `Design phase error: ${err.message}`);
+    return null;
+  }
+}
+
+// Store design specs in memory for engineer dispatch
+let _designSpecs = null;
+
+/**
  * Phase 3: Dispatch tasks to engineer agents as subprocesses
  */
-function dispatchEngineers(company) {
+function dispatchEngineers(company, designSpecs) {
+  if (designSpecs !== undefined) _designSpecs = designSpecs;
   const tasks = db.getTasksByCompany(company.id);
   const todoTasks = tasks.filter(t =>
     !t.title.startsWith("[PROJECT]") && (t.status === "backlog" || t.status === "todo")
@@ -169,6 +216,20 @@ function dispatchEngineers(company) {
     if (siblingsDone.length > 0) {
       projectContext += "\n\nAlready completed tasks (for context):\n" +
         siblingsDone.map(t => `- ${t.title}: ${(t.result || "").slice(0, 200)}`).join("\n");
+    }
+
+    // Inject design context if available
+    if (_designSpecs) {
+      const taskDesign = _designSpecs.task_designs?.find(d =>
+        d.task_title === task.title || task.title.includes(d.task_title) || d.task_title.includes(task.title)
+      );
+      if (taskDesign && taskDesign.has_ui) {
+        projectContext += `\n\nDESIGN SPECS:\n- Layout: ${taskDesign.layout}\n- Components: ${taskDesign.components?.join(", ")}\n- Interactions: ${taskDesign.interactions}\n- Notes: ${taskDesign.design_notes}`;
+      }
+      if (_designSpecs.design_system) {
+        const ds = _designSpecs.design_system;
+        projectContext += `\n\nDESIGN SYSTEM:\n- Colors: ${JSON.stringify(ds.colors)}\n- Typography: ${ds.typography}\n- Spacing: ${ds.spacing}`;
+      }
     }
 
     const prompt = prompts.engineerPrompt(company, task, projectContext);
@@ -276,6 +337,7 @@ export async function startCompany(goal, opts = {}) {
   db.createCompany({ id: companyId, name, goal, workspace });
   db.createAgent({ id: uid(), companyId, name: "ceo", role: "ceo", title: "CEO" });
   db.createAgent({ id: uid(), companyId, name: "cto", role: "cto", title: "CTO" });
+  db.createAgent({ id: uid(), companyId, name: "designer", role: "designer", title: "Lead Designer" });
 
   // Phase 1: CEO
   const plan = await runCeoPlanning(db.getCompany(companyId));
@@ -287,8 +349,11 @@ export async function startCompany(goal, opts = {}) {
   // Phase 2: CTO
   await runCtoRefinement(db.getCompany(companyId));
 
+  // Phase 2.5: Designer
+  const designSpecs = await runDesignerPhase(db.getCompany(companyId));
+
   // Phase 3: Dispatch
-  dispatchEngineers(db.getCompany(companyId));
+  dispatchEngineers(db.getCompany(companyId), designSpecs);
 
   // Phase 4: Monitor loop
   console.log(`\n  Heartbeat every ${HEARTBEAT_INTERVAL_SEC}s. Press Ctrl+C to stop monitoring.`);
@@ -309,7 +374,7 @@ async function runHeartbeatLoop(companyId) {
 
       const completedNow = checkRunningAgents(company);
       if (completedNow > 0) {
-        dispatchEngineers(company);
+        dispatchEngineers(company, undefined);
       }
 
       const allTasks = db.getTasksByCompany(companyId);
@@ -462,5 +527,5 @@ export async function nudge(companyIdPrefix, message) {
     log(company.id, "CEO", `Assessment failed: ${err.message}`);
   }
 
-  dispatchEngineers(company);
+  dispatchEngineers(company, undefined);
 }
