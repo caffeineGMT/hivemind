@@ -404,8 +404,10 @@ export async function startCompany(goal, opts = {}) {
 // ── Heartbeat loop ───────────────────────────────────────────────────────
 
 async function runHeartbeatLoop(companyId) {
+  let processingComments = false;
+
   return new Promise((resolve) => {
-    const heartbeat = setInterval(() => {
+    const heartbeat = setInterval(async () => {
       const company = db.getCompany(companyId);
       if (!company || company.status !== "active") {
         clearInterval(heartbeat);
@@ -416,6 +418,35 @@ async function runHeartbeatLoop(companyId) {
       const completedNow = checkRunningAgents(company);
       if (completedNow > 0) {
         dispatchEngineers(company, undefined);
+      }
+
+      // Check for unread user comments/nudges and feed to CEO
+      if (!processingComments) {
+        const unread = db.getUnreadComments(companyId);
+        if (unread.length > 0) {
+          processingComments = true;
+          const commentIds = unread.map(c => c.id);
+          db.markCommentsRead(commentIds);
+
+          const commentSummary = unread.map(c => {
+            const taskRef = c.task_id ? ` (on task ${c.task_id.slice(0, 8)})` : " (general nudge)";
+            return `- "${c.message}"${taskRef} at ${c.created_at}`;
+          }).join("\n");
+
+          log(companyId, "HEARTBEAT", `Processing ${unread.length} unread comment(s)...`);
+
+          // Fire CEO reassessment with the comments
+          nudge(companyId, `User feedback received:\n${commentSummary}\n\nPlease review and take action on this feedback.`)
+            .then(() => {
+              log(companyId, "HEARTBEAT", "CEO processed user feedback.");
+            })
+            .catch(err => {
+              log(companyId, "HEARTBEAT", `CEO feedback processing failed: ${err.message}`);
+            })
+            .finally(() => {
+              processingComments = false;
+            });
+        }
       }
 
       const allTasks = db.getTasksByCompany(companyId);
@@ -536,8 +567,7 @@ export async function nudge(companyIdPrefix, message) {
   setAgentRunning(company.id, "ceo");
   const agents = db.getAgentsByCompany(company.id);
   const tasks = db.getTasksByCompany(company.id);
-  const prompt = prompts.heartbeatPrompt(company, agents, tasks) +
-    (message ? `\n\nDirective from the board: ${message}` : "");
+  const prompt = prompts.heartbeatPrompt(company, agents, tasks, message || null);
 
   try {
     const raw = await claude.claudeSessionSync("ceo-nudge", prompt, {

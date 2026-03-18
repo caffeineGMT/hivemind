@@ -14,6 +14,14 @@ export function getDb() {
 }
 
 function migrate(db) {
+  // Add 'read' column to comments if missing (for existing DBs)
+  try {
+    const cols = db.prepare("PRAGMA table_info(comments)").all();
+    if (cols.length > 0 && !cols.find(c => c.name === "read")) {
+      db.exec("ALTER TABLE comments ADD COLUMN read INTEGER NOT NULL DEFAULT 0");
+    }
+  } catch {}
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY,
@@ -61,6 +69,7 @@ function migrate(db) {
       agent_id TEXT,
       author TEXT NOT NULL DEFAULT 'user',
       message TEXT NOT NULL,
+      read INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -162,7 +171,20 @@ export function getComments(taskId) {
 }
 
 export function getUnreadComments(companyId) {
-  return getDb().prepare("SELECT * FROM comments WHERE company_id = ? AND author = 'user' ORDER BY created_at DESC LIMIT 20").all(companyId);
+  return getDb().prepare("SELECT * FROM comments WHERE company_id = ? AND author = 'user' AND read = 0 ORDER BY created_at ASC").all(companyId);
+}
+
+export function markCommentsRead(commentIds) {
+  if (!commentIds || commentIds.length === 0) return;
+  const db = getDb();
+  const stmt = db.prepare("UPDATE comments SET read = 1 WHERE id = ?");
+  for (const id of commentIds) {
+    stmt.run(id);
+  }
+}
+
+export function getUnreadTaskComments(taskId) {
+  return getDb().prepare("SELECT * FROM comments WHERE task_id = ? AND author = 'user' AND read = 0 ORDER BY created_at ASC").all(taskId);
 }
 
 export function getTask(id) {

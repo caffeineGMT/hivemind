@@ -10,6 +10,7 @@ import ActivityRow from '../components/ActivityRow';
 export default function Dashboard({ companyId }: { companyId: string }) {
   const [nudgeMsg, setNudgeMsg] = useState('');
   const [nudgeSending, setNudgeSending] = useState(false);
+  const [nudgeSent, setNudgeSent] = useState(false);
 
   const handleNudge = async () => {
     if (!nudgeMsg.trim()) return;
@@ -17,6 +18,8 @@ export default function Dashboard({ companyId }: { companyId: string }) {
     try {
       await api.nudge(companyId, nudgeMsg);
       setNudgeMsg('');
+      setNudgeSent(true);
+      setTimeout(() => setNudgeSent(false), 3000);
     } catch {}
     setNudgeSending(false);
   };
@@ -52,23 +55,30 @@ export default function Dashboard({ companyId }: { companyId: string }) {
       </div>
 
       {/* Nudge input */}
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={nudgeMsg}
-          onChange={(e) => setNudgeMsg(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleNudge()}
-          placeholder="Nudge the CEO — e.g. &quot;Focus on the dashboard first&quot;"
-          className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition focus:border-amber-600/50 focus:ring-1 focus:ring-amber-600/20"
-        />
-        <button
-          onClick={handleNudge}
-          disabled={nudgeSending || !nudgeMsg.trim()}
-          className="flex items-center gap-2 rounded-lg bg-amber-600/80 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-amber-500 disabled:opacity-40 disabled:hover:bg-amber-600/80"
-        >
-          <Send className="h-4 w-4" />
-          {nudgeSending ? 'Sending...' : 'Nudge'}
-        </button>
+      <div className="space-y-1.5">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={nudgeMsg}
+            onChange={(e) => setNudgeMsg(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleNudge()}
+            placeholder="Nudge the CEO — e.g. &quot;Focus on the dashboard first&quot;"
+            className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition focus:border-amber-600/50 focus:ring-1 focus:ring-amber-600/20"
+          />
+          <button
+            onClick={handleNudge}
+            disabled={nudgeSending || !nudgeMsg.trim()}
+            className="flex items-center gap-2 rounded-lg bg-amber-600/80 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-amber-500 disabled:opacity-40 disabled:hover:bg-amber-600/80"
+          >
+            <Send className="h-4 w-4" />
+            {nudgeSending ? 'Sending...' : 'Nudge'}
+          </button>
+        </div>
+        {nudgeSent && (
+          <p className="text-xs text-emerald-500 animate-fade-in">
+            Queued — CEO will pick this up on the next heartbeat cycle
+          </p>
+        )}
       </div>
 
       {/* Progress bar */}

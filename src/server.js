@@ -186,29 +186,29 @@ export function createServer(port = 3100) {
     res.json({ success: true });
   });
 
-  // Nudge endpoint — send a message to the CEO
+  // Nudge endpoint — store as unread comment so heartbeat picks it up
   app.post("/api/companies/:id/nudge", async (req, res) => {
     const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
 
     const { message } = req.body || {};
+    if (!message) return res.status(400).json({ error: "Message required" });
+
+    // Store as an unread comment (no task_id = general nudge)
+    db.addComment({
+      companyId: company.id,
+      taskId: null,
+      author: "user",
+      message: `[NUDGE] ${message}`,
+    });
+
     db.logActivity({
       companyId: company.id,
       action: "nudge_received",
-      detail: message || "No message",
+      detail: message,
     });
 
-    // Import and run nudge async (don't block the response)
-    try {
-      const { nudge } = await import("./orchestrator.js");
-      // Run in background
-      nudge(company.id, message || "").catch(err => {
-        console.error("Nudge error:", err.message);
-      });
-      res.json({ success: true, message: "Nudge sent to CEO" });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
+    res.json({ success: true, message: "Nudge queued — CEO will pick it up on next heartbeat" });
   });
 
   // SPA fallback

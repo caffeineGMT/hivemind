@@ -165,9 +165,13 @@ RESPOND WITH ONLY VALID JSON:
 }`;
 }
 
-export function heartbeatPrompt(company, agents, tasks) {
+export function heartbeatPrompt(company, agents, tasks, userFeedback) {
   const agentStatus = agents.map(a => `- ${a.name} (${a.role}): ${a.status}`).join("\n");
   const taskStatus = tasks.map(t => `- [${t.status}] ${t.title} (assigned: ${t.assignee_id || "unassigned"})`).join("\n");
+
+  const feedbackSection = userFeedback
+    ? `\n\nURGENT — USER FEEDBACK (act on this immediately):\n${userFeedback}\n\nYou MUST address the user's feedback in your response and take concrete actions.`
+    : "";
 
   return `You are the CEO of "${company.name}". Time for a status check.
 
@@ -178,12 +182,14 @@ ${agentStatus}
 
 TASK STATUS:
 ${taskStatus}
+${feedbackSection}
 
 Based on the current state:
 1. Are there blocked or stuck agents that need help?
 2. Are there unassigned tasks that should be picked up?
 3. Should any tasks be reprioritized?
 4. Is the overall strategy still on track?
+${userFeedback ? "5. Address the user's feedback above — create tasks, reassign work, or adjust strategy as needed." : ""}
 
 RESPOND WITH ONLY VALID JSON:
 {
