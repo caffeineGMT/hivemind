@@ -285,6 +285,11 @@ export interface IncidentTimeline {
 // ── Fetch helpers ──────────────────────────────────────────────────
 
 // Token management - will be set by the app
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
 
 // Try live API first, fall back to static JSON snapshots (for Vercel deployment)
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
@@ -293,6 +298,8 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   };
 
   // Add auth token if available
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
   }
 
   // Merge with provided headers
@@ -365,7 +372,7 @@ export const api = {
     fetchJson<TaskDetail>(`/api/tasks/${taskId}`),
 
   addComment: async (taskId: string, message: string) => {
-    
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const res = await fetch(`/api/tasks/${taskId}/comments`, {
       method: 'POST',
       headers,
@@ -378,7 +385,7 @@ export const api = {
     fetchJson<CostData>(`/api/companies/${companyId}/costs`),
 
   setCostBudget: async (companyId: string, monthlyBudget: number, alertThreshold: number) => {
-    
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const res = await fetch(`/api/companies/${companyId}/budget`, {
       method: 'POST',
       headers,
@@ -391,7 +398,7 @@ export const api = {
     fetchJson<CostByDateEntry[]>(`/api/companies/${companyId}/costs/range?startDate=${startDate}&endDate=${endDate}`),
 
   nudge: async (companyId: string, message: string) => {
-    
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const res = await fetch('/api/nudge', {
       method: 'POST',
       headers,
@@ -427,7 +434,7 @@ export const api = {
     fetchJson<CircuitBreakerStatus>('/api/circuit-breaker/status'),
 
   resetCircuitBreaker: async (companyId?: string) => {
-    
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const res = await fetch('/api/circuit-breaker/reset', {
       method: 'POST',
       headers,
@@ -437,7 +444,7 @@ export const api = {
   },
 
   restartAgent: async (agentId: string) => {
-    
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const res = await fetch(`/api/agents/${agentId}/restart`, {
       method: 'POST',
       headers,
@@ -446,7 +453,7 @@ export const api = {
   },
 
   resetAgent: async (agentId: string) => {
-    
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const res = await fetch(`/api/agents/${agentId}/reset`, {
       method: 'DELETE',
       headers,
@@ -456,7 +463,7 @@ export const api = {
 
   // Company management
   createCompany: async (data: { name: string; goal: string }) => {
-    
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const res = await fetch('/api/companies', {
       method: 'POST',
       headers,
@@ -466,7 +473,7 @@ export const api = {
   },
 
   updateCompany: async (id: string, data: Partial<Company>) => {
-    
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const res = await fetch(`/api/companies/${id}`, {
       method: 'PATCH',
       headers,
@@ -476,7 +483,7 @@ export const api = {
   },
 
   deleteCompany: async (id: string) => {
-    
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const res = await fetch(`/api/companies/${id}`, {
       method: 'DELETE',
       headers,
