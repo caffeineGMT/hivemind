@@ -1,9 +1,0 @@
-{
-  "id": "ac16e475-52a7-4a9e-84b1-7e324d73b251",
-  "name": "ArcticRuff Commerce",
-  "goal": "Build the full ArcticRuff e-commerce business. The frontend website is already deployed at arcticruff-deploy.vercel.app (Next.js 16, Tailwind CSS v4, deployed to Vercel). Now build: (1) Waitlist backend using Supabase — store email, name, jacket model, fur color preference, timestamp. Create Supabase project and wire up the existing WaitlistForm.tsx to submit real data via API route. (2) Email confirmation flow — send a branded confirmation email when someone joins the waitlist using Resend or similar. (3) Admin dashboard page at /admin — shows all waitlist entries, export to CSV, basic stats. (4) Stripe checkout integration — add a /checkout page with Stripe Elements for actual payment processing (// CAD tiers). (5) SEO optimization — add proper meta tags, structured data (JSON-LD Product schema), sitemap.xml, robots.txt. (6) Google Analytics 4 setup with event tracking for waitlist signups and checkout. (7) Connect the waitlist form submission to send a Slack/Discord notification for new signups.",
-  "status": "completed",
-  "workspace": "/Users/michaelguo/arcticruff",
-  "created_at": "2026-03-18 07:03:32",
-  "updated_at": "2026-03-18 07:03:32"
-}

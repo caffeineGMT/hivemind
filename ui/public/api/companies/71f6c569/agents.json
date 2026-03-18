@@ -9,7 +9,7 @@
     "status": "idle",
     "tmux_window": null,
     "pid": null,
-    "last_heartbeat": "2026-03-18 07:35:24",
+    "last_heartbeat": "2026-03-18 19:39:55",
     "created_at": "2026-03-18 07:34:07"
   },
   {
@@ -22,7 +22,7 @@
     "status": "idle",
     "tmux_window": null,
     "pid": null,
-    "last_heartbeat": "2026-03-18 07:39:46",
+    "last_heartbeat": "2026-03-18 19:40:02",
     "created_at": "2026-03-18 07:34:07"
   },
   {
@@ -45,10 +45,10 @@
     "role": "engineer",
     "title": "Software Engineer",
     "reports_to": null,
-    "status": "running",
+    "status": "idle",
     "tmux_window": null,
     "pid": 52182,
-    "last_heartbeat": "2026-03-18 07:42:15",
+    "last_heartbeat": "2026-03-18 18:56:52",
     "created_at": "2026-03-18 07:42:15"
   },
   {
@@ -58,10 +58,10 @@
     "role": "engineer",
     "title": "Software Engineer",
     "reports_to": null,
-    "status": "running",
+    "status": "idle",
     "tmux_window": null,
     "pid": 52183,
-    "last_heartbeat": "2026-03-18 07:42:15",
+    "last_heartbeat": "2026-03-18 18:56:52",
     "created_at": "2026-03-18 07:42:15"
   },
   {
@@ -71,10 +71,10 @@
     "role": "engineer",
     "title": "Software Engineer",
     "reports_to": null,
-    "status": "running",
+    "status": "idle",
     "tmux_window": null,
     "pid": 52184,
-    "last_heartbeat": "2026-03-18 07:42:15",
+    "last_heartbeat": "2026-03-18 18:56:52",
     "created_at": "2026-03-18 07:42:15"
   },
   {
@@ -84,10 +84,10 @@
     "role": "engineer",
     "title": "Software Engineer",
     "reports_to": null,
-    "status": "running",
+    "status": "idle",
     "tmux_window": null,
     "pid": 52185,
-    "last_heartbeat": "2026-03-18 07:42:15",
+    "last_heartbeat": "2026-03-18 18:56:52",
     "created_at": "2026-03-18 07:42:15"
   },
   {
@@ -97,10 +97,101 @@
     "role": "engineer",
     "title": "Software Engineer",
     "reports_to": null,
-    "status": "running",
+    "status": "idle",
     "tmux_window": null,
     "pid": 52186,
-    "last_heartbeat": "2026-03-18 07:42:15",
+    "last_heartbeat": "2026-03-18 18:56:52",
     "created_at": "2026-03-18 07:42:15"
+  },
+  {
+    "id": "de7b7f13-952d-420b-86d1-3f0b3383e895",
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "name": "eng-cac250ec",
+    "role": "engineer",
+    "title": "Software Engineer",
+    "reports_to": null,
+    "status": "idle",
+    "tmux_window": null,
+    "pid": 3349,
+    "last_heartbeat": "2026-03-18 19:11:42",
+    "created_at": "2026-03-18 19:04:57"
+  },
+  {
+    "id": "e0c89ecb-4b23-4bc2-81ad-a640da6a0b0b",
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "name": "eng-d3023234",
+    "role": "engineer",
+    "title": "Software Engineer",
+    "reports_to": null,
+    "status": "idle",
+    "tmux_window": null,
+    "pid": 3351,
+    "last_heartbeat": "2026-03-18 19:10:42",
+    "created_at": "2026-03-18 19:04:57"
+  },
+  {
+    "id": "4fbb158c-147a-4430-8648-df3c208bca8e",
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "name": "eng-b6e5b1d0",
+    "role": "engineer",
+    "title": "Software Engineer",
+    "reports_to": null,
+    "status": "idle",
+    "tmux_window": null,
+    "pid": 3352,
+    "last_heartbeat": "2026-03-18 19:13:37",
+    "created_at": "2026-03-18 19:04:57"
+  },
+  {
+    "id": "0e7a21fe-0f6d-4a5e-9910-3142dc9859d7",
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "name": "eng-3b230b26",
+    "role": "engineer",
+    "title": "Software Engineer",
+    "reports_to": null,
+    "status": "idle",
+    "tmux_window": null,
+    "pid": 3354,
+    "last_heartbeat": "2026-03-18 19:08:47",
+    "created_at": "2026-03-18 19:04:57"
+  },
+  {
+    "id": "a639ac1c-0096-4737-83ea-d6e4e3cb1fd7",
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "name": "eng-6c89e1ea",
+    "role": "engineer",
+    "title": "Software Engineer",
+    "reports_to": null,
+    "status": "idle",
+    "tmux_window": null,
+    "pid": 3357,
+    "last_heartbeat": "2026-03-18 19:11:12",
+    "created_at": "2026-03-18 19:04:57"
+  },
+  {
+    "id": "32627847-c521-47d0-a20f-bc05d00ad88b",
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "name": "cfo",
+    "role": "cfo",
+    "title": "CFO",
+    "reports_to": null,
+    "status": "idle",
+    "tmux_window": null,
+    "pid": null,
+    "last_heartbeat": null,
+    "created_at": "2026-03-18 19:38:15"
+  },
+  {
+    "id": "430265f3-a275-4010-8323-233406deddc9",
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "name": "cmo",
+    "role": "cmo",
+    "title": "CMO",
+    "reports_to": null,
+    "status": "idle",
+    "tmux_window": null,
+    "pid": null,
+    "last_heartbeat": null,
+    "created_at": "2026-03-18 19:38:15"
   }
 ]

@@ -1,5 +1,50 @@
 [
   {
+    "id": 190,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cto",
+    "task_id": "957f92b0-156b-4986-a62a-4d92df0b02b5",
+    "action": "tasks_refined",
+    "detail": "Next.js 14.2+ App Router with React Server Components, TypeScript strict mode, shadcn/ui component library (New York style), SQLite via better-sqlite3 with WAL mode for concurrent reads, fintech dark theme (slate-900 bg + emerald/amber accents), tsx for script execution, CSS variables for theming, lucide-react for icons. Tax bracket data hardcoded from authoritative IRS/CRA sources (Rev. Proc. 2024-40, CRA 2025 tables) with JSDoc references. Progressive tax calculation using marginal bracket system. All three tasks are independent and can be executed in parallel.",
+    "created_at": "2026-03-18 19:40:28"
+  },
+  {
+    "id": 177,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "ceo",
+    "task_id": null,
+    "action": "strategy_created",
+    "detail": "Transform TaxBridge MVP into a revenue-generating SaaS product targeting 50K+ H-1B/TN visa tech workers at FAANG companies. Phase 1: Launch freemium model with Stripe payments and SEO-optimized landing pages. Phase 2: Build enterprise features for immigration law firms managing 100+ clients. Revenue target: $83K/month via $299/year individual subscriptions (280 users) + $2K/year enterprise seats (25 firms).",
+    "created_at": "2026-03-18 19:38:25"
+  },
+  {
+    "id": 178,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cto",
+    "task_id": null,
+    "action": "cto_started",
+    "detail": "Refining tasks",
+    "created_at": "2026-03-18 19:38:25"
+  },
+  {
+    "id": 162,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": null,
+    "task_id": null,
+    "action": "sprint_completed",
+    "detail": "Sprint 0 complete. All 14 tasks done. Starting next sprint.",
+    "created_at": "2026-03-18 19:36:17"
+  },
+  {
+    "id": 167,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "ceo",
+    "task_id": null,
+    "action": "ceo_started",
+    "detail": "Planning strategy",
+    "created_at": "2026-03-18 19:36:17"
+  },
+  {
     "id": 98,
     "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
     "agent_id": "f314d4de-06cc-4c1d-893b-ee1f700aa49b",

@@ -1,5 +1,77 @@
 [
   {
+    "id": 198,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cto",
+    "task_id": "b01a8cbd-2454-4ae8-8817-ae012ed8133f",
+    "action": "tasks_refined",
+    "detail": "Using native React 18 Suspense (no external loading libraries) for skeleton states to minimize bundle size. Tailwind utility classes for mobile optimization avoid custom CSS bloat. Shimmer animation uses CSS gradients + Tailwind animate-pulse (hardware-accelerated). Touch interaction follows iOS Human Interface Guidelines (44px targets) and Material Design specs. Horizontal scroll with snap-scroll for filters provides native app-like UX without JavaScript scroll libraries.",
+    "created_at": "2026-03-18 19:42:55"
+  },
+  {
+    "id": 194,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cto",
+    "task_id": "bcf2dd6e-67ae-4d52-970a-8bdd2ff7d08b",
+    "action": "tasks_refined",
+    "detail": "Using Vercel Blob for file storage (serverless-native, auto CDN, no infrastructure management). Next.js 14 App Router API routes for backend. Client-side validation + server-side validation (defense in depth). Storing blob URL in Stripe metadata (max 500 chars per key, sufficient for URLs) rather than custom database to leverage existing Stripe webhook infrastructure. File sanitization with timestamp prefix + random suffix to prevent collisions. 10MB limit balances quality vs upload speed on mobile networks.",
+    "created_at": "2026-03-18 19:41:59"
+  },
+  {
+    "id": 191,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cto",
+    "task_id": "a0da5d07-dd95-4e23-9876-f1733dcd37f7",
+    "action": "tasks_refined",
+    "detail": "Using Next.js 14 App Router built-in Metadata API and MetadataRoute types (no external dependencies). Selected golden-retriever-renaissance.png as hero OG image (visually striking, representative). All metadata is statically generated at build time for optimal SEO. JSON-LD schemas follow Schema.org spec exactly to pass Google Rich Results Test. Sitemap uses standard priority/changeFrequency values for e-commerce sites.",
+    "created_at": "2026-03-18 19:40:44"
+  },
+  {
+    "id": 182,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cto",
+    "task_id": "579b10a0-0dea-4f53-8a44-40aa5af83624",
+    "action": "tasks_refined",
+    "detail": "Using sharp (pure JS, cross-platform) over sharp-cli for programmatic control and automation. Implementing automated data.ts updates via regex replacement to avoid manual merge errors. Next.js Image component with `fill` prop + aspect-ratio container recommended over fixed width/height for flexible grid layouts. WebP quality set to 82% (sweet spot for photos per Google best practices). Blur placeholders at 10×10px × 20% quality target ~1.5KB each for instant perceived performance without FOUC (Flash of Unstyled Content).",
+    "created_at": "2026-03-18 19:39:38"
+  },
+  {
+    "id": 175,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "ceo",
+    "task_id": null,
+    "action": "strategy_created",
+    "detail": "Phase 1 (technical foundation) is complete. Phase 2 focuses on revenue acceleration to reach $1M annual target. Current model ($9/portrait) requires 9,200 orders/month - unsustainable without premium tiers and automation. Strategy: implement tiered pricing (3x-10x revenue per customer), build conversion infrastructure (social proof, email capture), and automate fulfillment to scale to 300+ daily orders.",
+    "created_at": "2026-03-18 19:38:25"
+  },
+  {
+    "id": 176,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cto",
+    "task_id": null,
+    "action": "cto_started",
+    "detail": "Refining tasks",
+    "created_at": "2026-03-18 19:38:25"
+  },
+  {
+    "id": 158,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": null,
+    "task_id": null,
+    "action": "sprint_completed",
+    "detail": "Sprint 0 complete. All 10 tasks done. Starting next sprint.",
+    "created_at": "2026-03-18 19:36:17"
+  },
+  {
+    "id": 163,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "ceo",
+    "task_id": null,
+    "action": "ceo_started",
+    "detail": "Planning strategy",
+    "created_at": "2026-03-18 19:36:17"
+  },
+  {
     "id": 81,
     "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
     "agent_id": null,

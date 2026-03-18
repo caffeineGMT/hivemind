@@ -1,5 +1,203 @@
 [
   {
+    "id": 197,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "cto",
+    "task_id": "52011341-7ff0-4d81-aaa4-a72d1bf12696",
+    "action": "tasks_refined",
+    "detail": "Using vanilla JavaScript (no framework) to maintain simplicity and offline-first capability. Web Speech API for pronunciation (built-in, no external deps). DeepL API for translation quality over Google Translate (especially for Japanese kanji accuracy). LocalStorage for language persistence. CSS custom properties for theme consistency. Noto Sans CJK JP font already loaded supports all three languages. Avoided i18n libraries (i18next, react-intl) to minimize bundle size for PWA performance.",
+    "created_at": "2026-03-18 19:42:41"
+  },
+  {
+    "id": 193,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "cto",
+    "task_id": "3c544a00-5b2d-481f-b400-7711282dc112",
+    "action": "tasks_refined",
+    "detail": "Stack: Vanilla JavaScript (ES6+) with Leaflet.js for maps, dayjs for time parsing, native Fetch API for all network requests. No build tools or frameworks to minimize complexity and ensure offline PWA compatibility. Google Maps Directions API for routing (requires API key with billing enabled for production use beyond free tier). OpenWeatherMap One Call API 2.5 for 14-day forecasts (free tier: 1000 calls/day). localStorage for client-side caching (weather: 6-hour TTL). Mobile-first CSS with progressive enhancement via media queries. GPU acceleration via will-change and transform3d for 60fps animations. Accessibility: ARIA labels, semantic HTML, keyboard navigation. Target: Chrome 90+, Safari 14+, Firefox 88+.",
+    "created_at": "2026-03-18 19:41:24"
+  },
+  {
+    "id": 188,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "ceo",
+    "task_id": null,
+    "action": "strategy_created",
+    "detail": "Transform the personal Japan trip companion into a multi-destination SaaS platform with four revenue streams: (1) Premium AI-powered subscriptions at $9.99/month, (2) Trip template marketplace at $29-99 per destination, (3) Affiliate commissions from integrated hotel/activity bookings, and (4) White-label licensing to travel agencies at $499-2499/month. Target $83K MRR through 2K premium subscribers + 400 monthly template sales + $17K booking commissions + 30 white-label clients.",
+    "created_at": "2026-03-18 19:39:55"
+  },
+  {
+    "id": 189,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "cto",
+    "task_id": null,
+    "action": "cto_started",
+    "detail": "Refining tasks",
+    "created_at": "2026-03-18 19:39:55"
+  },
+  {
+    "id": 159,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": null,
+    "task_id": null,
+    "action": "sprint_completed",
+    "detail": "Sprint 0 complete. All 10 tasks done. Starting next sprint.",
+    "created_at": "2026-03-18 19:36:17"
+  },
+  {
+    "id": 164,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "ceo",
+    "task_id": null,
+    "action": "ceo_started",
+    "detail": "Planning strategy",
+    "created_at": "2026-03-18 19:36:17"
+  },
+  {
+    "id": 148,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": null,
+    "task_id": null,
+    "action": "company_completed",
+    "detail": "All tasks done",
+    "created_at": "2026-03-18 19:13:42"
+  },
+  {
+    "id": 147,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "4fbb158c-147a-4430-8648-df3c208bca8e",
+    "task_id": "b6e5b1d0-a442-47b1-b673-78108613a490",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:13:37"
+  },
+  {
+    "id": 144,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "de7b7f13-952d-420b-86d1-3f0b3383e895",
+    "task_id": "cac250ec-558d-4fe8-b774-12762c5d8443",
+    "action": "task_completed",
+    "detail": "Cleanup: Build Japanese phrase reference with romaji and audio support",
+    "created_at": "2026-03-18 19:11:42"
+  },
+  {
+    "id": 142,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "a639ac1c-0096-4737-83ea-d6e4e3cb1fd7",
+    "task_id": "6c89e1ea-3e28-417f-99a9-94a631fdd717",
+    "action": "task_completed",
+    "detail": "Cleanup: Build Restaurant Reservations & Packing Checklist Pages with localStorage Persistence",
+    "created_at": "2026-03-18 19:11:12"
+  },
+  {
+    "id": 141,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "e0c89ecb-4b23-4bc2-81ad-a640da6a0b0b",
+    "task_id": "d3023234-8c91-462c-a740-0d99b52576ee",
+    "action": "task_completed",
+    "detail": "Cleanup: Translate all itinerary content to Chinese and Japanese with cultural context",
+    "created_at": "2026-03-18 19:10:42"
+  },
+  {
+    "id": 135,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "0e7a21fe-0f6d-4a5e-9910-3142dc9859d7",
+    "task_id": "3b230b26-d6d7-46b9-b142-726e2324d8a9",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:08:47"
+  },
+  {
+    "id": 118,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "de7b7f13-952d-420b-86d1-3f0b3383e895",
+    "task_id": "cac250ec-558d-4fe8-b774-12762c5d8443",
+    "action": "task_started",
+    "detail": "Build Japanese phrase reference with romaji and audio support",
+    "created_at": "2026-03-18 19:04:57"
+  },
+  {
+    "id": 119,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "e0c89ecb-4b23-4bc2-81ad-a640da6a0b0b",
+    "task_id": "d3023234-8c91-462c-a740-0d99b52576ee",
+    "action": "task_started",
+    "detail": "Translate all itinerary content to Chinese and Japanese with cultural context",
+    "created_at": "2026-03-18 19:04:57"
+  },
+  {
+    "id": 120,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "4fbb158c-147a-4430-8648-df3c208bca8e",
+    "task_id": "b6e5b1d0-a442-47b1-b673-78108613a490",
+    "action": "task_started",
+    "detail": "Implement PWA Infrastructure with Offline-First Service Worker",
+    "created_at": "2026-03-18 19:04:57"
+  },
+  {
+    "id": 121,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "0e7a21fe-0f6d-4a5e-9910-3142dc9859d7",
+    "task_id": "3b230b26-d6d7-46b9-b142-726e2324d8a9",
+    "action": "task_started",
+    "detail": "Integrate Live Cherry Blossom Forecast API with Fallback Static Data",
+    "created_at": "2026-03-18 19:04:57"
+  },
+  {
+    "id": 122,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "a639ac1c-0096-4737-83ea-d6e4e3cb1fd7",
+    "task_id": "6c89e1ea-3e28-417f-99a9-94a631fdd717",
+    "action": "task_started",
+    "detail": "Build Restaurant Reservations & Packing Checklist Pages with localStorage Persistence",
+    "created_at": "2026-03-18 19:04:57"
+  },
+  {
+    "id": 108,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "4bba09cf-7be1-4144-b95e-7321f060aff7",
+    "task_id": "2cd34865-709e-4861-a184-f5c3900e3c42",
+    "action": "task_completed",
+    "detail": "Cleanup: Add Google Directions API routing with Leaflet polylines and travel time display",
+    "created_at": "2026-03-18 18:56:52"
+  },
+  {
+    "id": 109,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "c385a9c2-b007-46c5-9124-83f43df3609d",
+    "task_id": "81af4df0-5909-4651-a421-8978253d3301",
+    "action": "task_completed",
+    "detail": "Cleanup: Implement real-time activity tracker with dayjs and auto-scroll highlighting",
+    "created_at": "2026-03-18 18:56:52"
+  },
+  {
+    "id": 110,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "05ff0730-dcf3-4704-a55d-fd548dd10704",
+    "task_id": "e26f1cf8-4467-4272-bc28-1c146f89bfe6",
+    "action": "task_completed",
+    "detail": "Cleanup: Add OpenWeatherMap 14-day forecast with localStorage caching and city-specific widgets",
+    "created_at": "2026-03-18 18:56:52"
+  },
+  {
+    "id": 111,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "26c5694c-9eb8-4b9b-9da2-1bc83dea0267",
+    "task_id": "906e9041-7aaf-4de3-9fe8-90ff40f34bb9",
+    "action": "task_completed",
+    "detail": "Cleanup: Implement mobile-first CSS Grid layout with hamburger sidebar and 60fps touch optimization",
+    "created_at": "2026-03-18 18:56:52"
+  },
+  {
+    "id": 112,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "a0921c29-ee65-46f0-9b0a-9ee8278e4e74",
+    "task_id": "39e7c3ea-d229-4158-8f36-06cac197e043",
+    "action": "task_completed",
+    "detail": "Cleanup: Implement trilingual data structure with language switcher UI",
+    "created_at": "2026-03-18 18:56:52"
+  },
+  {
     "id": 60,
     "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
     "agent_id": "designer",

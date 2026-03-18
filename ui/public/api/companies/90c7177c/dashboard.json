@@ -3,20 +3,21 @@
     "id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
     "name": "TaxBridge",
     "goal": "Build TaxBridge MVP — a US-Canada Cross-Border Tax Bridge web app for the core scenario: H-1B/TN visa tech workers with US RSUs who now live in Canada. MVP features: (1) RSU vesting entry with date, FMV, shares, employer (Meta/Amazon/Google/Microsoft), (2) Dual-country tax calculator showing US federal+state and Canada federal+provincial tax on RSU income using treaty Article XV, (3) Foreign Tax Credit optimizer to avoid double taxation, (4) Required forms checklist (W-2, 1040/1040-NR, T1, T4, FBAR, 8938, 8833), (5) USD/CAD conversion at Bank of Canada rates, (6) Dashboard with filing status. Tech: Next.js App Router, TailwindCSS, TypeScript, SQLite via better-sqlite3. Modern fintech UI.",
-    "status": "completed",
+    "status": "active",
     "workspace": "/Users/michaelguo/hivemind-projects/cross-border-tax",
     "created_at": "2026-03-18 05:45:32",
-    "updated_at": "2026-03-18 05:45:32"
+    "updated_at": "2026-03-18 05:45:32",
+    "sprint": 1
   },
   "metrics": {
-    "totalAgents": 17,
+    "totalAgents": 19,
     "runningAgents": 0,
-    "totalTasks": 14,
+    "totalTasks": 24,
     "doneTasks": 14,
     "inProgressTasks": 0,
-    "backlogTasks": 0,
-    "progressPct": 100,
-    "totalProjects": 4
+    "backlogTasks": 10,
+    "progressPct": 58,
+    "totalProjects": 8
   },
   "agents": [
     {
@@ -29,7 +30,7 @@
       "status": "idle",
       "tmux_window": null,
       "pid": null,
-      "last_heartbeat": "2026-03-18 06:24:02",
+      "last_heartbeat": "2026-03-18 19:38:25",
       "created_at": "2026-03-18 05:45:32"
     },
     {
@@ -42,7 +43,7 @@
       "status": "idle",
       "tmux_window": null,
       "pid": null,
-      "last_heartbeat": null,
+      "last_heartbeat": "2026-03-18 19:38:32",
       "created_at": "2026-03-18 05:45:32"
     },
     {
@@ -239,6 +240,32 @@
       "pid": 23923,
       "last_heartbeat": "2026-03-18 18:46:37",
       "created_at": "2026-03-18 06:24:02"
+    },
+    {
+      "id": "35352cdf-bd94-4a6f-92f4-2de13c528d42",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "name": "cfo",
+      "role": "cfo",
+      "title": "CFO",
+      "reports_to": null,
+      "status": "idle",
+      "tmux_window": null,
+      "pid": null,
+      "last_heartbeat": null,
+      "created_at": "2026-03-18 19:38:15"
+    },
+    {
+      "id": "6e90b3c1-3770-4455-8925-66aabe9b480c",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "name": "cmo",
+      "role": "cmo",
+      "title": "CMO",
+      "reports_to": null,
+      "status": "idle",
+      "tmux_window": null,
+      "pid": null,
+      "last_heartbeat": null,
+      "created_at": "2026-03-18 19:38:15"
     }
   ],
   "tasks": [
@@ -246,43 +273,43 @@
       "id": "2af4cbaf-1e2e-4985-9adb-174d61035256",
       "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
       "parent_id": "957f92b0-156b-4986-a62a-4d92df0b02b5",
-      "title": "Initialize Next.js 14+ App Router project with shadcn/ui and fintech-grade styling",
-      "description": "1. Run `npx create-next-app@latest cross-border-tax --typescript --tailwind --app --eslint --src-dir=false --import-alias='@/*'` (select defaults for other prompts). 2. Install shadcn/ui: `npx shadcn-ui@latest init` (select New York style, Slate base color, CSS variables=yes). 3. Create `/app/layout.tsx` with: RootLayout component, Inter font from next/font/google, dark mode support via `<html className=\"dark\">`, metadata export with title='TaxBridge - US-Canada Cross-Border Tax Calculator', viewport config. 4. Create `/app/page.tsx` with: Hero section ('Simplify Your Cross-Border Tax Filing'), feature cards (RSU Calculator, Tax Optimizer, Forms Checklist), CTA button linking to /dashboard, responsive grid layout (Tailwind). 5. Create `/app/globals.css` with: shadcn/ui CSS variables, dark mode color scheme (slate-900 bg, emerald-500 primary, amber-500 secondary for fintech feel), custom utility classes. 6. Install additional deps: `npm install clsx tailwind-merge lucide-react`. Acceptance: `npm run dev` serves app on :3000, landing page renders with dark theme, no TypeScript errors, ESLint passes, responsive on mobile/desktop.",
+      "title": "Initialize Next.js 14.2+ App Router with shadcn/ui, dark-mode fintech theme, and landing page",
+      "description": "1. Run `npx create-next-app@latest cross-border-tax --typescript --tailwind --app --eslint --src-dir=false --import-alias='@/*'` (select 'No' for src directory, 'Yes' for App Router, TypeScript, ESLint, Tailwind). 2. Install shadcn/ui: `cd cross-border-tax && npx shadcn-ui@latest init` (select: New York style, Slate base color, CSS variables=yes, RSC=yes, components path=@/components). 3. Install additional deps: `npm install clsx tailwind-merge lucide-react class-variance-authority`. 4. Create `/app/layout.tsx`: export metadata `{ title: 'TaxBridge - US-Canada Cross-Border Tax Calculator', description: 'Simplify cross-border tax filing for H-1B/TN workers', viewport: 'width=device-width, initial-scale=1' }`, import Inter from 'next/font/google' with subsets=['latin'], RootLayout component wrapping children in `<html lang=\"en\" className=\"dark\"><body className={inter.className}>{children}</body></html>`. 5. Update `/app/globals.css`: add shadcn CSS variables for dark mode (--background: 222.2 84% 4.9% for slate-900, --primary: 160 84.1% 39.4% for emerald-500, --secondary: 45 93.4% 47.5% for amber-500, --accent: 217.2 91.2% 59.8%), add custom utilities `.fintech-gradient { background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary))); }`, `.glass-card { backdrop-filter: blur(16px); background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(148, 163, 184, 0.1); }`. 6. Create `/app/page.tsx`: export default function HomePage() with three sections: (a) Hero: h1 'Simplify Your Cross-Border Tax Filing', subtitle 'Calculate US & Canada taxes on RSUs with Foreign Tax Credit optimization', CTA Button (shadcn) linking to /dashboard; (b) Features grid (3 cards): 'RSU Calculator' with Calculator icon, 'Tax Optimizer' with TrendingUp icon, 'Forms Checklist' with FileText icon (all from lucide-react), use shadcn Card components with glass-card class; (c) responsive layout using Tailwind grid (grid-cols-1 md:grid-cols-3 gap-6). 7. Install shadcn components: `npx shadcn-ui@latest add button card`. Acceptance: (1) `npm run dev` serves on localhost:3000, (2) landing page renders with dark slate background, emerald/amber accents, (3) responsive grid collapses to single column on mobile, (4) no TypeScript errors (`npm run build` succeeds), (5) ESLint passes (`npm run lint`), (6) all shadcn components render correctly.",
       "status": "done",
       "priority": "high",
       "assignee_id": "69844360-de49-4772-a2ec-52618faee0ba",
       "created_by_id": "ceo",
       "result": "Completed by engineer agent",
       "created_at": "2026-03-18 05:46:48",
-      "updated_at": "2026-03-18 06:15:01"
+      "updated_at": "2026-03-18 19:40:28"
     },
     {
       "id": "b95cbee8-ae02-4ae4-942d-96b4258dd221",
       "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
       "parent_id": "957f92b0-156b-4986-a62a-4d92df0b02b5",
-      "title": "Implement SQLite database with better-sqlite3, schema migrations, and type-safe queries",
-      "description": "1. Install: `npm install better-sqlite3 && npm install -D @types/better-sqlite3`. 2. Create `/lib/db/schema.sql` with DDL: `CREATE TABLE IF NOT EXISTS rsu_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, vest_date TEXT NOT NULL, fmv_usd REAL NOT NULL, shares INTEGER NOT NULL, employer TEXT NOT NULL CHECK(employer IN ('Meta','Amazon','Google','Microsoft')), created_at TEXT DEFAULT CURRENT_TIMESTAMP);` and similar for `tax_calculations` (with FOREIGN KEY to rsu_entries), `user_profiles` (with province/state TEXT fields, filing_status TEXT). Add indexes on user_id, vest_date. 3. Create `/lib/db/index.ts` with: (a) `getDatabase()` singleton returning Database instance from better-sqlite3, (b) `initializeDatabase()` function reading schema.sql and executing via db.exec(), (c) `runMigrations()` placeholder for future schema versions, (d) export prepared statement helpers `insertRSUEntry()`, `getTaxCalculations()`. 4. Create `/lib/db/seed.ts` with sample data (3-5 RSU entries for testing). 5. Create `/scripts/init-db.ts` that calls initializeDatabase() and optionally seeds data. 6. Add npm script: `\"db:init\": \"tsx scripts/init-db.ts\"`. 7. Create `/data/.gitkeep` (add /data/*.db to .gitignore). Acceptance: Run `npm run db:init`, verify `/data/taxbridge.db` created, use sqlite3 CLI to verify tables/indexes exist, TypeScript compilation has no errors.",
+      "title": "Implement SQLite database layer with better-sqlite3, DDL schema, migrations, and type-safe CRUD helpers",
+      "description": "1. Install deps: `npm install better-sqlite3 && npm install -D @types/better-sqlite3 tsx`. 2. Create directory structure: `/lib/db/`, `/data/`, `/scripts/`. 3. Create `/lib/db/schema.sql` with DDL: (a) `CREATE TABLE IF NOT EXISTS user_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, province TEXT NOT NULL CHECK(province IN ('BC','ON','AB','QC')), state TEXT CHECK(state IN ('WA','CA','NY','TX','NONE') OR state IS NULL), filing_status TEXT NOT NULL CHECK(filing_status IN ('Single','MarriedFilingJointly','MarriedFilingSeparately','HeadOfHousehold')), created_at TEXT DEFAULT CURRENT_TIMESTAMP);` (b) `CREATE TABLE IF NOT EXISTS rsu_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, vest_date TEXT NOT NULL, fmv_usd REAL NOT NULL CHECK(fmv_usd > 0), shares INTEGER NOT NULL CHECK(shares > 0), employer TEXT NOT NULL CHECK(employer IN ('Meta','Amazon','Google','Microsoft')), created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES user_profiles(id) ON DELETE CASCADE);` (c) `CREATE TABLE IF NOT EXISTS tax_calculations (id INTEGER PRIMARY KEY AUTOINCREMENT, rsu_entry_id INTEGER NOT NULL, us_federal_tax REAL NOT NULL CHECK(us_federal_tax >= 0), us_state_tax REAL NOT NULL CHECK(us_state_tax >= 0), ca_federal_tax REAL NOT NULL CHECK(ca_federal_tax >= 0), ca_provincial_tax REAL NOT NULL CHECK(ca_provincial_tax >= 0), ftc_amount REAL NOT NULL CHECK(ftc_amount >= 0), created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (rsu_entry_id) REFERENCES rsu_entries(id) ON DELETE CASCADE);` (d) Add indexes: `CREATE INDEX IF NOT EXISTS idx_rsu_user ON rsu_entries(user_id);`, `CREATE INDEX IF NOT EXISTS idx_rsu_vest_date ON rsu_entries(vest_date);`, `CREATE INDEX IF NOT EXISTS idx_tax_rsu ON tax_calculations(rsu_entry_id);`. 4. Create `/lib/db/index.ts`: (a) `let db: Database | null = null;` singleton, (b) `export function getDatabase(): Database { if (!db) { db = new Database(path.join(process.cwd(), 'data', 'taxbridge.db')); db.pragma('journal_mode = WAL'); db.pragma('foreign_keys = ON'); } return db; }`, (c) `export function initializeDatabase(): void { const db = getDatabase(); const schema = fs.readFileSync(path.join(process.cwd(), 'lib', 'db', 'schema.sql'), 'utf-8'); db.exec(schema); }`, (d) `export const insertRSUEntry = (data: Omit<RSUEntry, 'id' | 'createdAt'>) => getDatabase().prepare('INSERT INTO rsu_entries (user_id, vest_date, fmv_usd, shares, employer) VALUES (?, ?, ?, ?, ?)').run(data.userId, data.vestDate, data.fmvUsd, data.shares, data.employer);`, (e) `export const getRSUEntriesByUser = (userId: number): RSUEntry[] => getDatabase().prepare('SELECT * FROM rsu_entries WHERE user_id = ? ORDER BY vest_date DESC').all(userId) as RSUEntry[];`, (f) `export const insertTaxCalculation = (data: Omit<TaxCalculation, 'id' | 'createdAt'>) => getDatabase().prepare('INSERT INTO tax_calculations (rsu_entry_id, us_federal_tax, us_state_tax, ca_federal_tax, ca_provincial_tax, ftc_amount) VALUES (?, ?, ?, ?, ?, ?)').run(data.rsuEntryId, data.usFederalTax, data.usStateTax, data.caFederalTax, data.caProvincialTax, data.ftcAmount);`. 5. Create `/lib/db/seed.ts`: `import { getDatabase, insertRSUEntry } from './index'; const seedData = () => { const entries = [{ userId: 1, vestDate: '2025-02-15', fmvUsd: 485.32, shares: 50, employer: 'Meta' }, { userId: 1, vestDate: '2025-05-15', fmvUsd: 502.18, shares: 50, employer: 'Meta' }, { userId: 1, vestDate: '2025-08-15', fmvUsd: 478.90, shares: 50, employer: 'Amazon' }]; entries.forEach(e => insertRSUEntry(e)); console.log('Seeded', entries.length, 'RSU entries'); }; seedData();`. 6. Create `/scripts/init-db.ts`: `import { initializeDatabase } from '../lib/db'; initializeDatabase(); console.log('Database initialized at /data/taxbridge.db');`. 7. Add npm scripts to package.json: `\"db:init\": \"tsx scripts/init-db.ts\", \"db:seed\": \"tsx lib/db/seed.ts\"`. 8. Add to `.gitignore`: `/data/*.db`, `/data/*.db-shm`, `/data/*.db-wal`. 9. Create `/data/.gitkeep` (empty file). Acceptance: (1) Run `npm run db:init` creates `/data/taxbridge.db` with WAL mode and foreign keys enabled, (2) `sqlite3 data/taxbridge.db '.schema'` shows all tables and indexes, (3) Run `npm run db:seed` inserts 3 rows, (4) `sqlite3 data/taxbridge.db 'SELECT COUNT(*) FROM rsu_entries;'` returns 3, (5) TypeScript compiles with no errors, (6) CHECK constraints work (trying to insert negative fmv_usd throws error).",
       "status": "done",
       "priority": "high",
       "assignee_id": "7f81bc90-45bf-4eba-8f09-8e254f172d23",
       "created_by_id": "ceo",
       "result": "Completed by engineer agent",
       "created_at": "2026-03-18 05:46:48",
-      "updated_at": "2026-03-18 06:15:01"
+      "updated_at": "2026-03-18 19:40:28"
     },
     {
       "id": "7c645eca-c74f-4226-9fec-68695126d4ef",
       "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
       "parent_id": "957f92b0-156b-4986-a62a-4d92df0b02b5",
-      "title": "Define TypeScript domain models and 2025 US/Canada tax bracket constants with CRA/IRS sources",
-      "description": "1. Create `/lib/types.ts` with: `export interface RSUEntry { id?: number; userId: number; vestDate: string; fmvUsd: number; shares: number; employer: Employer; createdAt?: string; }`, `export interface TaxCalculation { id?: number; rsuEntryId: number; usFederalTax: number; usStateTax: number; caFederalTax: number; caProvincialTax: number; ftcAmount: number; createdAt?: string; }`, `export interface UserProfile { id?: number; name: string; province: Province; state: State | null; filingStatus: FilingStatus; }`, `export enum Employer { Meta = 'Meta', Amazon = 'Amazon', Google = 'Google', Microsoft = 'Microsoft' }`, `export enum Province { BC = 'BC', ON = 'ON', AB = 'AB', QC = 'QC' }`, `export enum State { WA = 'WA', CA = 'CA', NY = 'NY', TX = 'TX', NONE = 'NONE' }`, `export enum FilingStatus { Single = 'Single', MarriedFilingJointly = 'MarriedFilingJointly', MarriedFilingSeparately = 'MarriedFilingSeparately', HeadOfHousehold = 'HeadOfHousehold' }`. 2. Create `/lib/constants/tax-brackets.ts` with: (a) `US_FEDERAL_2025` object with brackets array `[{min: 0, max: 11925, rate: 0.10}, {min: 11925, max: 48475, rate: 0.12}, ...]` for Single/MFJ per IRS Rev. Proc. 2024-40, (b) `US_STATE_2025` object keyed by state (WA: {rate: 0, brackets: []}, CA: {brackets: [...]}, NY, TX), (c) `CA_FEDERAL_2025` with CRA 2025 brackets (15% up to $55,867, 20.5% up to $111,733, etc.), (d) `CA_PROVINCIAL_2025` keyed by province (BC, ON rates), (e) `STANDARD_DEDUCTION_2025` and `BASIC_PERSONAL_AMOUNT_2025` constants. 3. Add JSDoc comments with source URLs (irs.gov, canada.ca/cra). 4. Create `/lib/currency.ts` with `convertUsdToCad(amount: number, rate: number): number` helper. Acceptance: All types compile with `npm run build`, no eslint errors, tax brackets match published 2025 IRS/CRA documents (verify spot-check: US Single $100k income = $17,400 + 24% of excess over $100,525).",
+      "title": "Define TypeScript domain types (RSUEntry, TaxCalculation, UserProfile) and 2025 IRS/CRA tax bracket constants with JSDoc sources",
+      "description": "1. Create `/lib/types.ts`: (a) `export enum Employer { Meta = 'Meta', Amazon = 'Amazon', Google = 'Google', Microsoft = 'Microsoft' }`, (b) `export enum Province { BC = 'BC', ON = 'ON', AB = 'AB', QC = 'QC' }`, (c) `export enum State { WA = 'WA', CA = 'CA', NY = 'NY', TX = 'TX', NONE = 'NONE' }`, (d) `export enum FilingStatus { Single = 'Single', MarriedFilingJointly = 'MarriedFilingJointly', MarriedFilingSeparately = 'MarriedFilingSeparately', HeadOfHousehold = 'HeadOfHousehold' }`, (e) `export interface RSUEntry { id?: number; userId: number; vestDate: string; fmvUsd: number; shares: number; employer: Employer; createdAt?: string; }`, (f) `export interface TaxCalculation { id?: number; rsuEntryId: number; usFederalTax: number; usStateTax: number; caFederalTax: number; caProvincialTax: number; ftcAmount: number; createdAt?: string; }`, (g) `export interface UserProfile { id?: number; name: string; province: Province; state: State | null; filingStatus: FilingStatus; createdAt?: string; }`, (h) `export interface TaxBracket { min: number; max: number | null; rate: number; }`. 2. Create `/lib/constants/tax-brackets.ts`: (a) `/** @see https://www.irs.gov/pub/irs-drop/rp-24-40.pdf IRS Rev. Proc. 2024-40 */ export const US_FEDERAL_2025: Record<FilingStatus, TaxBracket[]> = { Single: [{ min: 0, max: 11925, rate: 0.10 }, { min: 11925, max: 48475, rate: 0.12 }, { min: 48475, max: 103350, rate: 0.22 }, { min: 103350, max: 197300, rate: 0.24 }, { min: 197300, max: 250525, rate: 0.32 }, { min: 250525, max: 626350, rate: 0.35 }, { min: 626350, max: null, rate: 0.37 }], MarriedFilingJointly: [{ min: 0, max: 23850, rate: 0.10 }, { min: 23850, max: 96950, rate: 0.12 }, { min: 96950, max: 206700, rate: 0.22 }, { min: 206700, max: 394600, rate: 0.24 }, { min: 394600, max: 501050, rate: 0.32 }, { min: 501050, max: 751600, rate: 0.35 }, { min: 751600, max: null, rate: 0.37 }] /* other filing statuses omitted for brevity */ };`, (b) `/** @see https://www.ftb.ca.gov/forms/2024/2024-540-tax-rate-schedules.pdf */ export const US_STATE_2025: Record<State, { brackets: TaxBracket[] }> = { WA: { brackets: [] }, // No state income tax TX: { brackets: [] }, // No state income tax CA: { brackets: [{ min: 0, max: 10412, rate: 0.01 }, { min: 10412, max: 24684, rate: 0.02 }, { min: 24684, max: 38959, rate: 0.04 }, { min: 38959, max: 54081, rate: 0.06 }, { min: 54081, max: 68350, rate: 0.08 }, { min: 68350, max: 349137, rate: 0.093 }, { min: 349137, max: 418961, rate: 0.103 }, { min: 418961, max: 698271, rate: 0.113 }, { min: 698271, max: null, rate: 0.123 }] }, NY: { brackets: [{ min: 0, max: 8500, rate: 0.04 }, { min: 8500, max: 11700, rate: 0.045 }, { min: 11700, max: 13900, rate: 0.0525 }, { min: 13900, max: 80650, rate: 0.055 }, { min: 80650, max: 215400, rate: 0.06 }, { min: 215400, max: 1077550, rate: 0.0685 }, { min: 1077550, max: 5000000, rate: 0.0965 }, { min: 5000000, max: 25000000, rate: 0.103 }, { min: 25000000, max: null, rate: 0.109 }] }, NONE: { brackets: [] } };`, (c) `/** @see https://www.canada.ca/en/revenue-agency/services/tax/individuals/frequently-asked-questions-individuals/canadian-income-tax-rates-individuals-current-previous-years.html */ export const CA_FEDERAL_2025: TaxBracket[] = [{ min: 0, max: 55867, rate: 0.15 }, { min: 55867, max: 111733, rate: 0.205 }, { min: 111733, max: 173205, rate: 0.26 }, { min: 173205, max: 246752, rate: 0.29 }, { min: 246752, max: null, rate: 0.33 }];`, (d) `/** @see https://www2.gov.bc.ca/gov/content/taxes/income-taxes/personal/tax-rates and https://www.ontario.ca/document/personal-income-tax-rates */ export const CA_PROVINCIAL_2025: Record<Province, TaxBracket[]> = { BC: [{ min: 0, max: 47937, rate: 0.0506 }, { min: 47937, max: 95875, rate: 0.077 }, { min: 95875, max: 110076, rate: 0.105 }, { min: 110076, max: 133664, rate: 0.1229 }, { min: 133664, max: 181232, rate: 0.147 }, { min: 181232, max: 252752, rate: 0.168 }, { min: 252752, max: null, rate: 0.205 }], ON: [{ min: 0, max: 51446, rate: 0.0505 }, { min: 51446, max: 102894, rate: 0.0915 }, { min: 102894, max: 150000, rate: 0.1116 }, { min: 150000, max: 220000, rate: 0.1216 }, { min: 220000, max: null, rate: 0.1316 }] /* AB, QC omitted for brevity */ };`, (e) `export const STANDARD_DEDUCTION_2025: Record<FilingStatus, number> = { Single: 15000, MarriedFilingJointly: 30000, MarriedFilingSeparately: 15000, HeadOfHousehold: 22500 };`, (f) `/** @see https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/about-your-tax-return/tax-return/completing-a-tax-return/deductions-credits-expenses/line-30000-basic-personal-amount.html */ export const BASIC_PERSONAL_AMOUNT_2025 = 15705;`. 3. Create `/lib/utils/currency.ts`: `/** Convert USD to CAD using Bank of Canada exchange rate. @param amountUsd - Amount in US dollars @param rate - Exchange rate (CAD per USD, e.g. 1.35) @returns Amount in Canadian dollars, rounded to 2 decimals */ export function convertUsdToCad(amountUsd: number, rate: number): number { return Math.round(amountUsd * rate * 100) / 100; }`. 4. Create `/lib/utils/tax-calculator.ts` stub: `import type { TaxBracket } from '../types'; /** Calculate tax using marginal bracket system. @param income - Taxable income @param brackets - Tax bracket array @returns Total tax owed */ export function calculateTax(income: number, brackets: TaxBracket[]): number { let tax = 0; for (const bracket of brackets) { if (income <= bracket.min) break; const taxableInBracket = bracket.max ? Math.min(income, bracket.max) - bracket.min : income - bracket.min; tax += taxableInBracket * bracket.rate; } return Math.round(tax * 100) / 100; }`. Acceptance: (1) `npm run build` succeeds with no TypeScript errors, (2) `npm run lint` passes, (3) Spot-check tax calculation: `calculateTax(100000, US_FEDERAL_2025.Single)` returns 17400 (10% on first $11,925 + 12% on next $36,550 + 22% on next $51,825 = $1,192.50 + $4,386 + $11,401.50), (4) All enum values match DB CHECK constraints from Task 2, (5) JSDoc comments include source URLs for IRS Rev. Proc. 2024-40, CRA tax tables, BC/ON provincial rates, (6) `convertUsdToCad(100, 1.35)` returns 135.00.",
       "status": "done",
       "priority": "high",
       "assignee_id": "e404332d-b300-4901-a3a1-4b82097a97dc",
       "created_by_id": "ceo",
       "result": "Completed by engineer agent",
       "created_at": "2026-03-18 05:46:48",
-      "updated_at": "2026-03-18 06:15:01"
+      "updated_at": "2026-03-18 19:40:28"
     },
     {
       "id": "9979db49-51e8-4b1c-b2eb-3b1443408a57",
@@ -437,6 +464,146 @@
       "result": "🏁 Result: ## Summary",
       "created_at": "2026-03-18 06:24:02",
       "updated_at": "2026-03-18 18:46:37"
+    },
+    {
+      "id": "05d9d6b9-5035-4fb5-bfe8-2e0b08c6670b",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "parent_id": "46fc0173-47c4-4741-839c-5dc0d4346e00",
+      "title": "Implement Clerk Authentication with User Roles",
+      "description": "Install and configure Clerk for Next.js App Router. Create `/app/api/auth/[...clerk]/route.ts` webhook handler. Add Clerk middleware to `/middleware.ts` protecting /dashboard, /rsu-entry, /forms-checklist routes. Create user_profiles table with clerk_user_id (unique), subscription_tier (free/pro/enterprise), stripe_customer_id, trial_ends_at, created_at. Modify all database queries to use clerk_user_id instead of hardcoded user_id=1. Add <UserButton /> to header. Create `/app/onboarding/page.tsx` for post-signup profile setup (province, state, filing status). Acceptance: Users can sign up with email/Google, are redirected to onboarding, complete profile, and access dashboard with their own data isolated from other users.",
+      "status": "backlog",
+      "priority": "high",
+      "assignee_id": null,
+      "created_by_id": "ceo",
+      "result": null,
+      "created_at": "2026-03-18 19:38:25",
+      "updated_at": "2026-03-18 19:38:25"
+    },
+    {
+      "id": "8e293a79-ff1a-4433-8270-b6fc3d6b7485",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "parent_id": "46fc0173-47c4-4741-839c-5dc0d4346e00",
+      "title": "Build Stripe Subscription Flow with Tiered Pricing",
+      "description": "Install stripe and @stripe/stripe-js. Create pricing tiers: Free (1 RSU entry, view-only tax calc), Pro ($299/year: unlimited RSUs, PDF export, FTC optimizer, priority email support), Enterprise ($2000/year: API access, bulk upload, CPA dashboard, white-label reports). Create `/app/api/stripe/create-checkout/route.ts` generating Stripe Checkout sessions. Create `/app/api/stripe/webhook/route.ts` handling checkout.session.completed and customer.subscription.updated events to update user_profiles.subscription_tier. Create `/app/pricing/page.tsx` with 3-column pricing table (shadcn Card components), CTA buttons linking to Stripe Checkout. Add paywall logic in dashboard: if user.subscription_tier === 'free' && rsu_entries.count >= 1, show upgrade modal. Acceptance: Free users hit 1-entry limit and see upgrade prompt. Clicking 'Upgrade to Pro' redirects to Stripe Checkout, successful payment updates database, user gains unlimited access.",
+      "status": "backlog",
+      "priority": "high",
+      "assignee_id": null,
+      "created_by_id": "ceo",
+      "result": null,
+      "created_at": "2026-03-18 19:38:25",
+      "updated_at": "2026-03-18 19:38:25"
+    },
+    {
+      "id": "0217c920-bb5e-491c-a108-9abee1f4edd4",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "parent_id": "46fc0173-47c4-4741-839c-5dc0d4346e00",
+      "title": "Create Feature Usage Analytics Dashboard",
+      "description": "Create analytics_events table: (id, user_id, event_name TEXT, metadata JSON, created_at). Add event tracking in components: rsu_entry_created, tax_calculation_viewed, pdf_exported, ftc_optimizer_used, forms_checklist_opened. Create `/app/admin/analytics/page.tsx` (protected by role === 'admin' check in Clerk metadata) displaying: daily active users (DAU), conversion funnel (signups → profile completed → first RSU entry → upgrade to Pro), feature usage heatmap, MRR chart. Use recharts for visualizations. Create `/lib/analytics.ts` with trackEvent(userId, eventName, metadata) helper wrapping database insert. Acceptance: Admin dashboard shows real-time analytics, conversion rate from free to Pro is calculable, feature usage data identifies which features drive upgrades.",
+      "status": "backlog",
+      "priority": "medium",
+      "assignee_id": null,
+      "created_by_id": "ceo",
+      "result": null,
+      "created_at": "2026-03-18 19:38:25",
+      "updated_at": "2026-03-18 19:38:25"
+    },
+    {
+      "id": "b9293c8a-ab7d-40e3-981b-23e5772e8c25",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "parent_id": "49d11732-b6fe-441f-bd41-25d2f8974f21",
+      "title": "Build SEO Landing Pages for High-Intent Keywords",
+      "description": "Create Next.js static pages: (1) `/us-canada-tax-calculator` - Interactive calculator widget (no auth required) with CTA to sign up for full features. (2) `/h1b-rsu-tax-guide` - 2000-word guide covering RSU taxation for H-1B holders, treaty Article XV, FTC mechanics, common mistakes, with schema.org Article markup. (3) `/canada-tax-filing-checklist` - Interactive checklist with T1/T4/FBAR/8938 deadlines, links to CRA forms. Each page includes: meta title/description optimized for target keyword, OpenGraph tags, JSON-LD structured data (FAQPage for checklist, Article for guide), internal links to /pricing and /dashboard, email capture form (Mailchimp integration). Use Next.js generateMetadata() for dynamic SEO tags. Add sitemap.xml and robots.txt. Acceptance: Pages indexed by Google within 48h, meta tags render correctly in social shares, Core Web Vitals score >90 on PageSpeed Insights.",
+      "status": "backlog",
+      "priority": "high",
+      "assignee_id": null,
+      "created_by_id": "ceo",
+      "result": null,
+      "created_at": "2026-03-18 19:38:25",
+      "updated_at": "2026-03-18 19:38:25"
+    },
+    {
+      "id": "abaf790c-bc20-4b50-887f-01ffa4d817fe",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "parent_id": "49d11732-b6fe-441f-bd41-25d2f8974f21",
+      "title": "Implement Email Drip Campaign for Free Users",
+      "description": "Install @sendgrid/mail. Create email templates: (1) Welcome email (day 0) - Product tour, link to onboarding. (2) Educational email (day 3) - 'Understanding Article XV of the US-Canada Tax Treaty'. (3) Feature highlight (day 7) - 'How the FTC Optimizer saves you $2000+'. (4) Upgrade prompt (day 14) - Case study of user saving $5K, limited-time 20% discount code. Create `/app/api/cron/email-drip/route.ts` (Vercel Cron Job, runs daily) querying users where created_at matches trigger days and subscription_tier = 'free'. Track email_sent events in analytics_events table to avoid duplicates. Create unsubscribe flow in `/app/unsubscribe/page.tsx`. Acceptance: New free signups receive welcome email within 1 hour, subsequent emails sent on schedule, unsubscribe link works, email open/click rates tracked in SendGrid dashboard.",
+      "status": "backlog",
+      "priority": "medium",
+      "assignee_id": null,
+      "created_by_id": "ceo",
+      "result": null,
+      "created_at": "2026-03-18 19:38:25",
+      "updated_at": "2026-03-18 19:38:25"
+    },
+    {
+      "id": "d4b339dd-7155-48e9-93b6-fb7817d4c199",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "parent_id": "49d11732-b6fe-441f-bd41-25d2f8974f21",
+      "title": "Build Immigration Lawyer Affiliate Program",
+      "description": "Create affiliate_partners table: (id, partner_name, referral_code UNIQUE, commission_rate REAL, total_referrals INT, total_revenue REAL, payout_email). Modify Stripe Checkout to accept ?ref=CODE query param, store in user_profiles.referred_by. Track commission in `/app/api/stripe/webhook/route.ts`: when checkout.session.completed, if referred_by exists, calculate commission (20% of first year subscription = $59.80 for Pro tier), update affiliate_partners stats. Create `/app/partners/page.tsx` with affiliate signup form (name, firm, email, desired commission rate - requires admin approval). Create `/app/partners/dashboard/[code]/page.tsx` showing referral stats, earnings, unique link (taxbridge.app?ref=LAWFIRM123). Add admin approval flow in `/app/admin/partners/page.tsx`. Target immigration law firms handling 50+ H-1B cases/year. Acceptance: Law firm can sign up, get approved, share referral link, see real-time dashboard of signups and earnings, receive monthly payout via Stripe Connect.",
+      "status": "backlog",
+      "priority": "medium",
+      "assignee_id": null,
+      "created_by_id": "ceo",
+      "result": null,
+      "created_at": "2026-03-18 19:38:25",
+      "updated_at": "2026-03-18 19:38:25"
+    },
+    {
+      "id": "c0fb3178-a5b0-48d1-afd2-5c6cef95734f",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "parent_id": "7fd3a61c-e097-4629-ab6f-ffd5696f70ef",
+      "title": "Implement Multi-Client Dashboard for CPAs and Immigration Firms",
+      "description": "Create organization_members table: (org_id, user_id, role TEXT - 'admin'/'member'/'client'). Modify user_profiles to add org_id (nullable). Create `/app/enterprise/clients/page.tsx` (role === 'admin' only) displaying: client list table (name, total RSU income YTD, tax owed, filing status, last activity), bulk actions (send reminder emails, export all PDFs), search/filter by province/state/employer. Create `/app/api/enterprise/clients/route.ts` with GET (list clients) and POST (invite client via email). Invited clients receive email with signup link pre-associating them to org_id. Add org switcher in header for admins managing multiple orgs. Implement row-level security in all queries: if user.role === 'admin', return org clients; else return only user's own data. Acceptance: CPA firm can invite 10 clients, clients sign up and link to firm, firm admin sees all client data in unified dashboard, can export bulk PDFs for tax filing season.",
+      "status": "backlog",
+      "priority": "high",
+      "assignee_id": null,
+      "created_by_id": "ceo",
+      "result": null,
+      "created_at": "2026-03-18 19:38:25",
+      "updated_at": "2026-03-18 19:38:25"
+    },
+    {
+      "id": "f8521182-5668-458c-bd85-99c1e24ef14e",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "parent_id": "7fd3a61c-e097-4629-ab6f-ffd5696f70ef",
+      "title": "Build CSV Bulk Upload for RSU Entries",
+      "description": "Create `/app/dashboard/import/page.tsx` with drag-drop CSV upload zone (react-dropzone). Parse CSV with papaparse: expected columns (vesting_date, employer, shares, fmv_usd, us_state, canada_province). Validate each row: date format YYYY-MM-DD, employer in allowed list, shares/fmv_usd are numbers, province/state codes valid. Display preview table with validation errors highlighted. On confirm, batch insert via `/app/api/rsu/bulk/route.ts` using SQLite transaction (db.transaction(() => {...})). Support up to 1000 rows per upload. Generate summary: X rows imported, Y errors. Download error report CSV if validation fails. Provide sample CSV template for download. Acceptance: Enterprise user uploads 100-row CSV with Meta/Google/Amazon RSU vesting data, system validates, imports successfully, shows success message with count, all entries visible in dashboard.",
+      "status": "backlog",
+      "priority": "medium",
+      "assignee_id": null,
+      "created_by_id": "ceo",
+      "result": null,
+      "created_at": "2026-03-18 19:38:25",
+      "updated_at": "2026-03-18 19:38:25"
+    },
+    {
+      "id": "4c07bd99-a589-4907-8187-7a9d18cad991",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "parent_id": "bfb5d262-dde6-493f-a4f3-2cd0ba46d686",
+      "title": "Implement Multi-Year Tax Comparison and Carryover Tracking",
+      "description": "Add year column to rsu_entries table. Create `/app/dashboard/multi-year/page.tsx` with year selector dropdown (2022-2026). Display: (1) Year-over-year income chart (recharts LineChart showing total RSU income by year). (2) Cumulative tax paid by country (stacked area chart US vs Canada). (3) FTC carryforward tracker: Canada allows 10-year carryback/carryforward of unused foreign tax credits - calculate excess FTC from previous years and show potential to apply to current year. Create ftc_carryforward table: (year, unused_ftc_amount, expires_at). In FTC calculation, check for available carryforward and automatically apply to reduce current year tax. Show 'Potential savings from 2024 FTC carryforward: $1,250' banner. Acceptance: User with RSU entries in 2023-2025 sees multi-year dashboard, line chart shows income trend, FTC carryforward from 2023 (where US tax exceeded Canada tax) automatically applies to 2025 calculation, reducing net tax owed.",
+      "status": "backlog",
+      "priority": "medium",
+      "assignee_id": null,
+      "created_by_id": "ceo",
+      "result": null,
+      "created_at": "2026-03-18 19:38:25",
+      "updated_at": "2026-03-18 19:38:25"
+    },
+    {
+      "id": "14d68a5e-29f0-428b-9d54-09f902580c76",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "parent_id": "bfb5d262-dde6-493f-a4f3-2cd0ba46d686",
+      "title": "Add AI-Powered Tax Optimization Recommendations",
+      "description": "Install @anthropic-ai/sdk. Create `/app/api/ai/tax-advice/route.ts` endpoint. On FTC optimizer page, add 'Get AI Recommendations' button. Send context to Claude API: user's RSU entries (dates, amounts, employers), current province/state, FTC calculation results, filing status. Prompt: 'Analyze this cross-border tax situation and suggest 3 specific optimization strategies (e.g., timing of RSU sales, province selection if relocating, RRSP contribution strategies, state tax planning). Format as bullet points with estimated $ impact.' Stream response to UI using Server-Sent Events. Store recommendations in tax_recommendations table with thumbs up/down feedback. Use feedback to fine-tune prompts over time. Add disclaimer: 'AI-generated suggestions, consult a licensed tax professional.' Acceptance: User clicks button, receives 3 personalized recommendations within 10s (e.g., 'Consider moving to Alberta from BC to save $2,800/year in provincial tax on $100K RSU income'), can upvote/downvote, recommendations feel relevant and actionable.",
+      "status": "backlog",
+      "priority": "low",
+      "assignee_id": null,
+      "created_by_id": "ceo",
+      "result": null,
+      "created_at": "2026-03-18 19:38:25",
+      "updated_at": "2026-03-18 19:38:25"
     }
   ],
   "projects": [
@@ -458,43 +625,43 @@
           "id": "2af4cbaf-1e2e-4985-9adb-174d61035256",
           "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
           "parent_id": "957f92b0-156b-4986-a62a-4d92df0b02b5",
-          "title": "Initialize Next.js 14+ App Router project with shadcn/ui and fintech-grade styling",
-          "description": "1. Run `npx create-next-app@latest cross-border-tax --typescript --tailwind --app --eslint --src-dir=false --import-alias='@/*'` (select defaults for other prompts). 2. Install shadcn/ui: `npx shadcn-ui@latest init` (select New York style, Slate base color, CSS variables=yes). 3. Create `/app/layout.tsx` with: RootLayout component, Inter font from next/font/google, dark mode support via `<html className=\"dark\">`, metadata export with title='TaxBridge - US-Canada Cross-Border Tax Calculator', viewport config. 4. Create `/app/page.tsx` with: Hero section ('Simplify Your Cross-Border Tax Filing'), feature cards (RSU Calculator, Tax Optimizer, Forms Checklist), CTA button linking to /dashboard, responsive grid layout (Tailwind). 5. Create `/app/globals.css` with: shadcn/ui CSS variables, dark mode color scheme (slate-900 bg, emerald-500 primary, amber-500 secondary for fintech feel), custom utility classes. 6. Install additional deps: `npm install clsx tailwind-merge lucide-react`. Acceptance: `npm run dev` serves app on :3000, landing page renders with dark theme, no TypeScript errors, ESLint passes, responsive on mobile/desktop.",
+          "title": "Initialize Next.js 14.2+ App Router with shadcn/ui, dark-mode fintech theme, and landing page",
+          "description": "1. Run `npx create-next-app@latest cross-border-tax --typescript --tailwind --app --eslint --src-dir=false --import-alias='@/*'` (select 'No' for src directory, 'Yes' for App Router, TypeScript, ESLint, Tailwind). 2. Install shadcn/ui: `cd cross-border-tax && npx shadcn-ui@latest init` (select: New York style, Slate base color, CSS variables=yes, RSC=yes, components path=@/components). 3. Install additional deps: `npm install clsx tailwind-merge lucide-react class-variance-authority`. 4. Create `/app/layout.tsx`: export metadata `{ title: 'TaxBridge - US-Canada Cross-Border Tax Calculator', description: 'Simplify cross-border tax filing for H-1B/TN workers', viewport: 'width=device-width, initial-scale=1' }`, import Inter from 'next/font/google' with subsets=['latin'], RootLayout component wrapping children in `<html lang=\"en\" className=\"dark\"><body className={inter.className}>{children}</body></html>`. 5. Update `/app/globals.css`: add shadcn CSS variables for dark mode (--background: 222.2 84% 4.9% for slate-900, --primary: 160 84.1% 39.4% for emerald-500, --secondary: 45 93.4% 47.5% for amber-500, --accent: 217.2 91.2% 59.8%), add custom utilities `.fintech-gradient { background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary))); }`, `.glass-card { backdrop-filter: blur(16px); background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(148, 163, 184, 0.1); }`. 6. Create `/app/page.tsx`: export default function HomePage() with three sections: (a) Hero: h1 'Simplify Your Cross-Border Tax Filing', subtitle 'Calculate US & Canada taxes on RSUs with Foreign Tax Credit optimization', CTA Button (shadcn) linking to /dashboard; (b) Features grid (3 cards): 'RSU Calculator' with Calculator icon, 'Tax Optimizer' with TrendingUp icon, 'Forms Checklist' with FileText icon (all from lucide-react), use shadcn Card components with glass-card class; (c) responsive layout using Tailwind grid (grid-cols-1 md:grid-cols-3 gap-6). 7. Install shadcn components: `npx shadcn-ui@latest add button card`. Acceptance: (1) `npm run dev` serves on localhost:3000, (2) landing page renders with dark slate background, emerald/amber accents, (3) responsive grid collapses to single column on mobile, (4) no TypeScript errors (`npm run build` succeeds), (5) ESLint passes (`npm run lint`), (6) all shadcn components render correctly.",
           "status": "done",
           "priority": "high",
           "assignee_id": "69844360-de49-4772-a2ec-52618faee0ba",
           "created_by_id": "ceo",
           "result": "Completed by engineer agent",
           "created_at": "2026-03-18 05:46:48",
-          "updated_at": "2026-03-18 06:15:01"
+          "updated_at": "2026-03-18 19:40:28"
         },
         {
           "id": "b95cbee8-ae02-4ae4-942d-96b4258dd221",
           "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
           "parent_id": "957f92b0-156b-4986-a62a-4d92df0b02b5",
-          "title": "Implement SQLite database with better-sqlite3, schema migrations, and type-safe queries",
-          "description": "1. Install: `npm install better-sqlite3 && npm install -D @types/better-sqlite3`. 2. Create `/lib/db/schema.sql` with DDL: `CREATE TABLE IF NOT EXISTS rsu_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, vest_date TEXT NOT NULL, fmv_usd REAL NOT NULL, shares INTEGER NOT NULL, employer TEXT NOT NULL CHECK(employer IN ('Meta','Amazon','Google','Microsoft')), created_at TEXT DEFAULT CURRENT_TIMESTAMP);` and similar for `tax_calculations` (with FOREIGN KEY to rsu_entries), `user_profiles` (with province/state TEXT fields, filing_status TEXT). Add indexes on user_id, vest_date. 3. Create `/lib/db/index.ts` with: (a) `getDatabase()` singleton returning Database instance from better-sqlite3, (b) `initializeDatabase()` function reading schema.sql and executing via db.exec(), (c) `runMigrations()` placeholder for future schema versions, (d) export prepared statement helpers `insertRSUEntry()`, `getTaxCalculations()`. 4. Create `/lib/db/seed.ts` with sample data (3-5 RSU entries for testing). 5. Create `/scripts/init-db.ts` that calls initializeDatabase() and optionally seeds data. 6. Add npm script: `\"db:init\": \"tsx scripts/init-db.ts\"`. 7. Create `/data/.gitkeep` (add /data/*.db to .gitignore). Acceptance: Run `npm run db:init`, verify `/data/taxbridge.db` created, use sqlite3 CLI to verify tables/indexes exist, TypeScript compilation has no errors.",
+          "title": "Implement SQLite database layer with better-sqlite3, DDL schema, migrations, and type-safe CRUD helpers",
+          "description": "1. Install deps: `npm install better-sqlite3 && npm install -D @types/better-sqlite3 tsx`. 2. Create directory structure: `/lib/db/`, `/data/`, `/scripts/`. 3. Create `/lib/db/schema.sql` with DDL: (a) `CREATE TABLE IF NOT EXISTS user_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, province TEXT NOT NULL CHECK(province IN ('BC','ON','AB','QC')), state TEXT CHECK(state IN ('WA','CA','NY','TX','NONE') OR state IS NULL), filing_status TEXT NOT NULL CHECK(filing_status IN ('Single','MarriedFilingJointly','MarriedFilingSeparately','HeadOfHousehold')), created_at TEXT DEFAULT CURRENT_TIMESTAMP);` (b) `CREATE TABLE IF NOT EXISTS rsu_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, vest_date TEXT NOT NULL, fmv_usd REAL NOT NULL CHECK(fmv_usd > 0), shares INTEGER NOT NULL CHECK(shares > 0), employer TEXT NOT NULL CHECK(employer IN ('Meta','Amazon','Google','Microsoft')), created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES user_profiles(id) ON DELETE CASCADE);` (c) `CREATE TABLE IF NOT EXISTS tax_calculations (id INTEGER PRIMARY KEY AUTOINCREMENT, rsu_entry_id INTEGER NOT NULL, us_federal_tax REAL NOT NULL CHECK(us_federal_tax >= 0), us_state_tax REAL NOT NULL CHECK(us_state_tax >= 0), ca_federal_tax REAL NOT NULL CHECK(ca_federal_tax >= 0), ca_provincial_tax REAL NOT NULL CHECK(ca_provincial_tax >= 0), ftc_amount REAL NOT NULL CHECK(ftc_amount >= 0), created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (rsu_entry_id) REFERENCES rsu_entries(id) ON DELETE CASCADE);` (d) Add indexes: `CREATE INDEX IF NOT EXISTS idx_rsu_user ON rsu_entries(user_id);`, `CREATE INDEX IF NOT EXISTS idx_rsu_vest_date ON rsu_entries(vest_date);`, `CREATE INDEX IF NOT EXISTS idx_tax_rsu ON tax_calculations(rsu_entry_id);`. 4. Create `/lib/db/index.ts`: (a) `let db: Database | null = null;` singleton, (b) `export function getDatabase(): Database { if (!db) { db = new Database(path.join(process.cwd(), 'data', 'taxbridge.db')); db.pragma('journal_mode = WAL'); db.pragma('foreign_keys = ON'); } return db; }`, (c) `export function initializeDatabase(): void { const db = getDatabase(); const schema = fs.readFileSync(path.join(process.cwd(), 'lib', 'db', 'schema.sql'), 'utf-8'); db.exec(schema); }`, (d) `export const insertRSUEntry = (data: Omit<RSUEntry, 'id' | 'createdAt'>) => getDatabase().prepare('INSERT INTO rsu_entries (user_id, vest_date, fmv_usd, shares, employer) VALUES (?, ?, ?, ?, ?)').run(data.userId, data.vestDate, data.fmvUsd, data.shares, data.employer);`, (e) `export const getRSUEntriesByUser = (userId: number): RSUEntry[] => getDatabase().prepare('SELECT * FROM rsu_entries WHERE user_id = ? ORDER BY vest_date DESC').all(userId) as RSUEntry[];`, (f) `export const insertTaxCalculation = (data: Omit<TaxCalculation, 'id' | 'createdAt'>) => getDatabase().prepare('INSERT INTO tax_calculations (rsu_entry_id, us_federal_tax, us_state_tax, ca_federal_tax, ca_provincial_tax, ftc_amount) VALUES (?, ?, ?, ?, ?, ?)').run(data.rsuEntryId, data.usFederalTax, data.usStateTax, data.caFederalTax, data.caProvincialTax, data.ftcAmount);`. 5. Create `/lib/db/seed.ts`: `import { getDatabase, insertRSUEntry } from './index'; const seedData = () => { const entries = [{ userId: 1, vestDate: '2025-02-15', fmvUsd: 485.32, shares: 50, employer: 'Meta' }, { userId: 1, vestDate: '2025-05-15', fmvUsd: 502.18, shares: 50, employer: 'Meta' }, { userId: 1, vestDate: '2025-08-15', fmvUsd: 478.90, shares: 50, employer: 'Amazon' }]; entries.forEach(e => insertRSUEntry(e)); console.log('Seeded', entries.length, 'RSU entries'); }; seedData();`. 6. Create `/scripts/init-db.ts`: `import { initializeDatabase } from '../lib/db'; initializeDatabase(); console.log('Database initialized at /data/taxbridge.db');`. 7. Add npm scripts to package.json: `\"db:init\": \"tsx scripts/init-db.ts\", \"db:seed\": \"tsx lib/db/seed.ts\"`. 8. Add to `.gitignore`: `/data/*.db`, `/data/*.db-shm`, `/data/*.db-wal`. 9. Create `/data/.gitkeep` (empty file). Acceptance: (1) Run `npm run db:init` creates `/data/taxbridge.db` with WAL mode and foreign keys enabled, (2) `sqlite3 data/taxbridge.db '.schema'` shows all tables and indexes, (3) Run `npm run db:seed` inserts 3 rows, (4) `sqlite3 data/taxbridge.db 'SELECT COUNT(*) FROM rsu_entries;'` returns 3, (5) TypeScript compiles with no errors, (6) CHECK constraints work (trying to insert negative fmv_usd throws error).",
           "status": "done",
           "priority": "high",
           "assignee_id": "7f81bc90-45bf-4eba-8f09-8e254f172d23",
           "created_by_id": "ceo",
           "result": "Completed by engineer agent",
           "created_at": "2026-03-18 05:46:48",
-          "updated_at": "2026-03-18 06:15:01"
+          "updated_at": "2026-03-18 19:40:28"
         },
         {
           "id": "7c645eca-c74f-4226-9fec-68695126d4ef",
           "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
           "parent_id": "957f92b0-156b-4986-a62a-4d92df0b02b5",
-          "title": "Define TypeScript domain models and 2025 US/Canada tax bracket constants with CRA/IRS sources",
-          "description": "1. Create `/lib/types.ts` with: `export interface RSUEntry { id?: number; userId: number; vestDate: string; fmvUsd: number; shares: number; employer: Employer; createdAt?: string; }`, `export interface TaxCalculation { id?: number; rsuEntryId: number; usFederalTax: number; usStateTax: number; caFederalTax: number; caProvincialTax: number; ftcAmount: number; createdAt?: string; }`, `export interface UserProfile { id?: number; name: string; province: Province; state: State | null; filingStatus: FilingStatus; }`, `export enum Employer { Meta = 'Meta', Amazon = 'Amazon', Google = 'Google', Microsoft = 'Microsoft' }`, `export enum Province { BC = 'BC', ON = 'ON', AB = 'AB', QC = 'QC' }`, `export enum State { WA = 'WA', CA = 'CA', NY = 'NY', TX = 'TX', NONE = 'NONE' }`, `export enum FilingStatus { Single = 'Single', MarriedFilingJointly = 'MarriedFilingJointly', MarriedFilingSeparately = 'MarriedFilingSeparately', HeadOfHousehold = 'HeadOfHousehold' }`. 2. Create `/lib/constants/tax-brackets.ts` with: (a) `US_FEDERAL_2025` object with brackets array `[{min: 0, max: 11925, rate: 0.10}, {min: 11925, max: 48475, rate: 0.12}, ...]` for Single/MFJ per IRS Rev. Proc. 2024-40, (b) `US_STATE_2025` object keyed by state (WA: {rate: 0, brackets: []}, CA: {brackets: [...]}, NY, TX), (c) `CA_FEDERAL_2025` with CRA 2025 brackets (15% up to $55,867, 20.5% up to $111,733, etc.), (d) `CA_PROVINCIAL_2025` keyed by province (BC, ON rates), (e) `STANDARD_DEDUCTION_2025` and `BASIC_PERSONAL_AMOUNT_2025` constants. 3. Add JSDoc comments with source URLs (irs.gov, canada.ca/cra). 4. Create `/lib/currency.ts` with `convertUsdToCad(amount: number, rate: number): number` helper. Acceptance: All types compile with `npm run build`, no eslint errors, tax brackets match published 2025 IRS/CRA documents (verify spot-check: US Single $100k income = $17,400 + 24% of excess over $100,525).",
+          "title": "Define TypeScript domain types (RSUEntry, TaxCalculation, UserProfile) and 2025 IRS/CRA tax bracket constants with JSDoc sources",
+          "description": "1. Create `/lib/types.ts`: (a) `export enum Employer { Meta = 'Meta', Amazon = 'Amazon', Google = 'Google', Microsoft = 'Microsoft' }`, (b) `export enum Province { BC = 'BC', ON = 'ON', AB = 'AB', QC = 'QC' }`, (c) `export enum State { WA = 'WA', CA = 'CA', NY = 'NY', TX = 'TX', NONE = 'NONE' }`, (d) `export enum FilingStatus { Single = 'Single', MarriedFilingJointly = 'MarriedFilingJointly', MarriedFilingSeparately = 'MarriedFilingSeparately', HeadOfHousehold = 'HeadOfHousehold' }`, (e) `export interface RSUEntry { id?: number; userId: number; vestDate: string; fmvUsd: number; shares: number; employer: Employer; createdAt?: string; }`, (f) `export interface TaxCalculation { id?: number; rsuEntryId: number; usFederalTax: number; usStateTax: number; caFederalTax: number; caProvincialTax: number; ftcAmount: number; createdAt?: string; }`, (g) `export interface UserProfile { id?: number; name: string; province: Province; state: State | null; filingStatus: FilingStatus; createdAt?: string; }`, (h) `export interface TaxBracket { min: number; max: number | null; rate: number; }`. 2. Create `/lib/constants/tax-brackets.ts`: (a) `/** @see https://www.irs.gov/pub/irs-drop/rp-24-40.pdf IRS Rev. Proc. 2024-40 */ export const US_FEDERAL_2025: Record<FilingStatus, TaxBracket[]> = { Single: [{ min: 0, max: 11925, rate: 0.10 }, { min: 11925, max: 48475, rate: 0.12 }, { min: 48475, max: 103350, rate: 0.22 }, { min: 103350, max: 197300, rate: 0.24 }, { min: 197300, max: 250525, rate: 0.32 }, { min: 250525, max: 626350, rate: 0.35 }, { min: 626350, max: null, rate: 0.37 }], MarriedFilingJointly: [{ min: 0, max: 23850, rate: 0.10 }, { min: 23850, max: 96950, rate: 0.12 }, { min: 96950, max: 206700, rate: 0.22 }, { min: 206700, max: 394600, rate: 0.24 }, { min: 394600, max: 501050, rate: 0.32 }, { min: 501050, max: 751600, rate: 0.35 }, { min: 751600, max: null, rate: 0.37 }] /* other filing statuses omitted for brevity */ };`, (b) `/** @see https://www.ftb.ca.gov/forms/2024/2024-540-tax-rate-schedules.pdf */ export const US_STATE_2025: Record<State, { brackets: TaxBracket[] }> = { WA: { brackets: [] }, // No state income tax TX: { brackets: [] }, // No state income tax CA: { brackets: [{ min: 0, max: 10412, rate: 0.01 }, { min: 10412, max: 24684, rate: 0.02 }, { min: 24684, max: 38959, rate: 0.04 }, { min: 38959, max: 54081, rate: 0.06 }, { min: 54081, max: 68350, rate: 0.08 }, { min: 68350, max: 349137, rate: 0.093 }, { min: 349137, max: 418961, rate: 0.103 }, { min: 418961, max: 698271, rate: 0.113 }, { min: 698271, max: null, rate: 0.123 }] }, NY: { brackets: [{ min: 0, max: 8500, rate: 0.04 }, { min: 8500, max: 11700, rate: 0.045 }, { min: 11700, max: 13900, rate: 0.0525 }, { min: 13900, max: 80650, rate: 0.055 }, { min: 80650, max: 215400, rate: 0.06 }, { min: 215400, max: 1077550, rate: 0.0685 }, { min: 1077550, max: 5000000, rate: 0.0965 }, { min: 5000000, max: 25000000, rate: 0.103 }, { min: 25000000, max: null, rate: 0.109 }] }, NONE: { brackets: [] } };`, (c) `/** @see https://www.canada.ca/en/revenue-agency/services/tax/individuals/frequently-asked-questions-individuals/canadian-income-tax-rates-individuals-current-previous-years.html */ export const CA_FEDERAL_2025: TaxBracket[] = [{ min: 0, max: 55867, rate: 0.15 }, { min: 55867, max: 111733, rate: 0.205 }, { min: 111733, max: 173205, rate: 0.26 }, { min: 173205, max: 246752, rate: 0.29 }, { min: 246752, max: null, rate: 0.33 }];`, (d) `/** @see https://www2.gov.bc.ca/gov/content/taxes/income-taxes/personal/tax-rates and https://www.ontario.ca/document/personal-income-tax-rates */ export const CA_PROVINCIAL_2025: Record<Province, TaxBracket[]> = { BC: [{ min: 0, max: 47937, rate: 0.0506 }, { min: 47937, max: 95875, rate: 0.077 }, { min: 95875, max: 110076, rate: 0.105 }, { min: 110076, max: 133664, rate: 0.1229 }, { min: 133664, max: 181232, rate: 0.147 }, { min: 181232, max: 252752, rate: 0.168 }, { min: 252752, max: null, rate: 0.205 }], ON: [{ min: 0, max: 51446, rate: 0.0505 }, { min: 51446, max: 102894, rate: 0.0915 }, { min: 102894, max: 150000, rate: 0.1116 }, { min: 150000, max: 220000, rate: 0.1216 }, { min: 220000, max: null, rate: 0.1316 }] /* AB, QC omitted for brevity */ };`, (e) `export const STANDARD_DEDUCTION_2025: Record<FilingStatus, number> = { Single: 15000, MarriedFilingJointly: 30000, MarriedFilingSeparately: 15000, HeadOfHousehold: 22500 };`, (f) `/** @see https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/about-your-tax-return/tax-return/completing-a-tax-return/deductions-credits-expenses/line-30000-basic-personal-amount.html */ export const BASIC_PERSONAL_AMOUNT_2025 = 15705;`. 3. Create `/lib/utils/currency.ts`: `/** Convert USD to CAD using Bank of Canada exchange rate. @param amountUsd - Amount in US dollars @param rate - Exchange rate (CAD per USD, e.g. 1.35) @returns Amount in Canadian dollars, rounded to 2 decimals */ export function convertUsdToCad(amountUsd: number, rate: number): number { return Math.round(amountUsd * rate * 100) / 100; }`. 4. Create `/lib/utils/tax-calculator.ts` stub: `import type { TaxBracket } from '../types'; /** Calculate tax using marginal bracket system. @param income - Taxable income @param brackets - Tax bracket array @returns Total tax owed */ export function calculateTax(income: number, brackets: TaxBracket[]): number { let tax = 0; for (const bracket of brackets) { if (income <= bracket.min) break; const taxableInBracket = bracket.max ? Math.min(income, bracket.max) - bracket.min : income - bracket.min; tax += taxableInBracket * bracket.rate; } return Math.round(tax * 100) / 100; }`. Acceptance: (1) `npm run build` succeeds with no TypeScript errors, (2) `npm run lint` passes, (3) Spot-check tax calculation: `calculateTax(100000, US_FEDERAL_2025.Single)` returns 17400 (10% on first $11,925 + 12% on next $36,550 + 22% on next $51,825 = $1,192.50 + $4,386 + $11,401.50), (4) All enum values match DB CHECK constraints from Task 2, (5) JSDoc comments include source URLs for IRS Rev. Proc. 2024-40, CRA tax tables, BC/ON provincial rates, (6) `convertUsdToCad(100, 1.35)` returns 135.00.",
           "status": "done",
           "priority": "high",
           "assignee_id": "e404332d-b300-4901-a3a1-4b82097a97dc",
           "created_by_id": "ceo",
           "result": "Completed by engineer agent",
           "created_at": "2026-03-18 05:46:48",
-          "updated_at": "2026-03-18 06:15:01"
+          "updated_at": "2026-03-18 19:40:28"
         }
       ]
     },
@@ -683,6 +850,210 @@
           "result": "🏁 Result: done (422849ms, 51 turns)",
           "created_at": "2026-03-18 05:46:48",
           "updated_at": "2026-03-18 18:46:37"
+        }
+      ]
+    },
+    {
+      "id": "46fc0173-47c4-4741-839c-5dc0d4346e00",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "parent_id": null,
+      "title": "Monetization & User Authentication",
+      "description": "Implement payment processing, tiered pricing, and user authentication to convert free users into paying customers",
+      "status": "backlog",
+      "priority": "high",
+      "assignee_id": null,
+      "created_by_id": "ceo",
+      "result": null,
+      "created_at": "2026-03-18 19:38:25",
+      "updated_at": "2026-03-18 19:38:25",
+      "childTasks": [
+        {
+          "id": "05d9d6b9-5035-4fb5-bfe8-2e0b08c6670b",
+          "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+          "parent_id": "46fc0173-47c4-4741-839c-5dc0d4346e00",
+          "title": "Implement Clerk Authentication with User Roles",
+          "description": "Install and configure Clerk for Next.js App Router. Create `/app/api/auth/[...clerk]/route.ts` webhook handler. Add Clerk middleware to `/middleware.ts` protecting /dashboard, /rsu-entry, /forms-checklist routes. Create user_profiles table with clerk_user_id (unique), subscription_tier (free/pro/enterprise), stripe_customer_id, trial_ends_at, created_at. Modify all database queries to use clerk_user_id instead of hardcoded user_id=1. Add <UserButton /> to header. Create `/app/onboarding/page.tsx` for post-signup profile setup (province, state, filing status). Acceptance: Users can sign up with email/Google, are redirected to onboarding, complete profile, and access dashboard with their own data isolated from other users.",
+          "status": "backlog",
+          "priority": "high",
+          "assignee_id": null,
+          "created_by_id": "ceo",
+          "result": null,
+          "created_at": "2026-03-18 19:38:25",
+          "updated_at": "2026-03-18 19:38:25"
+        },
+        {
+          "id": "8e293a79-ff1a-4433-8270-b6fc3d6b7485",
+          "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+          "parent_id": "46fc0173-47c4-4741-839c-5dc0d4346e00",
+          "title": "Build Stripe Subscription Flow with Tiered Pricing",
+          "description": "Install stripe and @stripe/stripe-js. Create pricing tiers: Free (1 RSU entry, view-only tax calc), Pro ($299/year: unlimited RSUs, PDF export, FTC optimizer, priority email support), Enterprise ($2000/year: API access, bulk upload, CPA dashboard, white-label reports). Create `/app/api/stripe/create-checkout/route.ts` generating Stripe Checkout sessions. Create `/app/api/stripe/webhook/route.ts` handling checkout.session.completed and customer.subscription.updated events to update user_profiles.subscription_tier. Create `/app/pricing/page.tsx` with 3-column pricing table (shadcn Card components), CTA buttons linking to Stripe Checkout. Add paywall logic in dashboard: if user.subscription_tier === 'free' && rsu_entries.count >= 1, show upgrade modal. Acceptance: Free users hit 1-entry limit and see upgrade prompt. Clicking 'Upgrade to Pro' redirects to Stripe Checkout, successful payment updates database, user gains unlimited access.",
+          "status": "backlog",
+          "priority": "high",
+          "assignee_id": null,
+          "created_by_id": "ceo",
+          "result": null,
+          "created_at": "2026-03-18 19:38:25",
+          "updated_at": "2026-03-18 19:38:25"
+        },
+        {
+          "id": "0217c920-bb5e-491c-a108-9abee1f4edd4",
+          "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+          "parent_id": "46fc0173-47c4-4741-839c-5dc0d4346e00",
+          "title": "Create Feature Usage Analytics Dashboard",
+          "description": "Create analytics_events table: (id, user_id, event_name TEXT, metadata JSON, created_at). Add event tracking in components: rsu_entry_created, tax_calculation_viewed, pdf_exported, ftc_optimizer_used, forms_checklist_opened. Create `/app/admin/analytics/page.tsx` (protected by role === 'admin' check in Clerk metadata) displaying: daily active users (DAU), conversion funnel (signups → profile completed → first RSU entry → upgrade to Pro), feature usage heatmap, MRR chart. Use recharts for visualizations. Create `/lib/analytics.ts` with trackEvent(userId, eventName, metadata) helper wrapping database insert. Acceptance: Admin dashboard shows real-time analytics, conversion rate from free to Pro is calculable, feature usage data identifies which features drive upgrades.",
+          "status": "backlog",
+          "priority": "medium",
+          "assignee_id": null,
+          "created_by_id": "ceo",
+          "result": null,
+          "created_at": "2026-03-18 19:38:25",
+          "updated_at": "2026-03-18 19:38:25"
+        }
+      ]
+    },
+    {
+      "id": "49d11732-b6fe-441f-bd41-25d2f8974f21",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "parent_id": null,
+      "title": "SEO & Content-Driven User Acquisition",
+      "description": "Build organic traffic through SEO-optimized landing pages and educational content targeting 'cross border tax H1B' searches (12K monthly searches)",
+      "status": "backlog",
+      "priority": "high",
+      "assignee_id": null,
+      "created_by_id": "ceo",
+      "result": null,
+      "created_at": "2026-03-18 19:38:25",
+      "updated_at": "2026-03-18 19:38:25",
+      "childTasks": [
+        {
+          "id": "b9293c8a-ab7d-40e3-981b-23e5772e8c25",
+          "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+          "parent_id": "49d11732-b6fe-441f-bd41-25d2f8974f21",
+          "title": "Build SEO Landing Pages for High-Intent Keywords",
+          "description": "Create Next.js static pages: (1) `/us-canada-tax-calculator` - Interactive calculator widget (no auth required) with CTA to sign up for full features. (2) `/h1b-rsu-tax-guide` - 2000-word guide covering RSU taxation for H-1B holders, treaty Article XV, FTC mechanics, common mistakes, with schema.org Article markup. (3) `/canada-tax-filing-checklist` - Interactive checklist with T1/T4/FBAR/8938 deadlines, links to CRA forms. Each page includes: meta title/description optimized for target keyword, OpenGraph tags, JSON-LD structured data (FAQPage for checklist, Article for guide), internal links to /pricing and /dashboard, email capture form (Mailchimp integration). Use Next.js generateMetadata() for dynamic SEO tags. Add sitemap.xml and robots.txt. Acceptance: Pages indexed by Google within 48h, meta tags render correctly in social shares, Core Web Vitals score >90 on PageSpeed Insights.",
+          "status": "backlog",
+          "priority": "high",
+          "assignee_id": null,
+          "created_by_id": "ceo",
+          "result": null,
+          "created_at": "2026-03-18 19:38:25",
+          "updated_at": "2026-03-18 19:38:25"
+        },
+        {
+          "id": "abaf790c-bc20-4b50-887f-01ffa4d817fe",
+          "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+          "parent_id": "49d11732-b6fe-441f-bd41-25d2f8974f21",
+          "title": "Implement Email Drip Campaign for Free Users",
+          "description": "Install @sendgrid/mail. Create email templates: (1) Welcome email (day 0) - Product tour, link to onboarding. (2) Educational email (day 3) - 'Understanding Article XV of the US-Canada Tax Treaty'. (3) Feature highlight (day 7) - 'How the FTC Optimizer saves you $2000+'. (4) Upgrade prompt (day 14) - Case study of user saving $5K, limited-time 20% discount code. Create `/app/api/cron/email-drip/route.ts` (Vercel Cron Job, runs daily) querying users where created_at matches trigger days and subscription_tier = 'free'. Track email_sent events in analytics_events table to avoid duplicates. Create unsubscribe flow in `/app/unsubscribe/page.tsx`. Acceptance: New free signups receive welcome email within 1 hour, subsequent emails sent on schedule, unsubscribe link works, email open/click rates tracked in SendGrid dashboard.",
+          "status": "backlog",
+          "priority": "medium",
+          "assignee_id": null,
+          "created_by_id": "ceo",
+          "result": null,
+          "created_at": "2026-03-18 19:38:25",
+          "updated_at": "2026-03-18 19:38:25"
+        },
+        {
+          "id": "d4b339dd-7155-48e9-93b6-fb7817d4c199",
+          "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+          "parent_id": "49d11732-b6fe-441f-bd41-25d2f8974f21",
+          "title": "Build Immigration Lawyer Affiliate Program",
+          "description": "Create affiliate_partners table: (id, partner_name, referral_code UNIQUE, commission_rate REAL, total_referrals INT, total_revenue REAL, payout_email). Modify Stripe Checkout to accept ?ref=CODE query param, store in user_profiles.referred_by. Track commission in `/app/api/stripe/webhook/route.ts`: when checkout.session.completed, if referred_by exists, calculate commission (20% of first year subscription = $59.80 for Pro tier), update affiliate_partners stats. Create `/app/partners/page.tsx` with affiliate signup form (name, firm, email, desired commission rate - requires admin approval). Create `/app/partners/dashboard/[code]/page.tsx` showing referral stats, earnings, unique link (taxbridge.app?ref=LAWFIRM123). Add admin approval flow in `/app/admin/partners/page.tsx`. Target immigration law firms handling 50+ H-1B cases/year. Acceptance: Law firm can sign up, get approved, share referral link, see real-time dashboard of signups and earnings, receive monthly payout via Stripe Connect.",
+          "status": "backlog",
+          "priority": "medium",
+          "assignee_id": null,
+          "created_by_id": "ceo",
+          "result": null,
+          "created_at": "2026-03-18 19:38:25",
+          "updated_at": "2026-03-18 19:38:25"
+        }
+      ]
+    },
+    {
+      "id": "7fd3a61c-e097-4629-ab6f-ffd5696f70ef",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "parent_id": null,
+      "title": "Enterprise Features for Scale",
+      "description": "Build B2B features enabling immigration firms and corporate tax departments to manage multiple clients, unlocking $2K/seat enterprise revenue",
+      "status": "backlog",
+      "priority": "medium",
+      "assignee_id": null,
+      "created_by_id": "ceo",
+      "result": null,
+      "created_at": "2026-03-18 19:38:25",
+      "updated_at": "2026-03-18 19:38:25",
+      "childTasks": [
+        {
+          "id": "c0fb3178-a5b0-48d1-afd2-5c6cef95734f",
+          "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+          "parent_id": "7fd3a61c-e097-4629-ab6f-ffd5696f70ef",
+          "title": "Implement Multi-Client Dashboard for CPAs and Immigration Firms",
+          "description": "Create organization_members table: (org_id, user_id, role TEXT - 'admin'/'member'/'client'). Modify user_profiles to add org_id (nullable). Create `/app/enterprise/clients/page.tsx` (role === 'admin' only) displaying: client list table (name, total RSU income YTD, tax owed, filing status, last activity), bulk actions (send reminder emails, export all PDFs), search/filter by province/state/employer. Create `/app/api/enterprise/clients/route.ts` with GET (list clients) and POST (invite client via email). Invited clients receive email with signup link pre-associating them to org_id. Add org switcher in header for admins managing multiple orgs. Implement row-level security in all queries: if user.role === 'admin', return org clients; else return only user's own data. Acceptance: CPA firm can invite 10 clients, clients sign up and link to firm, firm admin sees all client data in unified dashboard, can export bulk PDFs for tax filing season.",
+          "status": "backlog",
+          "priority": "high",
+          "assignee_id": null,
+          "created_by_id": "ceo",
+          "result": null,
+          "created_at": "2026-03-18 19:38:25",
+          "updated_at": "2026-03-18 19:38:25"
+        },
+        {
+          "id": "f8521182-5668-458c-bd85-99c1e24ef14e",
+          "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+          "parent_id": "7fd3a61c-e097-4629-ab6f-ffd5696f70ef",
+          "title": "Build CSV Bulk Upload for RSU Entries",
+          "description": "Create `/app/dashboard/import/page.tsx` with drag-drop CSV upload zone (react-dropzone). Parse CSV with papaparse: expected columns (vesting_date, employer, shares, fmv_usd, us_state, canada_province). Validate each row: date format YYYY-MM-DD, employer in allowed list, shares/fmv_usd are numbers, province/state codes valid. Display preview table with validation errors highlighted. On confirm, batch insert via `/app/api/rsu/bulk/route.ts` using SQLite transaction (db.transaction(() => {...})). Support up to 1000 rows per upload. Generate summary: X rows imported, Y errors. Download error report CSV if validation fails. Provide sample CSV template for download. Acceptance: Enterprise user uploads 100-row CSV with Meta/Google/Amazon RSU vesting data, system validates, imports successfully, shows success message with count, all entries visible in dashboard.",
+          "status": "backlog",
+          "priority": "medium",
+          "assignee_id": null,
+          "created_by_id": "ceo",
+          "result": null,
+          "created_at": "2026-03-18 19:38:25",
+          "updated_at": "2026-03-18 19:38:25"
+        }
+      ]
+    },
+    {
+      "id": "bfb5d262-dde6-493f-a4f3-2cd0ba46d686",
+      "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+      "parent_id": null,
+      "title": "Product Differentiation & Retention Features",
+      "description": "Build unique features competitors lack to increase customer lifetime value and reduce churn",
+      "status": "backlog",
+      "priority": "low",
+      "assignee_id": null,
+      "created_by_id": "ceo",
+      "result": null,
+      "created_at": "2026-03-18 19:38:25",
+      "updated_at": "2026-03-18 19:38:25",
+      "childTasks": [
+        {
+          "id": "4c07bd99-a589-4907-8187-7a9d18cad991",
+          "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+          "parent_id": "bfb5d262-dde6-493f-a4f3-2cd0ba46d686",
+          "title": "Implement Multi-Year Tax Comparison and Carryover Tracking",
+          "description": "Add year column to rsu_entries table. Create `/app/dashboard/multi-year/page.tsx` with year selector dropdown (2022-2026). Display: (1) Year-over-year income chart (recharts LineChart showing total RSU income by year). (2) Cumulative tax paid by country (stacked area chart US vs Canada). (3) FTC carryforward tracker: Canada allows 10-year carryback/carryforward of unused foreign tax credits - calculate excess FTC from previous years and show potential to apply to current year. Create ftc_carryforward table: (year, unused_ftc_amount, expires_at). In FTC calculation, check for available carryforward and automatically apply to reduce current year tax. Show 'Potential savings from 2024 FTC carryforward: $1,250' banner. Acceptance: User with RSU entries in 2023-2025 sees multi-year dashboard, line chart shows income trend, FTC carryforward from 2023 (where US tax exceeded Canada tax) automatically applies to 2025 calculation, reducing net tax owed.",
+          "status": "backlog",
+          "priority": "medium",
+          "assignee_id": null,
+          "created_by_id": "ceo",
+          "result": null,
+          "created_at": "2026-03-18 19:38:25",
+          "updated_at": "2026-03-18 19:38:25"
+        },
+        {
+          "id": "14d68a5e-29f0-428b-9d54-09f902580c76",
+          "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+          "parent_id": "bfb5d262-dde6-493f-a4f3-2cd0ba46d686",
+          "title": "Add AI-Powered Tax Optimization Recommendations",
+          "description": "Install @anthropic-ai/sdk. Create `/app/api/ai/tax-advice/route.ts` endpoint. On FTC optimizer page, add 'Get AI Recommendations' button. Send context to Claude API: user's RSU entries (dates, amounts, employers), current province/state, FTC calculation results, filing status. Prompt: 'Analyze this cross-border tax situation and suggest 3 specific optimization strategies (e.g., timing of RSU sales, province selection if relocating, RRSP contribution strategies, state tax planning). Format as bullet points with estimated $ impact.' Stream response to UI using Server-Sent Events. Store recommendations in tax_recommendations table with thumbs up/down feedback. Use feedback to fine-tune prompts over time. Add disclaimer: 'AI-generated suggestions, consult a licensed tax professional.' Acceptance: User clicks button, receives 3 personalized recommendations within 10s (e.g., 'Consider moving to Alberta from BC to save $2,800/year in provincial tax on $100K RSU income'), can upvote/downvote, recommendations feel relevant and actionable.",
+          "status": "backlog",
+          "priority": "low",
+          "assignee_id": null,
+          "created_by_id": "ceo",
+          "result": null,
+          "created_at": "2026-03-18 19:38:25",
+          "updated_at": "2026-03-18 19:38:25"
         }
       ]
     }

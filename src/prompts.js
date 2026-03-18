@@ -223,7 +223,9 @@ Instructions:
 - When you finish your task, run: git add -A && git commit -m "your commit message describing what you built" && git push origin main
 - Make sure your commit message is descriptive and mentions the specific feature/component.
 - IMPORTANT: Always push to remote after committing. Do not leave commits local-only.
-- Build for REAL users and REAL money. Payment flows must work. Landing pages must convert. SEO must rank.`;
+- After pushing, deploy to Vercel: npx vercel --prod --yes (the project is already linked)
+- Build for REAL users and REAL money. Payment flows must work. Landing pages must convert. SEO must rank.
+- Every feature you build should be LIVE on Vercel within minutes of completion.`;
 }
 
 export function reviewerPrompt(company, task, output) {
