@@ -86,17 +86,10 @@ async function processNudge(issue) {
 
 function autoCleanup() {
   try {
-    const db = getDb();
     for (const c of listCompanies()) {
       const cleaned = cleanupStaleAgents(c);
       if (cleaned > 0) console.log(`[${new Date().toISOString()}] Cleaned ${cleaned} stale agents in ${c.name}`);
-
-      const tasks = db.prepare("SELECT * FROM tasks WHERE company_id = ? AND title NOT LIKE '[PROJECT]%'").all(c.id);
-      const done = tasks.filter(t => t.status === 'done').length;
-      if (tasks.length > 0 && done === tasks.length && c.status === 'active') {
-        db.prepare("UPDATE companies SET status = 'completed' WHERE id = ?").run(c.id);
-        console.log(`[${new Date().toISOString()}] Auto-completed ${c.name}`);
-      }
+      // Companies stay active — continuous sprint mode (24/7 toward $1M revenue)
     }
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Cleanup error: ${err.message}`);
@@ -111,8 +104,8 @@ function watchdog() {
 
       const tasks = getTasksByCompany(c.id).filter(t => !t.title.startsWith('[PROJECT]'));
       const pending = tasks.filter(t => t.status === 'backlog' || t.status === 'todo' || t.status === 'in_progress');
-      const done = tasks.filter(t => t.status === 'done').length;
-      if (pending.length === 0) continue; // nothing to do
+      const allDone = tasks.length > 0 && pending.length === 0;
+      // In 24/7 mode: resume even if all tasks done (triggers next sprint)
 
       const agents = getAgentsByCompany(c.id);
       const running = agents.filter(a => a.status === 'running');
@@ -135,8 +128,9 @@ function watchdog() {
         }
       }
 
-      // No live agents, pending tasks exist — auto-resume
-      console.log(`[${new Date().toISOString()}] WATCHDOG: ${c.name} (${c.id.slice(0,8)}) has ${pending.length} pending tasks but 0 live agents. Auto-resuming...`);
+      // No live agents — auto-resume (either pending tasks or next sprint needed)
+      const reason = allDone ? 'all tasks done, needs next sprint' : `${pending.length} pending tasks`;
+      console.log(`[${new Date().toISOString()}] WATCHDOG: ${c.name} (${c.id.slice(0,8)}) — ${reason}, 0 live agents. Auto-resuming...`);
 
       const child = spawn('node', ['bin/hivemind.js', 'resume', c.id.slice(0, 8)], {
         cwd: HIVEMIND_DIR,

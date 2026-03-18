@@ -10,14 +10,7 @@ console.log("  Auto-cleaning stale agents...");
 for (const c of db.listCompanies()) {
   const cleaned = cleanupStaleAgents(c);
   if (cleaned > 0) console.log(`    ${c.name}: cleaned ${cleaned} agents`);
-
-  // Auto-complete companies where all tasks are done
-  const tasks = db.getDb().prepare("SELECT * FROM tasks WHERE company_id = ? AND title NOT LIKE '[PROJECT]%'").all(c.id);
-  const done = tasks.filter(t => t.status === "done").length;
-  if (tasks.length > 0 && done === tasks.length && c.status === "active") {
-    db.getDb().prepare("UPDATE companies SET status = 'completed' WHERE id = ?").run(c.id);
-    console.log(`    ${c.name}: auto-completed (${done}/${tasks.length})`);
-  }
+  // Companies stay active — continuous sprint mode
 }
 
 const outDir = path.join(import.meta.dirname, "ui/public/api");

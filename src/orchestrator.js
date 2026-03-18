@@ -603,6 +603,7 @@ export async function startCompany(goal, opts = {}) {
 
 async function runHeartbeatLoop(companyId) {
   let processingComments = false;
+  let sprintPlanning = false;
 
   return new Promise((resolve) => {
     const heartbeat = setInterval(async () => {
@@ -636,7 +637,6 @@ async function runHeartbeatLoop(companyId) {
 
           log(companyId, "HEARTBEAT", `Processing ${unread.length} unread comment(s)...`);
 
-          // Fire CEO reassessment with the comments
           nudge(companyId, `User feedback received:\n${commentSummary}\n\nPlease review and take action on this feedback.`)
             .then(() => {
               log(companyId, "HEARTBEAT", "CEO processed user feedback.");
@@ -654,12 +654,32 @@ async function runHeartbeatLoop(companyId) {
       const work = allTasks.filter(t => !t.title.startsWith("[PROJECT]"));
       const done = work.filter(t => t.status === "done");
 
-      if (done.length === work.length && work.length > 0) {
-        console.log("\n  ✓ ALL TASKS COMPLETED. Company goal achieved!");
-        db.getDb().prepare("UPDATE companies SET status = 'completed' WHERE id = ?").run(companyId);
-        db.logActivity({ companyId, action: "company_completed", detail: "All tasks done" });
-        clearInterval(heartbeat);
-        resolve();
+      if (done.length === work.length && work.length > 0 && !sprintPlanning) {
+        // Sprint complete — start next sprint instead of stopping
+        sprintPlanning = true;
+        const sprintNum = (company.sprint || 0) + 1;
+        db.getDb().prepare("UPDATE companies SET sprint = ? WHERE id = ?").run(sprintNum, companyId);
+        db.logActivity({ companyId, action: "sprint_completed", detail: `Sprint ${sprintNum - 1} complete. All ${work.length} tasks done. Starting next sprint.` });
+
+        log(companyId, "SPRINT", `Sprint ${sprintNum - 1} COMPLETE (${work.length} tasks done). Starting sprint ${sprintNum}...`);
+        log(companyId, "SPRINT", "24/7 mode: CEO reassessing → CTO refining → CMO marketing → Engineers building");
+
+        try {
+          // CEO plans next sprint based on what's been built
+          const plan = await runCeoPlanning(db.getCompany(companyId));
+          if (plan) {
+            await runCtoRefinement(db.getCompany(companyId));
+            const designSpecs = await runDesignerPhase(db.getCompany(companyId));
+            await runCmoPhase(db.getCompany(companyId));
+            dispatchEngineers(db.getCompany(companyId), designSpecs);
+          } else {
+            log(companyId, "SPRINT", "CEO planning returned no new tasks. Nudging for next steps...");
+            await nudge(companyId, "All current tasks are done. What's the next set of features, improvements, or marketing actions to push toward $1M revenue? Create new tasks.");
+          }
+        } catch (err) {
+          log(companyId, "SPRINT", `Sprint planning error: ${err.message}. Will retry next heartbeat.`);
+        }
+        sprintPlanning = false;
         return;
       }
 

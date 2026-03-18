@@ -22,6 +22,14 @@ function migrate(db) {
     }
   } catch {}
 
+  // Add 'sprint' column to companies if missing
+  try {
+    const cols = db.prepare("PRAGMA table_info(companies)").all();
+    if (cols.length > 0 && !cols.find(c => c.name === "sprint")) {
+      db.exec("ALTER TABLE companies ADD COLUMN sprint INTEGER NOT NULL DEFAULT 0");
+    }
+  } catch {}
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY,
