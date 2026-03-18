@@ -4,6 +4,8 @@
 // Or install as a launchd agent for persistent background polling
 
 import { execSync } from 'node:child_process';
+import { listCompanies, getDb } from './src/db.js';
+import { cleanupStaleAgents } from './src/orchestrator.js';
 
 const REPO = 'caffeineGMT/hivemind';
 const POLL_INTERVAL_MS = 30_000; // 30 seconds
@@ -78,7 +80,29 @@ async function processNudge(issue) {
   console.log(`  Closed issue #${issue.number}`);
 }
 
+function autoCleanup() {
+  try {
+    const db = getDb();
+    for (const c of listCompanies()) {
+      const cleaned = cleanupStaleAgents(c);
+      if (cleaned > 0) console.log(`[${new Date().toISOString()}] Cleaned ${cleaned} stale agents in ${c.name}`);
+
+      const tasks = db.prepare("SELECT * FROM tasks WHERE company_id = ? AND title NOT LIKE '[PROJECT]%'").all(c.id);
+      const done = tasks.filter(t => t.status === 'done').length;
+      if (tasks.length > 0 && done === tasks.length && c.status === 'active') {
+        db.prepare("UPDATE companies SET status = 'completed' WHERE id = ?").run(c.id);
+        console.log(`[${new Date().toISOString()}] Auto-completed ${c.name}`);
+      }
+    }
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] Cleanup error: ${err.message}`);
+  }
+}
+
 async function poll() {
+  // Always clean up stale agents on every poll cycle
+  autoCleanup();
+
   try {
     const issues = await fetchNudgeIssues();
     if (issues.length > 0) {
