@@ -487,37 +487,6 @@ export const api = {
   // Cross-project analytics
   getCrossProjectAnalytics: () =>
     fetchJson<CrossProjectAnalytics>('/api/analytics/cross-project'),
-
-  // Onboarding
-  getOnboardingStatus: () =>
-    fetchJson<{ onboarding_completed: boolean }>('/api/onboarding/status'),
-
-  markOnboardingStarted: async () => {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const res = await fetch('/api/onboarding/started', {
-      method: 'POST',
-      headers,
-    });
-    return res.json();
-  },
-
-  markOnboardingCompleted: async () => {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const res = await fetch('/api/onboarding/complete', {
-      method: 'POST',
-      headers,
-    });
-    return res.json();
-  },
-
-  markOnboardingSkipped: async () => {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const res = await fetch('/api/onboarding/skip', {
-      method: 'POST',
-      headers,
-    });
-    return res.json();
-  },
 };
 
 // ── Cross-Project Analytics Types ──────────────────────────────────
