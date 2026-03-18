@@ -1,4 +1,5 @@
 import { CircleDot, Circle, Clock, CheckCircle2, Ban } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { StatusBadge, PriorityBadge } from './StatusBadge';
 import { Task } from '../api';
 
@@ -12,7 +13,10 @@ const statusIcon: Record<string, React.ReactNode> = {
 
 export default function TaskRow({ task }: { task: Task }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-zinc-800/40 bg-zinc-900/30 px-4 py-3 transition hover:border-zinc-700/60 hover:bg-zinc-900/60">
+    <Link
+      to={`/tasks/${task.id}`}
+      className="flex items-center gap-3 rounded-lg border border-zinc-800/40 bg-zinc-900/30 px-4 py-3 transition hover:border-zinc-700/60 hover:bg-zinc-900/60 cursor-pointer"
+    >
       <div className="shrink-0">{statusIcon[task.status] || statusIcon.backlog}</div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-zinc-200">{task.title}</p>
@@ -27,6 +31,6 @@ export default function TaskRow({ task }: { task: Task }) {
           {task.id.slice(0, 8)}
         </span>
       </div>
-    </div>
+    </Link>
   );
 }

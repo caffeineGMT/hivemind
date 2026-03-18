@@ -54,6 +54,16 @@ function migrate(db) {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS comments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      task_id TEXT REFERENCES tasks(id),
+      agent_id TEXT,
+      author TEXT NOT NULL DEFAULT 'user',
+      message TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS activity_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       company_id TEXT NOT NULL,
@@ -141,6 +151,22 @@ export function assignTask(taskId, agentId) {
 
 export function logActivity({ companyId, agentId, taskId, action, detail }) {
   getDb().prepare("INSERT INTO activity_log (company_id, agent_id, task_id, action, detail) VALUES (?, ?, ?, ?, ?)").run(companyId, agentId, taskId, action, detail);
+}
+
+export function addComment({ companyId, taskId, agentId, author, message }) {
+  getDb().prepare("INSERT INTO comments (company_id, task_id, agent_id, author, message) VALUES (?, ?, ?, ?, ?)").run(companyId, taskId, agentId, author || "user", message);
+}
+
+export function getComments(taskId) {
+  return getDb().prepare("SELECT * FROM comments WHERE task_id = ? ORDER BY created_at ASC").all(taskId);
+}
+
+export function getUnreadComments(companyId) {
+  return getDb().prepare("SELECT * FROM comments WHERE company_id = ? AND author = 'user' ORDER BY created_at DESC LIMIT 20").all(companyId);
+}
+
+export function getTask(id) {
+  return getDb().prepare("SELECT * FROM tasks WHERE id = ?").get(id);
 }
 
 export function getRecentActivity(companyId, limit = 20) {

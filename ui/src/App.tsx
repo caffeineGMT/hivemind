@@ -8,6 +8,7 @@ import Tasks from './pages/Tasks';
 import Agents from './pages/Agents';
 import Activity from './pages/Activity';
 import AgentLog from './pages/AgentLog';
+import TaskDetail from './pages/TaskDetail';
 
 export default function App() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
@@ -71,6 +72,7 @@ export default function App() {
         <Route path="/tasks" element={<Tasks companyId={selectedCompany.id} />} />
         <Route path="/agents" element={<Agents companyId={selectedCompany.id} />} />
         <Route path="/activity" element={<Activity companyId={selectedCompany.id} />} />
+        <Route path="/tasks/:taskId" element={<TaskDetail />} />
         <Route path="/logs/:agentName" element={<AgentLog />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

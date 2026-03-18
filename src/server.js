@@ -157,6 +157,35 @@ export function createServer(port = 3100) {
     }
   });
 
+  // Task detail
+  app.get("/api/tasks/:id", (req, res) => {
+    const task = db.getTask(req.params.id);
+    if (!task) return res.status(404).json({ error: "Not found" });
+    const comments = db.getComments(req.params.id);
+    res.json({ task, comments });
+  });
+
+  // Add comment to task
+  app.post("/api/tasks/:id/comments", (req, res) => {
+    const task = db.getTask(req.params.id);
+    if (!task) return res.status(404).json({ error: "Not found" });
+    const { message } = req.body || {};
+    if (!message) return res.status(400).json({ error: "Message required" });
+    db.addComment({
+      companyId: task.company_id,
+      taskId: task.id,
+      author: "user",
+      message,
+    });
+    db.logActivity({
+      companyId: task.company_id,
+      taskId: task.id,
+      action: "comment_added",
+      detail: message.slice(0, 100),
+    });
+    res.json({ success: true });
+  });
+
   // Nudge endpoint — send a message to the CEO
   app.post("/api/companies/:id/nudge", async (req, res) => {
     const company = findCompany(req.params.id);

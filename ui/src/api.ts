@@ -70,6 +70,21 @@ export interface DashboardData {
   projects: Project[];
 }
 
+export interface Comment {
+  id: number;
+  company_id: string;
+  task_id: string;
+  agent_id: string | null;
+  author: string;
+  message: string;
+  created_at: string;
+}
+
+export interface TaskDetail {
+  task: Task;
+  comments: Comment[];
+}
+
 export interface LogEntry {
   name: string;
   file: string;
@@ -104,6 +119,18 @@ export const api = {
 
   getAgentLog: (agentName: string) =>
     fetchJson<{ agentName: string; log: string }>(`/api/logs/${agentName}`),
+
+  getTaskDetail: (taskId: string) =>
+    fetchJson<TaskDetail>(`/api/tasks/${taskId}`),
+
+  addComment: async (taskId: string, message: string) => {
+    const res = await fetch(`/api/tasks/${taskId}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+    return res.json();
+  },
 
   nudge: async (companyId: string, message: string) => {
     const res = await fetch(`/api/companies/${companyId}/nudge`, {
