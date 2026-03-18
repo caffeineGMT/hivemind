@@ -44,15 +44,6 @@ function migrate(db) {
     }
   } catch {}
 
-  // Add 'account_id' column to companies if missing
-  try {
-    const cols = db.prepare("PRAGMA table_info(companies)").all();
-    if (cols.length > 0 && !cols.find(c => c.name === "account_id")) {
-      db.exec("ALTER TABLE companies ADD COLUMN account_id TEXT");
-    }
-  } catch {}
-
-
   db.exec(`
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY,
@@ -237,41 +228,12 @@ function migrate(db) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_project_config_company ON project_config(company_id);
-
-    CREATE TABLE IF NOT EXISTS usage_summary (
-      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-      date TEXT NOT NULL,
-      agent_hours REAL NOT NULL DEFAULT 0,
-      api_spend REAL NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(account_id, date)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_usage_summary_account ON usage_summary(account_id);
-    CREATE INDEX IF NOT EXISTS idx_usage_summary_date ON usage_summary(date);
-
-    CREATE TABLE IF NOT EXISTS subscriptions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL REFERENCES accounts(id),
-      paddle_subscription_id TEXT NOT NULL,
-      paddle_customer_id TEXT,
-      tier TEXT NOT NULL,
-      status TEXT NOT NULL,
-      trial_ends_at TEXT,
-      next_billing_date TEXT,
-      canceled_at TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(paddle_subscription_id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_subscriptions_account ON subscriptions(account_id);
-    CREATE INDEX IF NOT EXISTS idx_subscriptions_paddle_id ON subscriptions(paddle_subscription_id);
   `);
 }
 
 export function createCompany({ id, name, goal, workspace }) {
   const db = getDb();
-  db.prepare("INSERT INTO companies (id, name, goal, workspace, account_id) VALUES (?, ?, ?, ?, ?)").run(id, name, goal, workspace);
+  db.prepare("INSERT INTO companies (id, name, goal, workspace) VALUES (?, ?, ?, ?)").run(id, name, goal, workspace);
   return { id, name, goal, workspace };
 }
 

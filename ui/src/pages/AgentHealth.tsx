@@ -317,7 +317,7 @@ function IncidentRow({ incident }: { incident: Incident }) {
             {hasRecovery && (
               <div className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500">
                 <Clock className="h-3 w-3" />
-                <span>Recovered in {formatRecoveryTime(incident.time_to_recovery_seconds)}</span>
+                <span>Recovered in {formatRecoveryTime(incident.time_to_recovery_seconds ?? null)}</span>
               </div>
             )}
           </div>
