@@ -15,6 +15,7 @@ import {
   BarChart3,
   Settings as SettingsIcon,
   Map,
+  Shield,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Company } from '../api';
@@ -34,7 +35,7 @@ function getNavItems(companySlug: string) {
     { to: `/${companySlug}/companies`, icon: Building2, label: 'Companies' },
     { to: `/${companySlug}/tasks`, icon: ListTodo, label: 'Tasks' },
     { to: `/${companySlug}/agents`, icon: Users, label: 'Agents' },
-    { to: `/${companySlug}/agent-health`, icon: HeartPulse, label: 'Health' },
+    { to: `/${companySlug}/health-monitor`, icon: Shield, label: 'Health Monitor' },
     { to: `/${companySlug}/activity`, icon: Activity, label: 'Activity' },
     { to: `/${companySlug}/finance`, icon: DollarSign, label: 'Finance' },
     { to: `/${companySlug}/analytics`, icon: TrendingUp, label: 'Analytics' },

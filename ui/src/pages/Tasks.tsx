@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api, Task } from '../api';
 import { format, parseISO } from 'date-fns';
-import { CheckSquare, Square, Trash2, Download, Upload, Network, List, Calendar, Filter } from 'lucide-react';
+import { CheckSquare, Square, Trash2, Download, Upload, Network, List, Calendar, Filter, GitBranch } from 'lucide-react';
 import TaskRow from '../components/TaskRow';
 import TaskQueueGraph from '../components/TaskQueueGraph';
+import TaskQueueVisualization from '../components/TaskQueueVisualization';
 
 const STATUS_FILTERS = ['all', 'backlog', 'todo', 'in_progress', 'done', 'blocked'] as const;
 const PRIORITY_FILTERS = ['all', 'urgent', 'high', 'medium', 'low'] as const;
@@ -17,7 +18,7 @@ interface Filters {
   dateRange: { start: string | null; end: string | null };
 }
 
-type ViewMode = 'list' | 'graph' | 'timeline';
+type ViewMode = 'list' | 'graph' | 'timeline' | 'd3-advanced';
 
 function formatLabel(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -99,48 +100,6 @@ export default function Tasks({ companyId }: { companyId: string }) {
     });
   }, [tasks, filters]);
 
-  // Dependency graph data
-  const graphData = useMemo(() => {
-    const nodes: Node[] = filteredTasks.map((t, i) => ({
-      id: t.id,
-      type: 'default',
-      data: {
-        label: (
-          <div className="text-xs">
-            <div className="font-medium text-zinc-100 truncate max-w-[150px]">{t.title}</div>
-            <div className="text-[10px] text-zinc-500 mt-0.5">
-              {t.status} · {t.priority}
-            </div>
-          </div>
-        ),
-      },
-      position: { x: (i % 5) * 200, y: Math.floor(i / 5) * 120 },
-      sourcePosition: Position.Right,
-      targetPosition: Position.Left,
-      style: {
-        background: t.status === 'done' ? '#065f46' : '#18181b',
-        border: `1px solid ${t.priority === 'urgent' ? '#ef4444' : '#3f3f46'}`,
-        borderRadius: '8px',
-        padding: '8px',
-        color: '#fff',
-        width: 180,
-      },
-    }));
-
-    const edges: Edge[] = filteredTasks
-      .filter((t) => t.parent_id)
-      .map((t) => ({
-        id: `${t.parent_id}-${t.id}`,
-        source: t.parent_id!,
-        target: t.id,
-        type: 'smoothstep',
-        animated: t.status === 'in_progress',
-        style: { stroke: '#52525b' },
-      }));
-
-    return { nodes, edges };
-  }, [filteredTasks]);
-
   // Timeline data
   const timelineData = useMemo(() => {
     return filteredTasks.map((t) => ({
@@ -178,6 +137,10 @@ export default function Tasks({ companyId }: { companyId: string }) {
       newSet.add(taskId);
     }
     setSelectedTasks(newSet);
+  };
+
+  const handleTaskClick = (taskId: string) => {
+    navigate(`tasks/${taskId}`);
   };
 
   if (isLoading || !tasks) {
@@ -243,8 +206,20 @@ export default function Tasks({ companyId }: { companyId: string }) {
                 ? 'bg-zinc-800 text-zinc-100'
                 : 'text-zinc-500 hover:text-zinc-300'
             }`}
+            title="Timeline View"
           >
             <Calendar className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setViewMode('d3-advanced')}
+            className={`rounded-lg p-2 transition ${
+              viewMode === 'd3-advanced'
+                ? 'bg-amber-500 text-white'
+                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+            }`}
+            title="Advanced D3 Visualization"
+          >
+            <GitBranch className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -412,21 +387,17 @@ export default function Tasks({ companyId }: { companyId: string }) {
 
       {/* Graph View */}
       {viewMode === 'graph' && (
-        <div className="h-[600px] rounded-xl border border-zinc-800 bg-zinc-900">
-          {graphData.nodes.length === 0 ? (
+        <div className="h-[700px] rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
+          {filteredTasks.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-zinc-500">
               No tasks to display
             </div>
           ) : (
-            <ReactFlow
-              nodes={graphData.nodes}
-              edges={graphData.edges}
-              fitView
-              className="rounded-xl"
-            >
-              <Controls className="rounded-lg border border-zinc-700 bg-zinc-800" />
-              <Background color="#3f3f46" gap={16} />
-            </ReactFlow>
+            <TaskQueueGraph
+              tasks={filteredTasks}
+              agents={agents || []}
+              onTaskClick={handleTaskClick}
+            />
           )}
         </div>
       )}
@@ -478,6 +449,14 @@ export default function Tasks({ companyId }: { companyId: string }) {
             })
           )}
         </div>
+      )}
+
+      {/* D3 Advanced Visualization View */}
+      {viewMode === 'd3-advanced' && (
+        <TaskQueueVisualization
+          tasks={filteredTasks}
+          onTaskClick={(task) => navigate(`tasks/${task.id}`)}
+        />
       )}
     </div>
   );

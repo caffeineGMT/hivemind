@@ -7,6 +7,7 @@ import MetricCard from '../components/MetricCard';
 import ProgressBar from '../components/ProgressBar';
 import ProjectCard from '../components/ProjectCard';
 import ActivityRow from '../components/ActivityRow';
+import LiveAgentStatus from '../components/LiveAgentStatus';
 import { useSwipeNavigation } from '../hooks/useSwipeNavigation';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
@@ -130,6 +131,9 @@ export default function Dashboard({ companyId }: { companyId: string }) {
 
       {/* Progress bar */}
       <ProgressBar value={metrics.progressPct} done={metrics.doneTasks} total={metrics.totalTasks} />
+
+      {/* Live Agent Status */}
+      <LiveAgentStatus companyId={companyId} />
 
       {/* Metric cards — clickable */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">

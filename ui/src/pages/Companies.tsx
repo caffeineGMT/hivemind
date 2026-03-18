@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Plus, Building2, Trash2, Edit2, Play, CheckCircle2, Calendar, ExternalLink } from 'lucide-react';
 import { api, Company } from '../api';
+import TaskProgressBar from '../components/TaskProgressBar';
 
 export default function Companies() {
   const queryClient = useQueryClient();
@@ -164,6 +165,13 @@ export default function Companies() {
             <p className="mb-3 line-clamp-2 text-sm text-zinc-400">
               {company.goal}
             </p>
+
+            {/* Task Progress */}
+            {company.taskMetrics && (
+              <div className="mb-3 rounded-lg border border-zinc-800/40 bg-zinc-900/30 p-3">
+                <TaskProgressBar metrics={company.taskMetrics} showDetails={true} />
+              </div>
+            )}
 
             {/* Metadata */}
             <div className="flex items-center gap-4 border-t border-zinc-800/60 pt-3 text-xs text-zinc-600">

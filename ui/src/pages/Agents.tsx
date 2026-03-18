@@ -58,6 +58,9 @@ export default function Agents({ companyId }: { companyId: string }) {
         <p className="mt-1 text-sm text-zinc-500">
           {agents.length} agents — {running} running
           {idleEngineersCount > 0 && ` — ${idleEngineersCount} completed engineers hidden`}
+          {wsStatus === 'connected' && (
+            <span className="ml-2 text-xs text-emerald-400">• Live</span>
+          )}
         </p>
       </div>
 

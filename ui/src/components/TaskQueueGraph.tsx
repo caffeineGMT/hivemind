@@ -254,11 +254,12 @@ function calculateCriticalPath(tasks: Task[]): string[] {
 
   // Reconstruct path
   const path: string[] = [];
-  let current = maxDistTask;
+  let current: string | null = maxDistTask;
 
   while (current) {
     path.unshift(current);
-    current = predecessors.get(current) || null;
+    const predecessor = predecessors.get(current);
+    current = (predecessor !== undefined && predecessor !== null) ? predecessor : null;
   }
 
   return path;

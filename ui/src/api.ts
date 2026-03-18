@@ -1,5 +1,15 @@
 // ── Types ──────────────────────────────────────────────────────────
 
+export interface TaskMetrics {
+  total: number;
+  done: number;
+  inProgress: number;
+  backlog: number;
+  todo: number;
+  blocked: number;
+  progressPct: number;
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -8,6 +18,7 @@ export interface Company {
   workspace: string;
   deployment_url: string | null;
   created_at: string;
+  taskMetrics?: TaskMetrics;
 }
 
 export interface Agent {
@@ -179,6 +190,16 @@ export interface Incident {
   description: string;
   recovery_action: string | null;
   created_at: string;
+  time_to_recovery_seconds?: number | null;
+}
+
+// Removed duplicate - see IncidentTimeline below with IncidentTimelineEntry[]
+
+export interface CircuitBreakerStatus {
+  state: 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+  consecutiveFailures: number;
+  pausedUntil: number | null;
+  canAttempt: boolean;
 }
 
 export interface AgentHealthMetric {
@@ -228,25 +249,39 @@ export interface AgentHealthMetrics {
   };
 }
 
-// ── Fetch helpers ──────────────────────────────────────────────────
-
-// Token management - will be set by the app
-let authToken: string | null = null;
-
-export function setAuthToken(token: string | null) {
-  authToken = token;
+export interface CircuitBreakerStatus {
+  state: 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+  consecutive_failures: number;
+  paused_until: number | null;
+  can_attempt: boolean;
+  paused_seconds_remaining: number;
 }
+
+export interface IncidentTimelineEntry extends Incident {
+  agent_name: string;
+  agent_role: string;
+  recovery_time_minutes: number | null;
+}
+
+export interface IncidentMetrics {
+  by_type: Array<{ incident_type: string; count: number }>;
+  total_incidents: number;
+  with_recovery: number;
+  avg_recovery_minutes: number;
+}
+
+export interface IncidentTimeline {
+  timeline: IncidentTimelineEntry[];
+  metrics: IncidentMetrics;
+}
+
+// ── Fetch helpers ──────────────────────────────────────────────────
 
 // Try live API first, fall back to static JSON snapshots (for Vercel deployment)
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-
-  // Add auth token if available
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
-  }
 
   // Merge with provided headers
   if (options?.headers) {
@@ -375,6 +410,43 @@ export const api = {
 
   getIncidents: (companyId: string, limit = 50) =>
     fetchJson<Incident[]>(`/api/companies/${companyId}/incidents?limit=${limit}`),
+
+  getIncidentTimeline: (companyId: string, limit = 100) =>
+    fetchJson<IncidentTimeline>(`/api/companies/${companyId}/incident-timeline?limit=${limit}`),
+
+  getCircuitBreakerStatus: () =>
+    fetchJson<CircuitBreakerStatus>('/api/circuit-breaker/status'),
+
+  resetCircuitBreaker: async (companyId?: string) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch('/api/circuit-breaker/reset', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ companyId }),
+    });
+    return res.json();
+  },
+
+  restartAgent: async (agentId: string) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch(`/api/agents/${agentId}/restart`, {
+      method: 'POST',
+      headers,
+    });
+    return res.json();
+  },
+
+  resetAgent: async (agentId: string) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch(`/api/agents/${agentId}/reset`, {
+      method: 'DELETE',
+      headers,
+    });
+    return res.json();
+  },
 
   // Company management
   createCompany: async (data: { name: string; goal: string }) => {

@@ -15,6 +15,7 @@ import Analytics from './pages/Analytics';
 import Costs from './pages/Costs';
 import Logs from './pages/Logs';
 import AgentHealth from './pages/AgentHealth';
+import HealthMonitor from './pages/HealthMonitor';
 import Companies from './pages/Companies';
 import CrossProjectAnalytics from './pages/CrossProjectAnalytics';
 import Settings from './pages/Settings';
@@ -92,6 +93,13 @@ function CompanyRoutes() {
           queryClient.invalidateQueries({ queryKey: ['dashboard'] });
           break;
 
+        case 'circuit_breaker_reset':
+        case 'agent_restarted':
+          queryClient.invalidateQueries({ queryKey: ['circuit-breaker'] });
+          queryClient.invalidateQueries({ queryKey: ['agent-health'] });
+          queryClient.invalidateQueries({ queryKey: ['incident-timeline'] });
+          break;
+
         default:
           // For any other event, invalidate dashboard as a safe fallback
           queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -141,15 +149,9 @@ function CompanyRoutes() {
       <div className="flex h-screen items-center justify-center bg-zinc-950">
         <div className="max-w-md rounded-lg border border-zinc-800 bg-zinc-900 px-6 py-4">
           <h2 className="mb-2 text-lg font-semibold text-zinc-100">No Companies Found</h2>
-          <p className="mb-4 text-sm text-zinc-400">
-            Create your first AI company to get started.
+          <p className="text-sm text-zinc-400">
+            Use the CLI to create your first company: <code className="rounded bg-zinc-800 px-2 py-1">hivemind init</code>
           </p>
-          <button
-            onClick={() => setShowOnboarding(true)}
-            className="rounded-lg bg-amber-600 px-4 py-2 font-semibold text-white transition hover:bg-amber-500"
-          >
-            Create First Company
-          </button>
         </div>
       </div>
     );
@@ -180,6 +182,7 @@ function CompanyRoutes() {
         <Route path="tasks" element={<Tasks companyId={selectedCompany.id} />} />
         <Route path="agents" element={<Agents companyId={selectedCompany.id} />} />
         <Route path="agent-health" element={<AgentHealth companyId={selectedCompany.id} />} />
+        <Route path="health-monitor" element={<HealthMonitor companyId={selectedCompany.id} />} />
         <Route path="activity" element={<Activity companyId={selectedCompany.id} />} />
         <Route path="finance" element={<Finance companyId={selectedCompany.id} />} />
         <Route path="analytics" element={<Analytics companyId={selectedCompany.id} />} />

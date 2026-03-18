@@ -62,7 +62,6 @@ function migrate(db) {
       workspace TEXT,
       sprint INTEGER NOT NULL DEFAULT 0,
       deployment_url TEXT,
-      account_id TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -240,8 +239,7 @@ function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_project_config_company ON project_config(company_id);
 
     CREATE TABLE IF NOT EXISTS usage_summary (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      account_id TEXT NOT NULL,
+      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
       date TEXT NOT NULL,
       agent_hours REAL NOT NULL DEFAULT 0,
       api_spend REAL NOT NULL DEFAULT 0,
@@ -253,8 +251,7 @@ function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_usage_summary_date ON usage_summary(date);
 
     CREATE TABLE IF NOT EXISTS subscriptions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      account_id TEXT NOT NULL REFERENCES accounts(id),
+      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL REFERENCES accounts(id),
       paddle_subscription_id TEXT NOT NULL,
       paddle_customer_id TEXT,
       tier TEXT NOT NULL,
@@ -272,10 +269,10 @@ function migrate(db) {
   `);
 }
 
-export function createCompany({ id, name, goal, workspace, accountId }) {
+export function createCompany({ id, name, goal, workspace }) {
   const db = getDb();
-  db.prepare("INSERT INTO companies (id, name, goal, workspace, account_id) VALUES (?, ?, ?, ?, ?)").run(id, name, goal, workspace, accountId || null);
-  return { id, name, goal, workspace, account_id: accountId || null };
+  db.prepare("INSERT INTO companies (id, name, goal, workspace, account_id) VALUES (?, ?, ?, ?, ?)").run(id, name, goal, workspace);
+  return { id, name, goal, workspace };
 }
 
 export function getCompany(id) {
@@ -1204,5 +1201,3 @@ export function getAccountUsageHistory(accountId, startDate, endDate) {
   `).all(accountId, startDate, endDate);
 }
 
-// Alias for orchestrator compatibility
-export const trackEvent = logAnalyticsEvent;

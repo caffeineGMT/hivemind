@@ -79,13 +79,40 @@ export function createServer(port = 3100) {
     next();
   });
 
-
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", version: "0.1.0" });
   });
 
   app.get("/api/companies", (req, res) => {
-    res.json(db.listCompanies());
+    const companies = db.listCompanies();
+
+    // Include task metrics for each company
+    const companiesWithMetrics = companies.map(company => {
+      const tasks = db.getTasksByCompany(company.id);
+      const work = tasks.filter(t => !t.title.startsWith("[PROJECT]"));
+      const done = work.filter(t => t.status === "done").length;
+      const inProgress = work.filter(t => t.status === "in_progress").length;
+      const backlog = work.filter(t => t.status === "backlog").length;
+      const todo = work.filter(t => t.status === "todo").length;
+      const blocked = work.filter(t => t.status === "blocked").length;
+      const total = work.length;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+      return {
+        ...company,
+        taskMetrics: {
+          total,
+          done,
+          inProgress,
+          backlog,
+          todo,
+          blocked,
+          progressPct: pct,
+        },
+      };
+    });
+
+    res.json(companiesWithMetrics);
   });
 
   app.get("/api/companies/:id", (req, res) => {
@@ -274,18 +301,6 @@ export function createServer(port = 3100) {
     const limit = parseInt(req.query.limit || "50", 10);
     const incidents = db.getIncidents(company.id, limit);
     res.json(incidents);
-  });
-
-  app.get("/api/companies/:id/incident-timeline", (req, res) => {
-    const company = findCompany(req.params.id);
-    if (!company) return res.status(404).json({ error: "Not found" });
-    const limit = parseInt(req.query.limit || "100", 10);
-    const timeline = db.getIncidentTimeline(company.id, limit);
-    const metrics = db.getIncidentMetrics(company.id);
-    res.json({
-      timeline,
-      metrics,
-    });
   });
 
   app.get("/api/agents/:id/incidents", (req, res) => {
@@ -540,6 +555,87 @@ export function createServer(port = 3100) {
     res.json({ success: true });
   });
 
+  // Task metrics endpoint for advanced queue visualization
+  app.get("/api/companies/:id/task-metrics", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const tasks = db.getTasksByCompany(company.id);
+    const agents = db.getAgentsByCompany(company.id);
+
+    // Calculate agent velocity (tasks completed per agent in the last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const agentVelocity = {};
+    agents.forEach(agent => {
+      const completedTasks = tasks.filter(t =>
+        t.assignee_id === agent.id &&
+        t.status === "done" &&
+        new Date(t.updated_at) >= sevenDaysAgo
+      );
+      agentVelocity[agent.id] = {
+        name: agent.name,
+        tasksPerDay: (completedTasks.length / 7).toFixed(2),
+        totalCompleted: completedTasks.length,
+      };
+    });
+
+    // Calculate task status distribution
+    const statusDistribution = {
+      done: tasks.filter(t => t.status === "done").length,
+      in_progress: tasks.filter(t => t.status === "in_progress").length,
+      todo: tasks.filter(t => t.status === "todo").length,
+      backlog: tasks.filter(t => t.status === "backlog").length,
+      blocked: tasks.filter(t => t.status === "blocked").length,
+    };
+
+    // Calculate priority distribution
+    const priorityDistribution = {
+      urgent: tasks.filter(t => t.priority === "urgent").length,
+      high: tasks.filter(t => t.priority === "high").length,
+      medium: tasks.filter(t => t.priority === "medium").length,
+      low: tasks.filter(t => t.priority === "low").length,
+    };
+
+    // Calculate dependency depth (longest chain)
+    function calculateMaxDepth(taskId, visited = new Set()) {
+      if (visited.has(taskId)) return 0;
+      visited.add(taskId);
+
+      const children = tasks.filter(t => t.parent_id === taskId);
+      if (children.length === 0) return 1;
+
+      return 1 + Math.max(...children.map(child => calculateMaxDepth(child.id, new Set(visited))));
+    }
+
+    const rootTasks = tasks.filter(t => !t.parent_id);
+    const maxDepth = rootTasks.length > 0
+      ? Math.max(...rootTasks.map(t => calculateMaxDepth(t.id)))
+      : 0;
+
+    // Calculate average velocity across all agents
+    const avgVelocity = agents.length > 0
+      ? (Object.values(agentVelocity).reduce((sum, v) => sum + parseFloat(v.tasksPerDay), 0) / agents.length).toFixed(2)
+      : "0.00";
+
+    // Estimate completion time
+    const remainingTasks = tasks.filter(t => t.status !== "done").length;
+    const velocity = parseFloat(avgVelocity) || 0.5;
+    const estimatedDays = remainingTasks > 0 ? Math.ceil(remainingTasks / Math.max(velocity, 0.5)) : 0;
+
+    res.json({
+      agentVelocity,
+      statusDistribution,
+      priorityDistribution,
+      maxDependencyDepth: maxDepth,
+      totalTasks: tasks.length,
+      remainingTasks,
+      avgVelocity,
+      estimatedCompletionDays: estimatedDays,
+    });
+  });
+
   app.post("/api/companies/:id/nudge", async (req, res) => {
     const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
@@ -776,86 +872,8 @@ export function createServer(port = 3100) {
     }
 
 
-      }
 
-      const validation = promoCodes.validatePromoCode(code);
-      res.json(validation);
-    } catch (err) {
-      console.error("[promo] Error validating code:", err);
-      res.status(500).json({ error: "Failed to validate promo code" });
-    }
   });
-
-  app.post("/api/promo/apply", (req, res) => {
-    try {
-      const { accountId, code, plan } = req.body || {};
-
-      if (!accountId || !code || !plan) {
-        return res.status(400).json({
-          error: "accountId, code, and plan required"
-        });
-      }
-
-      const result = promoCodes.applyPromoCode(accountId, code, plan);
-
-      if (result.success) {
-        // Track analytics event
-        db.logAnalyticsEvent({
-          event: 'promo_code_applied',
-          properties: {
-            code,
-            plan,
-            discount: result.discount,
-          },
-          userId: accountId,
-        });
-      }
-
-      res.json(result);
-    } catch (err) {
-      console.error("[promo] Error applying code:", err);
-      res.status(500).json({ error: "Failed to apply promo code" });
-    }
-  });
-
-  app.get("/api/promo/stats/:code", (req, res) => {
-    try {
-      const { code } = req.params;
-      const stats = promoCodes.getPromoCodeStats(code);
-
-      if (!stats) {
-        return res.status(404).json({ error: "Promo code not found" });
-      }
-
-      res.json(stats);
-    } catch (err) {
-      console.error("[promo] Error fetching stats:", err);
-      res.status(500).json({ error: "Failed to fetch promo stats" });
-    }
-  });
-
-  app.get("/api/promo/analytics", (req, res) => {
-    try {
-      const analytics = promoCodes.getPromoAnalytics();
-      res.json(analytics);
-    } catch (err) {
-      console.error("[promo] Error fetching analytics:", err);
-      res.status(500).json({ error: "Failed to fetch promo analytics" });
-    }
-  });
-
-  app.get("/api/accounts/:accountId/promos", (req, res) => {
-    try {
-      const { accountId } = req.params;
-      const redemptions = db.getUserPromoRedemptions(accountId);
-      res.json(redemptions);
-    } catch (err) {
-      console.error("[promo] Error fetching user promos:", err);
-      res.status(500).json({ error: "Failed to fetch user promo codes" });
-    }
-  });
-  });
-
 
   if (fs.existsSync(uiDist)) {
     app.use(express.static(uiDist, { index: false }));

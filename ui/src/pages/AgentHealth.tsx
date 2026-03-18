@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, AgentHealthMetric, Incident } from '../api';
 import {
   Activity,
@@ -12,8 +12,14 @@ import {
   XCircle,
   MinusCircle,
   Users,
+  Power,
+  RotateCcw,
+  AlertCircle,
+  CircuitBoard,
+  PlayCircle,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 
 interface MetricCardProps {
   title: string;
@@ -106,6 +112,21 @@ function HealthStatusBadge({ status }: { status: string }) {
   );
 }
 
+function CircuitBreakerBadge({ state }: { state: 'CLOSED' | 'OPEN' | 'HALF_OPEN' }) {
+  const colors = {
+    CLOSED: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    OPEN: 'bg-red-500/20 text-red-400 border-red-500/30',
+    HALF_OPEN: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  };
+
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase ${colors[state]}`}>
+      <CircuitBoard className="h-3 w-3" />
+      {state === 'CLOSED' ? 'Normal' : state === 'OPEN' ? 'Paused' : 'Testing'}
+    </span>
+  );
+}
+
 function formatUptime(minutes: number): string {
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
@@ -128,7 +149,33 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
+function formatRecoveryTime(seconds: number | null): string {
+  if (seconds === null) return '—';
+  if (seconds < 60) return `${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}m ${secs}s`;
+}
+
 function AgentHealthRow({ agent }: { agent: AgentHealthMetric }) {
+  const queryClient = useQueryClient();
+  const [confirmReset, setConfirmReset] = useState(false);
+
+  const restartMutation = useMutation({
+    mutationFn: () => api.restartAgent(agent.agent_id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agent-health'] });
+    },
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: () => api.resetAgent(agent.agent_id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agent-health'] });
+      setConfirmReset(false);
+    },
+  });
+
   // Determine health status based on multiple factors
   let healthStatus = 'unknown';
   if (agent.status === 'running') {
@@ -141,10 +188,17 @@ function AgentHealthRow({ agent }: { agent: AgentHealthMetric }) {
     healthStatus = 'stale';
   }
 
+  // Show alert for problematic agents
+  const hasIssues = agent.status === 'error' || agent.crashes > 0 || agent.error_rate > 1;
+
   return (
-    <div className="flex items-center justify-between rounded-lg border border-zinc-800/60 bg-zinc-900/50 p-4 transition hover:border-zinc-700/60">
-      <div className="flex items-center gap-4 flex-1">
-        <div className="flex flex-col gap-1">
+    <div className={`rounded-lg border p-4 transition ${
+      hasIssues
+        ? 'border-red-900/50 bg-red-950/20 shadow-lg shadow-red-900/10'
+        : 'border-zinc-800/60 bg-zinc-900/50 hover:border-zinc-700/60'
+    }`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-2 flex-1">
           <div className="flex items-center gap-2">
             <Link
               to={`/logs/${agent.agent_name}`}
@@ -154,41 +208,83 @@ function AgentHealthRow({ agent }: { agent: AgentHealthMetric }) {
             </Link>
             <span className="text-xs uppercase tracking-wider text-zinc-600">{agent.role}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <StatusBadge status={agent.status} />
             <HealthStatusBadge status={healthStatus} />
+            {hasIssues && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/20 px-2 py-0.5 text-[10px] font-medium uppercase text-red-400">
+                <AlertCircle className="h-3 w-3" />
+                NEEDS ATTENTION
+              </span>
+            )}
           </div>
         </div>
-      </div>
 
-      <div className="hidden md:flex items-center gap-8">
-        <div className="text-center">
-          <p className="text-xs uppercase tracking-wider text-zinc-600">Uptime</p>
-          <p className="mt-1 font-mono text-sm text-zinc-300">
-            {agent.status === 'running' ? formatUptime(agent.uptime_minutes) : '—'}
-          </p>
+        <div className="hidden lg:flex items-center gap-6">
+          <div className="text-center">
+            <p className="text-xs uppercase tracking-wider text-zinc-600">Uptime</p>
+            <p className="mt-1 font-mono text-sm text-zinc-300">
+              {agent.status === 'running' ? formatUptime(agent.uptime_minutes) : '—'}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-xs uppercase tracking-wider text-zinc-600">Error Rate</p>
+            <p className={`mt-1 font-mono text-sm ${agent.error_rate > 1 ? 'text-red-400' : agent.error_rate > 0.5 ? 'text-amber-400' : 'text-emerald-400'}`}>
+              {agent.error_rate.toFixed(2)}/hr
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-xs uppercase tracking-wider text-zinc-600">Crashes</p>
+            <p className={`mt-1 font-mono text-sm ${agent.crashes > 0 ? 'text-red-400' : 'text-zinc-500'}`}>
+              {agent.crashes}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-xs uppercase tracking-wider text-zinc-600">Restarts</p>
+            <p className={`mt-1 font-mono text-sm ${agent.restarts > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>
+              {agent.restarts}
+            </p>
+          </div>
         </div>
-        <div className="text-center">
-          <p className="text-xs uppercase tracking-wider text-zinc-600">Error Rate</p>
-          <p className={`mt-1 font-mono text-sm ${agent.error_rate > 1 ? 'text-red-400' : agent.error_rate > 0.5 ? 'text-amber-400' : 'text-emerald-400'}`}>
-            {agent.error_rate.toFixed(2)}/hr
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-xs uppercase tracking-wider text-zinc-600">Crashes</p>
-          <p className={`mt-1 font-mono text-sm ${agent.crashes > 0 ? 'text-red-400' : 'text-zinc-500'}`}>
-            {agent.crashes}
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-xs uppercase tracking-wider text-zinc-600">Restarts</p>
-          <p className={`mt-1 font-mono text-sm ${agent.restarts > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>
-            {agent.restarts}
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-xs uppercase tracking-wider text-zinc-600">PID</p>
-          <p className="mt-1 font-mono text-xs text-zinc-500">{agent.pid ?? '—'}</p>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => restartMutation.mutate()}
+            disabled={restartMutation.isPending}
+            className="rounded-lg border border-amber-900/30 bg-amber-950/20 p-2 text-amber-400 transition hover:bg-amber-900/30 disabled:opacity-50"
+            title="Soft restart (graceful)"
+          >
+            {restartMutation.isPending ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <PlayCircle className="h-4 w-4" />
+            )}
+          </button>
+          {confirmReset ? (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => resetMutation.mutate()}
+                disabled={resetMutation.isPending}
+                className="rounded-lg border border-red-900/30 bg-red-950/20 px-3 py-2 text-xs text-red-400 transition hover:bg-red-900/30 disabled:opacity-50"
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => setConfirmReset(false)}
+                className="rounded-lg border border-zinc-800/60 bg-zinc-900/50 px-3 py-2 text-xs text-zinc-400 transition hover:bg-zinc-800/60"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmReset(true)}
+              className="rounded-lg border border-red-900/30 bg-red-950/20 p-2 text-red-400 transition hover:bg-red-900/30"
+              title="Hard reset (force kill)"
+            >
+              <Power className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -197,6 +293,7 @@ function AgentHealthRow({ agent }: { agent: AgentHealthMetric }) {
 
 function IncidentRow({ incident }: { incident: Incident }) {
   const isRestart = incident.recovery_action && incident.recovery_action.includes('Auto-restart');
+  const hasRecovery = incident.time_to_recovery_seconds !== null;
 
   return (
     <div className="flex items-start gap-3 rounded-lg border border-zinc-800/60 bg-zinc-900/50 p-3 text-sm">
@@ -209,25 +306,54 @@ function IncidentRow({ incident }: { incident: Incident }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <p className="font-medium text-zinc-300">{incident.description}</p>
+          <div className="flex-1">
+            <p className="font-medium text-zinc-300">{incident.description}</p>
+            {incident.recovery_action && (
+              <div className="mt-1 flex items-center gap-1.5 text-xs">
+                <RefreshCw className={`h-3 w-3 ${isRestart ? 'text-emerald-400' : 'text-amber-400'}`} />
+                <span className={isRestart ? 'text-emerald-400' : 'text-amber-400'}>{incident.recovery_action}</span>
+              </div>
+            )}
+            {hasRecovery && (
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500">
+                <Clock className="h-3 w-3" />
+                <span>Recovered in {formatRecoveryTime(incident.time_to_recovery_seconds)}</span>
+              </div>
+            )}
+          </div>
           <span className="shrink-0 text-xs text-zinc-600">{timeAgo(incident.created_at)}</span>
         </div>
-        {incident.recovery_action && (
-          <div className="mt-1 flex items-center gap-1.5 text-xs">
-            <RefreshCw className={`h-3 w-3 ${isRestart ? 'text-emerald-400' : 'text-amber-400'}`} />
-            <span className={isRestart ? 'text-emerald-400' : 'text-amber-400'}>{incident.recovery_action}</span>
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
 export default function AgentHealth({ companyId }: { companyId: string }) {
+  const queryClient = useQueryClient();
+
   const { data: healthData, isLoading } = useQuery({
     queryKey: ['agent-health', companyId],
     queryFn: () => api.getAgentHealth(companyId),
     refetchInterval: 5000, // Refresh every 5 seconds for real-time monitoring
+  });
+
+  const { data: timelineData } = useQuery({
+    queryKey: ['incident-timeline', companyId],
+    queryFn: () => api.getIncidentTimeline(companyId),
+    refetchInterval: 10000,
+  });
+
+  const { data: circuitStatus } = useQuery({
+    queryKey: ['circuit-breaker'],
+    queryFn: () => api.getCircuitBreakerStatus(),
+    refetchInterval: 5000,
+  });
+
+  const resetCircuitMutation = useMutation({
+    mutationFn: () => api.resetCircuitBreaker(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['circuit-breaker'] });
+    },
   });
 
   if (isLoading || !healthData) {
@@ -254,6 +380,61 @@ export default function AgentHealth({ companyId }: { companyId: string }) {
         </p>
       </div>
 
+      {/* Circuit Breaker Status */}
+      {circuitStatus && (
+        <div className={`rounded-xl border p-4 ${
+          circuitStatus.state === 'OPEN'
+            ? 'border-red-900/30 bg-red-950/20'
+            : circuitStatus.state === 'HALF_OPEN'
+            ? 'border-amber-900/30 bg-amber-950/20'
+            : 'border-emerald-900/30 bg-emerald-950/20'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <CircuitBoard className={`h-6 w-6 ${
+                circuitStatus.state === 'OPEN'
+                  ? 'text-red-400'
+                  : circuitStatus.state === 'HALF_OPEN'
+                  ? 'text-amber-400'
+                  : 'text-emerald-400'
+              }`} />
+              <div>
+                <h3 className="font-semibold text-zinc-100">Circuit Breaker Status</h3>
+                <p className="text-sm text-zinc-500">
+                  {circuitStatus.state === 'OPEN' && 'API calls paused due to consecutive failures'}
+                  {circuitStatus.state === 'HALF_OPEN' && 'Testing API recovery...'}
+                  {circuitStatus.state === 'CLOSED' && 'All systems operational'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-xs uppercase tracking-wider text-zinc-600">Status</p>
+                <CircuitBreakerBadge state={circuitStatus.state} />
+              </div>
+              <div className="text-right">
+                <p className="text-xs uppercase tracking-wider text-zinc-600">Failures</p>
+                <p className={`mt-1 font-mono text-sm ${circuitStatus.consecutiveFailures > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {circuitStatus.consecutiveFailures}
+                </p>
+              </div>
+              {circuitStatus.state !== 'CLOSED' && (
+                <button
+                  onClick={() => resetCircuitMutation.mutate()}
+                  disabled={resetCircuitMutation.isPending}
+                  className="rounded-lg border border-emerald-900/30 bg-emerald-950/20 px-4 py-2 text-sm text-emerald-400 transition hover:bg-emerald-900/30 disabled:opacity-50"
+                >
+                  <div className="flex items-center gap-2">
+                    <RotateCcw className="h-4 w-4" />
+                    Reset
+                  </div>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Summary metrics */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
@@ -279,11 +460,11 @@ export default function AgentHealth({ companyId }: { companyId: string }) {
           color={summary.total_crashes === 0 ? 'green' : summary.total_crashes < 5 ? 'yellow' : 'red'}
         />
         <MetricCard
-          title="Avg Error Rate"
-          value={`${summary.avg_error_rate}/hr`}
-          subtitle="Crashes per hour"
-          icon={<Zap className="h-5 w-5" />}
-          color={summary.avg_error_rate < 0.5 ? 'green' : summary.avg_error_rate < 1 ? 'yellow' : 'red'}
+          title="Avg Recovery"
+          value={timelineData?.summary.avg_recovery_time_seconds ? formatRecoveryTime(timelineData.summary.avg_recovery_time_seconds) : '—'}
+          subtitle="Time to recovery"
+          icon={<Clock className="h-5 w-5" />}
+          color="blue"
         />
       </div>
 
@@ -301,24 +482,24 @@ export default function AgentHealth({ companyId }: { companyId: string }) {
         </div>
       </div>
 
-      {/* Recent incidents */}
+      {/* Incident Timeline */}
       <div>
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-zinc-100">Recent Incidents</h3>
+          <h3 className="text-lg font-semibold text-zinc-100">Incident Timeline</h3>
           <div className="flex items-center gap-2 text-xs text-zinc-500">
             <Clock className="h-3 w-3" />
-            Last 50 incidents
+            {timelineData ? `${timelineData.summary.total_incidents} incidents` : 'Loading...'}
           </div>
         </div>
         <div className="space-y-2">
-          {recent_incidents.length === 0 ? (
+          {!timelineData || timelineData.timeline.length === 0 ? (
             <div className="rounded-xl border border-emerald-900/30 bg-emerald-950/20 p-8 text-center">
               <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-400" />
               <p className="mt-2 text-sm font-medium text-emerald-400">No incidents recorded</p>
               <p className="mt-1 text-xs text-emerald-600">All agents running smoothly</p>
             </div>
           ) : (
-            recent_incidents.map((incident) => <IncidentRow key={incident.id} incident={incident} />)
+            timelineData.timeline.slice(0, 20).map((incident) => <IncidentRow key={incident.id} incident={incident} />)
           )}
         </div>
       </div>
@@ -326,11 +507,11 @@ export default function AgentHealth({ companyId }: { companyId: string }) {
       {/* Performance insights */}
       <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-6">
         <h3 className="mb-4 text-lg font-semibold text-zinc-100">Performance Insights</h3>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg border border-zinc-800/40 bg-zinc-800/20 p-4">
             <div className="flex items-center gap-2 text-sm font-medium text-zinc-300">
               <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-              Auto-Restart Success Rate
+              Auto-Restart Success
             </div>
             <p className="mt-2 text-2xl font-bold text-zinc-100">
               {summary.total_crashes > 0
@@ -352,6 +533,19 @@ export default function AgentHealth({ companyId }: { companyId: string }) {
             </p>
             <p className="mt-1 text-xs text-zinc-500">
               {summary.total_agents > 0 ? Math.round((summary.running_agents / summary.total_agents) * 100) : 0}% utilization
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-zinc-800/40 bg-zinc-800/20 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+              <Clock className="h-4 w-4 text-amber-400" />
+              Avg Recovery Time
+            </div>
+            <p className="mt-2 text-2xl font-bold text-zinc-100">
+              {formatRecoveryTime(timelineData?.summary.avg_recovery_time_seconds || null)}
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Max: {formatRecoveryTime(timelineData?.summary.max_recovery_time_seconds || null)}
             </p>
           </div>
 
