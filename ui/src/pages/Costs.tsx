@@ -395,23 +395,41 @@ export default function Costs({ companyId }: CostsProps) {
       )}
 
       {/* Time Period Selector */}
-      <div className="flex items-center gap-2">
-        <Calendar size={16} className="text-zinc-400" />
-        <div className="flex gap-2">
-          {(['7d', '30d', '90d', 'all'] as TimePeriod[]).map((period) => (
-            <button
-              key={period}
-              onClick={() => setTimePeriod(period)}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                timePeriod === period
-                  ? 'bg-amber-500 text-black font-medium'
-                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-              }`}
-            >
-              {period === '7d' ? 'Last 7 days' : period === '30d' ? 'Last 30 days' : period === '90d' ? 'Last 90 days' : 'All time'}
-            </button>
-          ))}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Calendar size={16} className="text-zinc-400" />
+          <div className="flex gap-2">
+            {(['7d', '30d', '90d', 'all'] as TimePeriod[]).map((period) => (
+              <button
+                key={period}
+                onClick={() => setTimePeriod(period)}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  timePeriod === period
+                    ? 'bg-amber-500 text-black font-medium'
+                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                }`}
+              >
+                {period === '7d' ? 'Last 7 days' : period === '30d' ? 'Last 30 days' : period === '90d' ? 'Last 90 days' : 'All time'}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Period Comparison */}
+        {periodComparison && (
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-zinc-500">vs previous period:</span>
+            <div className={`flex items-center gap-1 font-medium ${
+              periodComparison.isIncrease ? 'text-red-400' : 'text-green-400'
+            }`}>
+              {periodComparison.isIncrease ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+              {Math.abs(periodComparison.change).toFixed(1)}%
+              <span className="text-zinc-500 font-normal">
+                (${periodComparison.currentCost.toFixed(2)} vs ${periodComparison.previousCost.toFixed(2)})
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Summary Cards */}
