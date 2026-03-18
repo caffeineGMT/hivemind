@@ -132,8 +132,9 @@ Instructions:
 - Focus on working, production-quality code. No placeholders or TODOs.
 - If you need to set up the project structure first, do it.
 - Run any necessary commands (npm init, install deps, etc.)
-- When you finish your task, run: git add -A && git commit -m "your commit message describing what you built"
-- Make sure your commit message is descriptive and mentions the specific feature/component.`;
+- When you finish your task, run: git add -A && git commit -m "your commit message describing what you built" && git push origin main
+- Make sure your commit message is descriptive and mentions the specific feature/component.
+- IMPORTANT: Always push to remote after committing. Do not leave commits local-only.`;
 }
 
 export function reviewerPrompt(company, task, output) {
