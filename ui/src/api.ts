@@ -292,9 +292,6 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     'Content-Type': 'application/json',
   };
 
-  // Add auth token if available
-  }
-
   // Merge with provided headers
   if (options?.headers) {
     Object.assign(headers, options.headers);

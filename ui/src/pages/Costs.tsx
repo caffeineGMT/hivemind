@@ -18,7 +18,7 @@ import {
   AreaChart,
 } from 'recharts';
 import { api } from '../api';
-import { Download, DollarSign, TrendingUp, Zap, AlertTriangle, Settings, X, Calendar } from 'lucide-react';
+import { Download, DollarSign, TrendingUp, TrendingDown, Zap, AlertTriangle, Settings, X, Calendar, Activity } from 'lucide-react';
 
 interface CostsProps {
   companyId: string;
@@ -50,28 +50,55 @@ export default function Costs({ companyId }: CostsProps) {
     },
   });
 
-  // Filter data by time period
-  const filteredRecentCosts = useMemo(() => {
-    if (!data?.recent) return [];
+  // Filter data by time period with comparison
+  const { filteredRecentCosts, periodComparison } = useMemo(() => {
+    if (!data?.recent) return { filteredRecentCosts: [], periodComparison: null };
     const now = new Date();
     let cutoffDate = new Date();
+    let comparisonDate = new Date();
+    let days = 0;
 
     switch (timePeriod) {
       case '7d':
+        days = 7;
         cutoffDate.setDate(now.getDate() - 7);
+        comparisonDate.setDate(now.getDate() - 14);
         break;
       case '30d':
+        days = 30;
         cutoffDate.setDate(now.getDate() - 30);
+        comparisonDate.setDate(now.getDate() - 60);
         break;
       case '90d':
+        days = 90;
         cutoffDate.setDate(now.getDate() - 90);
+        comparisonDate.setDate(now.getDate() - 180);
         break;
       case 'all':
         cutoffDate = new Date(0);
+        comparisonDate = new Date(0);
         break;
     }
 
-    return data.recent.filter(entry => new Date(entry.created_at) >= cutoffDate);
+    const currentPeriod = data.recent.filter(entry => new Date(entry.created_at) >= cutoffDate);
+    const previousPeriod = data.recent.filter(entry => {
+      const date = new Date(entry.created_at);
+      return date >= comparisonDate && date < cutoffDate;
+    });
+
+    const currentCost = currentPeriod.reduce((sum, e) => sum + e.cost_usd, 0);
+    const previousCost = previousPeriod.reduce((sum, e) => sum + e.cost_usd, 0);
+    const change = previousCost > 0 ? ((currentCost - previousCost) / previousCost) * 100 : 0;
+
+    return {
+      filteredRecentCosts: currentPeriod,
+      periodComparison: timePeriod !== 'all' ? {
+        currentCost,
+        previousCost,
+        change,
+        isIncrease: change > 0,
+      } : null,
+    };
   }, [data?.recent, timePeriod]);
 
   // Transform data for cost over time line chart
@@ -178,15 +205,27 @@ export default function Costs({ companyId }: CostsProps) {
     }));
   }, [filteredRecentCosts]);
 
-  // Projected monthly burn
-  const projectedBurn = useMemo(() => {
-    if (!data?.totals) return 0;
+  // Projected monthly burn and daily rate
+  const { projectedBurn, dailyBurnRate, last24hCost } = useMemo(() => {
+    if (!data?.totals) return { projectedBurn: 0, dailyBurnRate: 0, last24hCost: 0 };
     const now = new Date();
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysSoFar = now.getDate();
-    if (daysSoFar === 0) return 0;
-    const dailyAvg = (data.monthlySpend || 0) / daysSoFar;
-    return parseFloat((dailyAvg * daysInMonth).toFixed(2));
+
+    const dailyAvg = daysSoFar > 0 ? (data.monthlySpend || 0) / daysSoFar : 0;
+    const projected = parseFloat((dailyAvg * daysInMonth).toFixed(2));
+
+    // Calculate last 24h cost
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const last24h = (data.recent || [])
+      .filter(r => new Date(r.created_at) >= yesterday)
+      .reduce((sum, r) => sum + r.cost_usd, 0);
+
+    return {
+      projectedBurn: projected,
+      dailyBurnRate: parseFloat(dailyAvg.toFixed(4)),
+      last24hCost: parseFloat(last24h.toFixed(4)),
+    };
   }, [data]);
 
   // Budget alert check
@@ -235,10 +274,32 @@ export default function Costs({ companyId }: CostsProps) {
     return [...costOverTime.map(d => ({ ...d, forecast: false })), ...forecast];
   }, [costOverTime]);
 
-  // CSV export handler
+  // Enhanced CSV export handler with summary
   const exportCSV = () => {
     if (!data?.recent) return;
-    const headers = ['Date', 'Agent', 'Task ID', 'Input Tokens', 'Output Tokens', 'Cache Read', 'Cache Write', 'Cost USD', 'Duration (ms)', 'Model'];
+
+    // Summary section
+    const summaryLines = [
+      '=== COST SUMMARY ===',
+      `Export Date,${new Date().toISOString()}`,
+      `Total Spend,$${data.totals.total_cost_usd.toFixed(4)}`,
+      `Monthly Spend,$${data.monthlySpend.toFixed(4)}`,
+      `Total Sessions,${data.totals.total_sessions}`,
+      `Total Tokens,${data.totals.total_tokens}`,
+      `Total Tasks,${data.taskCosts?.length || 0}`,
+      '',
+      '=== EFFICIENCY METRICS ===',
+      ...(efficiencyMetrics ? [
+        `Avg Cost per Task,$${efficiencyMetrics.avgCostPerTask.toFixed(4)}`,
+        `Cost per 1K Tokens,$${efficiencyMetrics.avgCostPer1KTokens.toFixed(4)}`,
+        `Avg Tokens per Session,${efficiencyMetrics.avgTokensPerSession}`,
+        `Avg Duration per Session,${efficiencyMetrics.avgDurationPerSession}s`,
+      ] : []),
+      '',
+      '=== DETAILED LOGS ===',
+    ];
+
+    const headers = ['Date', 'Agent', 'Task ID', 'Input Tokens', 'Output Tokens', 'Cache Read', 'Cache Write', 'Total Tokens', 'Cost USD', 'Duration (ms)', 'Num Turns', 'Model'];
     const rows = data.recent.map((r) => [
       r.created_at,
       r.agent_name,
@@ -247,16 +308,19 @@ export default function Costs({ companyId }: CostsProps) {
       r.output_tokens,
       r.cache_read_tokens,
       r.cache_write_tokens,
-      r.cost_usd,
+      r.total_tokens,
+      r.cost_usd.toFixed(6),
       r.duration_ms,
+      r.num_turns,
       r.model || 'N/A',
     ]);
-    const csv = [headers, ...rows].map((row) => row.join(',')).join('\n');
+
+    const csv = [...summaryLines, headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `costs-${companyId.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `hivemind-costs-${companyId.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -351,7 +415,7 @@ export default function Costs({ companyId }: CostsProps) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
           <div className="flex items-center gap-2 text-zinc-400 text-sm mb-2">
             <DollarSign size={16} />
@@ -375,6 +439,19 @@ export default function Costs({ companyId }: CostsProps) {
           </div>
           <div className="text-xs text-zinc-500 mt-1">
             {data.budget ? `${((data.monthlySpend / data.budget.monthly_budget) * 100).toFixed(1)}% of budget` : 'No budget set'}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+          <div className="flex items-center gap-2 text-zinc-400 text-sm mb-2">
+            <Activity size={16} />
+            Daily Burn Rate
+          </div>
+          <div className="text-2xl font-bold text-white">
+            ${dailyBurnRate.toFixed(4)}
+          </div>
+          <div className="text-xs text-zinc-500 mt-1">
+            Last 24h: ${last24hCost.toFixed(4)}
           </div>
         </div>
 
@@ -606,6 +683,64 @@ export default function Costs({ companyId }: CostsProps) {
             />
           </AreaChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Model Usage & Hourly Pattern Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Model Usage Breakdown */}
+        {modelData.length > 0 && (
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">Cost by Model</h2>
+            <div className="space-y-3">
+              {modelData.map((model, idx) => (
+                <div key={idx} className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-white">{model.model}</div>
+                    <div className="text-xs text-zinc-500">
+                      {model.sessions} sessions • {(model.tokens / 1000).toFixed(1)}K tokens
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold text-amber-400">
+                      ${model.cost.toFixed(4)}
+                    </div>
+                    <div className="text-xs text-zinc-500">
+                      {((model.cost / data.totals.total_cost_usd) * 100).toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Hourly Usage Pattern */}
+        {hourlyPattern.some(h => h.sessions > 0) && (
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">Usage by Hour</h2>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={hourlyPattern}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                <XAxis
+                  dataKey="hour"
+                  stroke="#71717a"
+                  tick={{ fill: '#71717a', fontSize: 11 }}
+                  interval={3}
+                />
+                <YAxis stroke="#71717a" tick={{ fill: '#71717a' }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#18181b',
+                    border: '1px solid #27272a',
+                    borderRadius: '8px',
+                  }}
+                  labelStyle={{ color: '#a1a1aa' }}
+                />
+                <Bar dataKey="sessions" fill="#3b82f6" name="Sessions" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {/* Recent Costs Table */}

@@ -1098,6 +1098,236 @@ export function createServer(port = 3100) {
     }
   });
 
+  // Health history - time-series data for charts
+  app.get("/api/companies/:id/health-history", (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Not found" });
+
+      const hours = parseInt(req.query.hours || "24", 10);
+      const incidents = db.getIncidents(company.id, 10000);
+      const agents = db.getAgentsByCompany(company.id);
+
+      // Calculate time range
+      const now = Date.now();
+      const startTime = now - (hours * 60 * 60 * 1000);
+
+      // Filter incidents within time range
+      const recentIncidents = incidents.filter(i => {
+        const incidentTime = new Date(i.created_at).getTime();
+        return incidentTime >= startTime;
+      });
+
+      // Group incidents by hour
+      const hourlyData = [];
+      for (let i = 0; i < hours; i++) {
+        const hourStart = now - ((hours - i) * 60 * 60 * 1000);
+        const hourEnd = now - ((hours - i - 1) * 60 * 60 * 1000);
+        const hourLabel = new Date(hourStart).toISOString().slice(0, 13) + ":00";
+
+        const hourIncidents = recentIncidents.filter(incident => {
+          const incidentTime = new Date(incident.created_at).getTime();
+          return incidentTime >= hourStart && incidentTime < hourEnd;
+        });
+
+        const crashes = hourIncidents.filter(i => i.incident_type === "agent_crash");
+        const restarts = crashes.filter(i => i.recovery_action && i.recovery_action.includes("Auto-restart"));
+        const manualRestarts = hourIncidents.filter(i => i.incident_type === "manual_restart");
+
+        hourlyData.push({
+          timestamp: hourLabel,
+          hour: new Date(hourStart).getHours(),
+          crashes: crashes.length,
+          auto_restarts: restarts.length,
+          manual_restarts: manualRestarts.length,
+          total_incidents: hourIncidents.length,
+          recovery_rate: crashes.length > 0 ? ((restarts.length / crashes.length) * 100).toFixed(1) : 100,
+        });
+      }
+
+      // Agent-specific health over time
+      const agentHistory = agents.map(agent => {
+        const agentIncidents = recentIncidents.filter(i => i.agent_id === agent.id);
+        const crashes = agentIncidents.filter(i => i.incident_type === "agent_crash");
+        const restarts = crashes.filter(i => i.recovery_action && i.recovery_action.includes("Auto-restart"));
+
+        return {
+          agent_id: agent.id,
+          agent_name: agent.name,
+          role: agent.role,
+          total_crashes: crashes.length,
+          successful_restarts: restarts.length,
+          failure_rate: crashes.length > 0 ? (((crashes.length - restarts.length) / crashes.length) * 100).toFixed(1) : 0,
+        };
+      });
+
+      // Calculate error rates by time period
+      const errorRates = hourlyData.map(hour => {
+        const errorRate = hour.crashes > 0 ? (hour.crashes / agents.length).toFixed(2) : 0;
+        return {
+          timestamp: hour.timestamp,
+          error_rate: parseFloat(errorRate),
+          crashes_per_agent: parseFloat(errorRate),
+        };
+      });
+
+      res.json({
+        hourly: hourlyData,
+        agent_history: agentHistory,
+        error_rates: errorRates,
+        summary: {
+          time_range_hours: hours,
+          total_crashes: recentIncidents.filter(i => i.incident_type === "agent_crash").length,
+          total_restarts: recentIncidents.filter(i => i.recovery_action && i.recovery_action.includes("Auto-restart")).length,
+          total_agents: agents.length,
+        },
+      });
+    } catch (err) {
+      console.error("[health-history] Error:", err);
+      res.status(500).json({ error: "Failed to fetch health history" });
+    }
+  });
+
+  // ── Retry Management API ──────────────────────────────────────────
+
+  app.get("/api/companies/:id/retry-metrics", async (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Not found" });
+
+      const { getRetryMetrics } = await import("./retry-manager.js");
+      const metrics = getRetryMetrics(company.id);
+
+      res.json(metrics);
+    } catch (err) {
+      console.error("[retry] Error fetching metrics:", err);
+      res.status(500).json({ error: "Failed to fetch retry metrics" });
+    }
+  });
+
+  app.get("/api/companies/:id/retry-timeline", async (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Not found" });
+
+      const days = parseInt(req.query.days || "7", 10);
+      const { getRetryTimeline } = await import("./retry-manager.js");
+      const timeline = getRetryTimeline(company.id, days);
+
+      res.json(timeline);
+    } catch (err) {
+      console.error("[retry] Error fetching timeline:", err);
+      res.status(500).json({ error: "Failed to fetch retry timeline" });
+    }
+  });
+
+  app.get("/api/companies/:id/high-retry-tasks", async (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Not found" });
+
+      const minRetries = parseInt(req.query.min || "3", 10);
+      const { getHighRetryTasks } = await import("./retry-manager.js");
+      const tasks = getHighRetryTasks(company.id, minRetries);
+
+      res.json(tasks);
+    } catch (err) {
+      console.error("[retry] Error fetching high-retry tasks:", err);
+      res.status(500).json({ error: "Failed to fetch high-retry tasks" });
+    }
+  });
+
+  app.get("/api/tasks/:taskId/retry-state", async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const { getTaskRetryState } = await import("./retry-manager.js");
+      const state = getTaskRetryState(taskId);
+
+      res.json(state);
+    } catch (err) {
+      console.error("[retry] Error fetching task retry state:", err);
+      res.status(500).json({ error: "Failed to fetch retry state" });
+    }
+  });
+
+  app.get("/api/retry-policies", async (req, res) => {
+    try {
+      const { RetryPolicy, ErrorType } = await import("./retry-manager.js");
+
+      res.json({
+        error_types: Object.values(ErrorType),
+        policies: RetryPolicy
+      });
+    } catch (err) {
+      console.error("[retry] Error fetching policies:", err);
+      res.status(500).json({ error: "Failed to fetch retry policies" });
+    }
+  });
+
+  // ── Agent Recovery Manager API ──────────────────────────────────────────
+
+  app.get("/api/companies/:id/recovery-status", async (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Not found" });
+
+      const { getRecoveryStatus, getRecoveryStats } = await import("./health-monitoring.js");
+
+      const status = getRecoveryStatus(company.id);
+      const stats = getRecoveryStats(company.id);
+
+      res.json({
+        status,
+        stats
+      });
+    } catch (err) {
+      console.error("[recovery] Error fetching recovery status:", err);
+      res.status(500).json({ error: "Failed to fetch recovery status" });
+    }
+  });
+
+  app.get("/api/agents/:id/recovery-info", async (req, res) => {
+    try {
+      const agent = db.getAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+      const recoveryManager = await import("./recovery-manager.js");
+      const info = recoveryManager.getAgentRecoveryInfo(req.params.id);
+
+      res.json(info);
+    } catch (err) {
+      console.error("[recovery] Error fetching agent recovery info:", err);
+      res.status(500).json({ error: "Failed to fetch agent recovery info" });
+    }
+  });
+
+  app.post("/api/agents/:id/recovery/reset", async (req, res) => {
+    try {
+      const agent = db.getAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+      const { resetAgentRecovery } = await import("./health-monitoring.js");
+      resetAgentRecovery(req.params.id);
+
+      db.logActivity({
+        companyId: agent.company_id,
+        agentId: agent.id,
+        action: "recovery_state_reset",
+        detail: `Recovery state manually reset for agent ${agent.name}`,
+      });
+
+      req.app.locals.broadcast('recovery_reset', { agentId: agent.id });
+
+      res.json({
+        success: true,
+        message: `Recovery state reset for agent ${agent.name}`
+      });
+    } catch (err) {
+      console.error("[recovery] Error resetting recovery state:", err);
+      res.status(500).json({ error: "Failed to reset recovery state" });
+    }
+  });
+
   if (fs.existsSync(uiDist)) {
     app.use(express.static(uiDist, { index: false }));
   }

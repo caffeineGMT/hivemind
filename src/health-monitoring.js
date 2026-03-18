@@ -1,11 +1,15 @@
 import * as db from "./db.js";
 import { HEALTH_CHECK_INTERVAL_SEC, SLACK_WEBHOOK_URL } from "./config.js";
+import * as recoveryManager from "./recovery-manager.js";
 
 // Track last successful health check for each agent
 const lastHealthCheck = new Map();
 
 // Track consecutive failed health checks
 const failedHealthChecks = new Map();
+
+// Track pending retry timers
+const retryTimers = new Map();
 
 /**
  * Send Slack alert if webhook is configured
@@ -88,6 +92,46 @@ function getAgentTask(agentId) {
 }
 
 /**
+ * Schedule a retry with exponential backoff
+ */
+function scheduleRetry({ agent, task, company, checkpointInfo, nextRetryIn, attemptNumber, restartCallback }) {
+  // Clear any existing timer for this agent
+  const existingTimer = retryTimers.get(agent.id);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+  }
+
+  console.log(`[HEALTH] Scheduling retry for agent ${agent.name} in ${nextRetryIn}ms (attempt #${attemptNumber})`);
+
+  const timer = setTimeout(() => {
+    console.log(`[HEALTH] Retry timer expired for agent ${agent.name}, attempting restart...`);
+
+    // Check if agent can be retried (recovery manager controls this)
+    if (!recoveryManager.canRetryAgent(agent.id)) {
+      const timeRemaining = recoveryManager.getTimeUntilRetry(agent.id);
+      console.log(`[HEALTH] Agent ${agent.name} not ready for retry yet (${timeRemaining}ms remaining)`);
+      return;
+    }
+
+    // Reset task to todo status for restart
+    db.updateTaskStatus(task.id, "todo");
+    db.assignTask(task.id, null);
+
+    console.log(`[HEALTH] Task "${task.title}" reset to todo, triggering dispatcher for retry attempt #${attemptNumber}`);
+
+    // Trigger restart callback (dispatcher will pick it up)
+    if (restartCallback) {
+      restartCallback();
+    }
+
+    // Clean up timer reference
+    retryTimers.delete(agent.id);
+  }, nextRetryIn);
+
+  retryTimers.set(agent.id, timer);
+}
+
+/**
  * Main health check function - checks all running agents
  */
 export function performHealthCheck(company, runningAgents, restartCallback) {
@@ -98,6 +142,17 @@ export function performHealthCheck(company, runningAgents, restartCallback) {
 
     if (isHealthy) {
       recordHealthCheck(agent.id);
+      // Record recovery success if this agent was previously in recovery
+      const recoveryInfo = recoveryManager.getAgentRecoveryInfo(agent.id);
+      if (recoveryInfo.exists && recoveryInfo.status === 'recovering') {
+        const task = getAgentTask(agent.id);
+        recoveryManager.recordAgentRecovery({
+          agentId: agent.id,
+          agentName: agent.name,
+          companyId: company.id,
+          taskId: task?.id
+        });
+      }
       continue;
     }
 
@@ -110,8 +165,8 @@ export function performHealthCheck(company, runningAgents, restartCallback) {
       continue;
     }
 
-    // Agent has crashed - initiate recovery
-    console.log(`[HEALTH] Agent ${agent.name} (pid ${agent.pid || "none"}) crashed - initiating recovery`);
+    // Agent has crashed - initiate recovery with exponential backoff
+    console.log(`[HEALTH] Agent ${agent.name} (pid ${agent.pid || "none"}) crashed - initiating recovery with backoff`);
 
     const task = getAgentTask(agent.id);
     if (!task) {
@@ -128,9 +183,24 @@ export function performHealthCheck(company, runningAgents, restartCallback) {
       ? `from turn ${checkpoint.turn_number}`
       : "from beginning (no checkpoint)";
 
+    // Record crash in recovery manager
+    const recoveryDecision = recoveryManager.recordAgentCrash({
+      agentId: agent.id,
+      agentName: agent.name,
+      companyId: company.id,
+      taskId: task.id,
+      reason: `Process died (PID: ${agent.pid || "unknown"})`
+    });
+
     // Log incident
     const description = `Agent ${agent.name} crashed while working on "${task.title}". PID: ${agent.pid || "unknown"}`;
-    const recoveryAction = `Auto-restarting ${checkpointInfo}`;
+    let recoveryAction;
+
+    if (recoveryDecision.shouldRetry) {
+      recoveryAction = `Retrying ${checkpointInfo} with ${recoveryDecision.nextRetryIn}ms backoff (attempt ${recoveryDecision.attemptNumber})`;
+    } else {
+      recoveryAction = `FAILED - Max retries exceeded, manual intervention required`;
+    }
 
     logCrashIncident({
       companyId: company.id,
@@ -149,7 +219,10 @@ export function performHealthCheck(company, runningAgents, restartCallback) {
     });
 
     // Send Slack alert
-    const alertMessage = `Agent ${agent.name} crashed on task "${task.title}". Auto-restarting ${checkpointInfo}.`;
+    const alertMessage = recoveryDecision.shouldRetry
+      ? `Agent ${agent.name} crashed on task "${task.title}". Retrying in ${Math.round(recoveryDecision.nextRetryIn / 1000)}s (attempt ${recoveryDecision.attemptNumber}).`
+      : `CRITICAL: Agent ${agent.name} permanently failed after max retries. Manual intervention required!`;
+
     sendSlackAlert(alertMessage).catch(err => {
       console.error(`[HEALTH] Slack alert failed: ${err.message}`);
     });
@@ -160,15 +233,22 @@ export function performHealthCheck(company, runningAgents, restartCallback) {
     failedHealthChecks.delete(agent.id);
     lastHealthCheck.delete(agent.id);
 
-    // Reset task to todo status for restart
-    db.updateTaskStatus(task.id, "todo");
-    db.assignTask(task.id, null);
-
-    console.log(`[HEALTH] Task "${task.title}" reset to todo, will be restarted by dispatcher`);
-
-    // Trigger restart callback (dispatcher will pick it up)
-    if (restartCallback) {
-      restartCallback();
+    // Schedule retry with exponential backoff if allowed
+    if (recoveryDecision.shouldRetry) {
+      scheduleRetry({
+        agent,
+        task,
+        company,
+        checkpointInfo,
+        nextRetryIn: recoveryDecision.nextRetryIn,
+        attemptNumber: recoveryDecision.attemptNumber,
+        restartCallback
+      });
+    } else {
+      // Permanently failed - mark task as blocked
+      db.updateTaskStatus(task.id, "blocked");
+      db.assignTask(task.id, null);
+      console.error(`[HEALTH] Task "${task.title}" marked as BLOCKED - agent permanently failed`);
     }
   }
 }
@@ -198,4 +278,40 @@ export function stopHealthMonitoring(intervalHandle) {
     clearInterval(intervalHandle);
     console.log("[HEALTH] Health monitoring stopped");
   }
+
+  // Clear all pending retry timers
+  for (const [agentId, timer] of retryTimers.entries()) {
+    clearTimeout(timer);
+    console.log(`[HEALTH] Cleared pending retry timer for agent ${agentId}`);
+  }
+  retryTimers.clear();
+}
+
+/**
+ * Get current recovery status for all agents
+ */
+export function getRecoveryStatus(companyId) {
+  return recoveryManager.getRecoveryStatus(companyId);
+}
+
+/**
+ * Get recovery statistics
+ */
+export function getRecoveryStats(companyId) {
+  return recoveryManager.getRecoveryStats(companyId);
+}
+
+/**
+ * Manually reset recovery state for an agent
+ */
+export function resetAgentRecovery(agentId) {
+  // Clear any pending retry timer
+  const timer = retryTimers.get(agentId);
+  if (timer) {
+    clearTimeout(timer);
+    retryTimers.delete(agentId);
+    console.log(`[HEALTH] Cleared retry timer for agent ${agentId} during manual reset`);
+  }
+
+  recoveryManager.resetRecoveryState(agentId);
 }
