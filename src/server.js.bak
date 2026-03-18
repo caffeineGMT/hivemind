@@ -368,6 +368,31 @@ export function createServer(port = 3100) {
     });
   });
 
+  app.get("/api/analytics/events", (req, res) => {
+    const companyId = req.query.companyId;
+    const limit = parseInt(req.query.limit || "100", 10);
+    const events = db.getAnalyticsEvents(companyId || null, limit);
+    res.json(events);
+  });
+
+  app.get("/api/analytics/funnel", (req, res) => {
+    const companyId = req.query.companyId;
+    const funnel = db.getConversionFunnel(companyId || null);
+    res.json(funnel);
+  });
+
+  app.get("/api/analytics/revenue", (req, res) => {
+    const companyId = req.query.companyId;
+    const metrics = db.getRevenueMetrics(companyId || null);
+    res.json(metrics);
+  });
+
+  app.post("/api/analytics/track", (req, res) => {
+    const { companyId, userId, sessionId, eventType, eventData, revenueUsd } = req.body || {};
+    if (!eventType) return res.status(400).json({ error: "eventType required" });
+    db.trackEvent({ companyId, userId, sessionId, eventType, eventData, revenueUsd });
+    res.json({ success: true });
+  });
 
   app.get("/api/tasks/:id", (req, res) => {
     const task = db.getTask(req.params.id);
@@ -450,6 +475,58 @@ export function createServer(port = 3100) {
     res.json({ success: true, message: "Nudge sent — agent picking it up now" });
   });
 
+  // Testimonials endpoints
+  app.post("/api/testimonials", (req, res) => {
+    const { userId, userName, userEmail, userRole, userCompany, rating, quote, feedback } = req.body || {};
+
+    if (!userName || !userEmail || !rating || !quote) {
+      return res.status(400).json({ error: "userName, userEmail, rating, and quote are required" });
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ error: "rating must be between 1 and 5" });
+    }
+
+    try {
+      const result = db.createTestimonial({
+        userId,
+        userName,
+        userEmail,
+        userRole: userRole || null,
+        userCompany: userCompany || null,
+        rating,
+        quote,
+        feedback: feedback || null,
+      });
+      res.json({ success: true, id: result.lastInsertRowid });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/testimonials", (req, res) => {
+    const approved = req.query.approved === "true" ? true : req.query.approved === "false" ? false : undefined;
+    const featured = req.query.featured === "true" ? true : req.query.featured === "false" ? false : undefined;
+    const limit = parseInt(req.query.limit || "100", 10);
+
+    const testimonials = db.getTestimonials({ approved, featured, limit });
+    res.json(testimonials);
+  });
+
+  app.get("/api/testimonials/:id", (req, res) => {
+    const testimonial = db.getTestimonial(req.params.id);
+    if (!testimonial) return res.status(404).json({ error: "Not found" });
+    res.json(testimonial);
+  });
+
+  app.patch("/api/testimonials/:id", (req, res) => {
+    const testimonial = db.getTestimonial(req.params.id);
+    if (!testimonial) return res.status(404).json({ error: "Not found" });
+
+    const { approved, featured } = req.body || {};
+    db.updateTestimonial(req.params.id, { approved, featured });
+    res.json({ success: true });
+  });
 
   if (fs.existsSync(uiDist)) {
     app.use(express.static(uiDist, { index: false }));

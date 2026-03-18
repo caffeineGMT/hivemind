@@ -38,48 +38,6 @@ function migrate(db) {
     }
   } catch {}
 
-  // Add 'user_id' column to companies if missing
-  try {
-    const cols = db.prepare("PRAGMA table_info(companies)").all();
-    if (cols.length > 0 && !cols.find(c => c.name === "user_id")) {
-      db.exec("ALTER TABLE companies ADD COLUMN user_id TEXT");
-    }
-  } catch {}
-
-  // Add 'stripe_customer_id' column to companies if missing
-  try {
-    const cols = db.prepare("PRAGMA table_info(companies)").all();
-    if (cols.length > 0 && !cols.find(c => c.name === "stripe_customer_id")) {
-      db.exec("ALTER TABLE companies ADD COLUMN stripe_customer_id TEXT");
-    }
-  } catch {}
-
-  // Add 'plan_tier' column to companies if missing
-  try {
-    const cols = db.prepare("PRAGMA table_info(companies)").all();
-    if (cols.length > 0 && !cols.find(c => c.name === "plan_tier")) {
-      db.exec("ALTER TABLE companies ADD COLUMN plan_tier TEXT DEFAULT 'STARTER'");
-    }
-  } catch {}
-
-  // Create testimonials table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS testimonials (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id TEXT,
-      user_name TEXT NOT NULL,
-      user_email TEXT NOT NULL,
-      user_role TEXT,
-      user_company TEXT,
-      rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
-      quote TEXT NOT NULL,
-      feedback TEXT,
-      approved INTEGER NOT NULL DEFAULT 0,
-      featured INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-  `);
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS companies (

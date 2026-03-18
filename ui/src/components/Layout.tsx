@@ -159,10 +159,10 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, ch
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-950">
       {/* Mobile top bar */}
-      <div className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-zinc-800/60 bg-zinc-950/95 px-4 backdrop-blur md:hidden">
+      <div className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-zinc-800/60 bg-zinc-950/95 px-4 backdrop-blur md:hidden safe-area-inset-top">
         <button
           onClick={() => setSidebarOpen(true)}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition active:bg-zinc-800 active:text-zinc-200 md:hover:bg-zinc-800 md:hover:text-zinc-200"
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -198,20 +198,20 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, ch
       </main>
 
       {/* Mobile bottom navigation */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-zinc-800/60 bg-zinc-950/95 backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-zinc-800/60 bg-zinc-950/95 backdrop-blur md:hidden safe-area-inset-bottom">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             end={to === '/'}
             className={({ isActive }) =>
-              `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition ${
+              `flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition min-h-[56px] justify-center active:bg-zinc-800/30 ${
                 isActive ? 'text-amber-400' : 'text-zinc-500'
               }`
             }
           >
-            <Icon className="h-4 w-4" />
-            {label}
+            <Icon className="h-5 w-5" />
+            <span className="mt-0.5">{label}</span>
           </NavLink>
         ))}
       </nav>
