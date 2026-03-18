@@ -10,6 +10,9 @@ import { WebSocketServer } from "ws";
 import * as projectConfig from "./project-config.js";
 import crypto from "node:crypto";
 import { startAnomalyDetector, stopAnomalyDetector, runAnomalyCheck } from "./anomaly-detector.js";
+import * as anomalyDetector from "./monitoring/anomaly-detector.js";
+import * as alertManager from "./monitoring/alert-manager.js";
+import { registerBulkRoutes } from "./api/bulk-operations.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -83,6 +86,9 @@ export function createServer(port = 3100) {
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", version: "0.1.0" });
   });
+
+  // Bulk operations
+  registerBulkRoutes(app);
 
   // Anomaly detection: manual trigger + recent alerts
   app.get("/api/anomalies", (req, res) => {
@@ -1656,6 +1662,162 @@ export function createServer(port = 3100) {
     } catch (err) {
       console.error("[playbooks] Error performing health check:", err);
       res.status(500).json({ error: "Failed to perform health check" });
+    }
+  });
+
+  // ── Alert Manager Routes ──────────────────────────────────────────
+
+  // Initialize alert tables and register broadcast
+  alertManager.initAlertTables();
+  alertManager.setBroadcast(broadcast);
+
+  // Get alert rules for a company
+  app.get("/api/companies/:id/alerts/rules", (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+      const rules = alertManager.getAlertRules(company.id);
+      res.json({ rules });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Save alert rules for a company
+  app.post("/api/companies/:id/alerts/rules", (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+      const { rules } = req.body;
+      if (!Array.isArray(rules)) return res.status(400).json({ error: "rules must be an array" });
+      alertManager.saveAllAlertRules(company.id, rules);
+      broadcast("alert_rules_updated", { companyId: company.id });
+      res.json({ ok: true, rules: alertManager.getAlertRules(company.id) });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Delete an alert rule
+  app.delete("/api/alerts/rules/:ruleId", (req, res) => {
+    try {
+      alertManager.deleteAlertRule(req.params.ruleId);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Get alert channel config
+  app.get("/api/companies/:id/alerts/channels", (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+      const channels = alertManager.getChannelConfig(company.id);
+      res.json({ channels });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Save alert channel config
+  app.post("/api/companies/:id/alerts/channels", (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+      const { channels } = req.body;
+      if (!channels || typeof channels !== "object") {
+        return res.status(400).json({ error: "channels must be an object" });
+      }
+      for (const [channel, enabled] of Object.entries(channels)) {
+        alertManager.saveChannelConfig(company.id, channel, enabled);
+      }
+      broadcast("alert_channels_updated", { companyId: company.id });
+      res.json({ ok: true, channels: alertManager.getChannelConfig(company.id) });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Get alert history
+  app.get("/api/companies/:id/alerts/history", (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+      const limit = parseInt(req.query.limit || "50", 10);
+      const severity = req.query.severity || null;
+      const hoursBack = parseInt(req.query.hours || "24", 10);
+      const alerts = alertManager.getAlertHistory(company.id, { limit, severity, hoursBack });
+      res.json({ alerts });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Get alert stats
+  app.get("/api/companies/:id/alerts/stats", (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+      const hoursBack = parseInt(req.query.hours || "24", 10);
+      const stats = alertManager.getAlertStats(company.id, hoursBack);
+      res.json(stats);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Acknowledge an alert
+  app.post("/api/alerts/:alertId/acknowledge", (req, res) => {
+    try {
+      alertManager.acknowledgeAlert(parseInt(req.params.alertId, 10));
+      broadcast("alert_acknowledged", { alertId: req.params.alertId });
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Acknowledge all alerts for a company
+  app.post("/api/companies/:id/alerts/acknowledge-all", (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+      alertManager.acknowledgeAllAlerts(company.id);
+      broadcast("alerts_acknowledged", { companyId: company.id });
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // SSE endpoint for desktop notifications
+  app.get("/api/alerts/stream", (req, res) => {
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+    });
+    res.write("data: {\"type\":\"connected\"}\n\n");
+    alertManager.addSSEClient(res);
+  });
+
+  // Manual alert trigger (for testing)
+  app.post("/api/companies/:id/alerts/test", (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+      const { severity = "info", title = "Test Alert", message = "This is a test alert" } = req.body;
+      const result = alertManager.fireAlert({
+        companyId: company.id,
+        severity,
+        title,
+        message,
+      });
+      res.json({ ok: true, result });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
   });
 
