@@ -15,16 +15,20 @@ export default function TaskRow({ task }: { task: Task }) {
   return (
     <Link
       to={`/tasks/${task.id}`}
-      className="flex items-center gap-3 rounded-lg border border-zinc-800/40 bg-zinc-900/30 px-4 py-3 transition hover:border-zinc-700/60 hover:bg-zinc-900/60 cursor-pointer"
+      className="flex items-start gap-3 rounded-lg border border-zinc-800/40 bg-zinc-900/30 px-3 py-3 transition hover:border-zinc-700/60 hover:bg-zinc-900/60 cursor-pointer active:bg-zinc-800/40 sm:items-center sm:px-4"
     >
-      <div className="shrink-0">{statusIcon[task.status] || statusIcon.backlog}</div>
+      <div className="mt-0.5 shrink-0 sm:mt-0">{statusIcon[task.status] || statusIcon.backlog}</div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-zinc-200">{task.title}</p>
+        <p className="text-sm font-medium text-zinc-200 sm:truncate">{task.title}</p>
         {task.description && (
-          <p className="mt-0.5 truncate text-xs text-zinc-500">{task.description}</p>
+          <p className="mt-0.5 line-clamp-2 text-xs text-zinc-500 sm:truncate sm:line-clamp-1">{task.description}</p>
         )}
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
+          <PriorityBadge priority={task.priority} />
+          <StatusBadge status={task.status} />
+        </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="hidden shrink-0 items-center gap-2 sm:flex">
         <PriorityBadge priority={task.priority} />
         <StatusBadge status={task.status} />
         <span className="w-16 text-right font-mono text-[10px] text-zinc-600" title={task.id}>

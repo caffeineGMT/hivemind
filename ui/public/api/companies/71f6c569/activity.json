@@ -1,5 +1,113 @@
 [
   {
+    "id": 292,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "cmo",
+    "task_id": null,
+    "action": "marketing_strategy_created",
+    "detail": "AI-powered Japan trip planner with offline maps, live cherry blossom forecasts, and smart routing - plan your perfect 2-week trip in 5 minutes, not 5 days.",
+    "created_at": "2026-03-18 19:58:40"
+  },
+  {
+    "id": 270,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "cmo",
+    "task_id": null,
+    "action": "cmo_started",
+    "detail": "Building marketing strategy",
+    "created_at": "2026-03-18 19:55:08"
+  },
+  {
+    "id": 234,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "9f0c3350-1892-483e-8a6c-7a3097cddcd7",
+    "task_id": "dd9ac21a-db8d-4ba9-ab86-b0fa8db10878",
+    "action": "task_started",
+    "detail": "Implement Template Schema & Dynamic Loader",
+    "created_at": "2026-03-18 19:50:17"
+  },
+  {
+    "id": 235,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "43c3dc0a-0f34-4eee-a88a-17e09d3b3ccd",
+    "task_id": "32cf4f2e-62ad-4b38-8887-b25f69339b7f",
+    "action": "task_started",
+    "detail": "Implement Visual Trip Builder with Geocoding",
+    "created_at": "2026-03-18 19:50:17"
+  },
+  {
+    "id": 236,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "d42089cd-3175-4868-9973-bdef9f3d72d8",
+    "task_id": "3cb4e3d2-58d8-4502-84b2-380506fa955a",
+    "action": "task_started",
+    "detail": "Build Marketplace Catalog with Filters & Preview",
+    "created_at": "2026-03-18 19:50:17"
+  },
+  {
+    "id": 237,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "b3e8f1f4-e71d-4545-a052-29b89e2f47c7",
+    "task_id": "dbe4b468-6f67-4402-b6cd-e9ccf81c0ddd",
+    "action": "task_started",
+    "detail": "Implement Stripe payment processing with Supabase auth and access control",
+    "created_at": "2026-03-18 19:50:17"
+  },
+  {
+    "id": 238,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "c4ff7619-ca89-47ca-80e2-a60d7a975dfc",
+    "task_id": "d2cc5f8c-1284-4470-af2d-47ed250ef850",
+    "action": "task_started",
+    "detail": "Integrate Booking.com, GetYourGuide, and JR Pass affiliate APIs with click tracking",
+    "created_at": "2026-03-18 19:50:17"
+  },
+  {
+    "id": 232,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "cto",
+    "task_id": "9b2a4fbd-fe76-407e-8a71-41b21dc18eb4",
+    "action": "tasks_refined",
+    "detail": "Using Astro for SSR landing pages (fast static generation with SEO benefits), @vercel/og for dynamic OG images (serverless, no Puppeteer overhead), Supabase for affiliate/referral tracking (Postgres with real-time and auth built-in), Vercel serverless functions for API routes (edge deployment, auto-scaling), nanoid for short URL generation (URL-safe, collision-resistant), PayPal API for payouts (standard for affiliate programs), Mailgun for outreach emails (high deliverability). Widget uses vanilla JS IIFE pattern (no dependencies, works anywhere). All static assets served from CDN, API routes cached where appropriate (og images: 1 hour TTL).",
+    "created_at": "2026-03-18 19:50:08"
+  },
+  {
+    "id": 233,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "designer",
+    "task_id": null,
+    "action": "designer_started",
+    "detail": "Creating design specs",
+    "created_at": "2026-03-18 19:50:08"
+  },
+  {
+    "id": 225,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "cto",
+    "task_id": "f36a0011-e2a9-4e07-be3e-4c8600b997cb",
+    "action": "tasks_refined",
+    "detail": "Backend: Node.js/Express with API routes. Database: Supabase (Postgres) for auth, user data, analytics. Payment: Stripe Checkout + webhooks. AI: OpenAI GPT-4-turbo (gpt-4-turbo model). Multi-tenant: Subdomain routing with Cloudflare DNS API. Affiliates: Direct API integration (Booking.com, GetYourGuide) + tracking links. Auth: Supabase magic link or Google OAuth. Hosting: Assume Vercel or similar (supports API routes + static files). Total estimated dev time: 120-160 hours across all 4 tasks.",
+    "created_at": "2026-03-18 19:48:45"
+  },
+  {
+    "id": 212,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "cto",
+    "task_id": "421088fd-ddc1-4f2c-b701-c9e042012403",
+    "action": "tasks_refined",
+    "detail": "Architecture: Vanilla JS + Web Components for builder/marketplace (no framework bloat), Express for API, JSON Schema + Ajv for validation. Geocoding: Nominatim OSM (free, 1 req/sec limit, acceptable for builder). i18n: Structured as {en, zh, ja} objects per text field, Google Cloud Translation API optional ($20/1M chars). Map: Leaflet (already in use). Search: Fuse.js (lightweight fuzzy search, 5KB gzipped). Drag-drop: SortableJS (battle-tested, 40KB). Thumbnail generation: Puppeteer headless screenshot of map preview (run once on publish, cached). No database yet—filesystem-based template storage sufficient for MVP (20 templates). Authentication/payment deferred to future phase.",
+    "created_at": "2026-03-18 19:46:49"
+  },
+  {
+    "id": 206,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "cto",
+    "task_id": "65101539-0ca2-4139-b39c-bdcde7ec2e62",
+    "action": "tasks_refined",
+    "detail": "Tech stack: Vanilla JS (no frameworks) for minimal bundle size and offline-first performance. Service Worker API (no Workbox) to avoid external dependencies and ensure full offline capability. LocalStorage for client-side persistence (checklist state, sakura cache, custom items). CSS Grid/Flexbox for responsive layouts. Leaflet.js already in use for maps (no changes). No build step required - all files directly cacheable. API strategy: Graceful degradation with static JSON fallbacks for sakura forecast. CORS proxy (allorigins.win) for tenki.jp scraping with 3s timeout. Mobile-first CSS with breakpoint at 768px. PWA manifest for installability on iOS/Android.",
+    "created_at": "2026-03-18 19:45:14"
+  },
+  {
     "id": 197,
     "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
     "agent_id": "cto",

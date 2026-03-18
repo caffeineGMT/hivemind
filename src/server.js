@@ -1,15 +1,80 @@
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawn } from "node:child_process";
 import * as db from "./db.js";
 import { readAgentLog } from "./claude.js";
 import { LOGS_DIR } from "./config.js";
 import fs from "node:fs";
+import {
+  createCheckoutSession,
+  createPortalSession,
+  getSubscriptionStatus,
+  handleWebhook
+} from "./stripe-routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Trigger orchestrator resume if no live agents are running for a company.
+// If orchestrator IS running, the heartbeat will pick up comments within 15s.
+// If NOT running, spawn resume AND also run a direct nudge for immediate pickup.
+function triggerResume(companyId) {
+  try {
+    const agents = db.getAgentsByCompany(companyId);
+    const running = agents.filter(a => a.status === "running");
+    let hasLiveAgent = false;
+    for (const a of running) {
+      if (a.pid) {
+        try { process.kill(a.pid, 0); hasLiveAgent = true; break; } catch {}
+      }
+    }
+    if (!hasLiveAgent) {
+      // No orchestrator running — spawn resume (which starts heartbeat loop)
+      const child = spawn("node", ["bin/hivemind.js", "resume", companyId.slice(0, 8)], {
+        cwd: path.resolve(__dirname, ".."),
+        stdio: "ignore",
+        detached: true,
+      });
+      child.unref();
+      console.log(`[server] Auto-resumed orchestrator for company ${companyId.slice(0, 8)}`);
+    }
+    // Always spawn a direct nudge command for immediate processing
+    // (the heartbeat loop only checks every 15s)
+    const nudgeChild = spawn("node", ["bin/hivemind.js", "nudge", companyId.slice(0, 8), "Process unread comments and dispatch tasks immediately"], {
+      cwd: path.resolve(__dirname, ".."),
+      stdio: "ignore",
+      detached: true,
+    });
+    nudgeChild.unref();
+  } catch (err) {
+    console.error(`[server] triggerResume error: ${err.message}`);
+  }
+}
+
+// Try to detect Vercel deployment URL from workspace
+function detectDeploymentUrl(workspace) {
+  if (!workspace) return null;
+  try {
+    const projectJson = path.join(workspace, ".vercel", "project.json");
+    if (fs.existsSync(projectJson)) {
+      const data = JSON.parse(fs.readFileSync(projectJson, "utf-8"));
+      if (data.projectId) {
+        // Try to read the deployment URL from .vercel/project.json
+        // The actual URL isn't stored there, but we know the project is on Vercel
+        return true; // Signal that it's deployed
+      }
+    }
+  } catch {}
+  return null;
+}
+
 export function createServer(port = 3100) {
   const app = express();
+
+  // Stripe webhook needs raw body for signature verification
+  app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), handleWebhook);
+
+  // JSON parsing for all other routes
   app.use(express.json());
 
   const uiDist = path.join(__dirname, "../ui/dist");
@@ -18,6 +83,8 @@ export function createServer(port = 3100) {
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Content-Type");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
+    if (req.method === "OPTIONS") return res.sendStatus(200);
     next();
   });
 
@@ -26,21 +93,31 @@ export function createServer(port = 3100) {
     res.json({ status: "ok", version: "0.1.0" });
   });
 
+  // Stripe endpoints
+  app.post("/api/stripe/checkout", createCheckoutSession);
+  app.post("/api/stripe/portal", createPortalSession);
+  app.get("/api/stripe/subscription/:companyId", getSubscriptionStatus);
+
   // Companies
   app.get("/api/companies", (req, res) => {
     res.json(db.listCompanies());
   });
 
   app.get("/api/companies/:id", (req, res) => {
-    const company = db.getCompany(req.params.id);
-    if (!company) {
-      // Try prefix match
-      const all = db.listCompanies();
-      const match = all.find(c => c.id.startsWith(req.params.id));
-      if (!match) return res.status(404).json({ error: "Not found" });
-      return res.json(match);
-    }
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
     res.json(company);
+  });
+
+  // Update company (for deployment_url etc)
+  app.patch("/api/companies/:id", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+    const { deployment_url } = req.body || {};
+    if (deployment_url !== undefined) {
+      db.updateCompanyDeploymentUrl(company.id, deployment_url);
+    }
+    res.json({ success: true });
   });
 
   // Dashboard summary for a company
@@ -163,6 +240,33 @@ export function createServer(port = 3100) {
     res.json({ summary, totals, recent: recent.slice(0, 50) });
   });
 
+  // Analytics endpoints
+  app.get("/api/analytics/events", (req, res) => {
+    const companyId = req.query.companyId;
+    const limit = parseInt(req.query.limit || "100", 10);
+    const events = db.getAnalyticsEvents(companyId || null, limit);
+    res.json(events);
+  });
+
+  app.get("/api/analytics/funnel", (req, res) => {
+    const companyId = req.query.companyId;
+    const funnel = db.getConversionFunnel(companyId || null);
+    res.json(funnel);
+  });
+
+  app.get("/api/analytics/revenue", (req, res) => {
+    const companyId = req.query.companyId;
+    const metrics = db.getRevenueMetrics(companyId || null);
+    res.json(metrics);
+  });
+
+  app.post("/api/analytics/track", (req, res) => {
+    const { companyId, userId, sessionId, eventType, eventData, revenueUsd } = req.body || {};
+    if (!eventType) return res.status(400).json({ error: "eventType required" });
+    db.trackEvent({ companyId, userId, sessionId, eventType, eventData, revenueUsd });
+    res.json({ success: true });
+  });
+
   // Task detail
   app.get("/api/tasks/:id", (req, res) => {
     const task = db.getTask(req.params.id);
@@ -171,7 +275,7 @@ export function createServer(port = 3100) {
     res.json({ task, comments });
   });
 
-  // Add comment to task
+  // Add comment to task — triggers immediate agent pickup
   app.post("/api/tasks/:id/comments", (req, res) => {
     const task = db.getTask(req.params.id);
     if (!task) return res.status(404).json({ error: "Not found" });
@@ -189,10 +293,12 @@ export function createServer(port = 3100) {
       action: "comment_added",
       detail: message.slice(0, 100),
     });
+    // Trigger immediate pickup
+    triggerResume(task.company_id);
     res.json({ success: true });
   });
 
-  // Nudge endpoint — store as unread comment so heartbeat picks it up
+  // Nudge endpoint (company-specific) — store as unread comment + trigger agent
   app.post("/api/companies/:id/nudge", async (req, res) => {
     const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
@@ -200,7 +306,6 @@ export function createServer(port = 3100) {
     const { message } = req.body || {};
     if (!message) return res.status(400).json({ error: "Message required" });
 
-    // Store as an unread comment (no task_id = general nudge)
     db.addComment({
       companyId: company.id,
       taskId: null,
@@ -214,7 +319,40 @@ export function createServer(port = 3100) {
       detail: message,
     });
 
-    res.json({ success: true, message: "Nudge queued — CEO will pick it up on next heartbeat" });
+    triggerResume(company.id);
+    res.json({ success: true, message: "Nudge sent — agent picking it up now" });
+  });
+
+  // Generic nudge endpoint (used by Vercel frontend and mobile)
+  app.post("/api/nudge", async (req, res) => {
+    const { companyId, message } = req.body || {};
+    if (!message) return res.status(400).json({ error: "Message required" });
+
+    let company;
+    if (companyId) {
+      company = findCompany(companyId);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+    } else {
+      const companies = db.listCompanies();
+      company = companies.find(c => c.status === "active") || companies[0];
+      if (!company) return res.status(404).json({ error: "No companies found" });
+    }
+
+    db.addComment({
+      companyId: company.id,
+      taskId: null,
+      author: "user",
+      message: `[NUDGE] ${message}`,
+    });
+
+    db.logActivity({
+      companyId: company.id,
+      action: "nudge_received",
+      detail: message,
+    });
+
+    triggerResume(company.id);
+    res.json({ success: true, message: "Nudge sent — agent picking it up now" });
   });
 
   // Serve built UI static assets (after API routes so live API takes priority)

@@ -1,5 +1,149 @@
 [
   {
+    "id": 297,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": null,
+    "task_id": null,
+    "action": "nudge_received",
+    "detail": "test",
+    "created_at": "2026-03-18 19:59:04"
+  },
+  {
+    "id": 286,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "designer",
+    "task_id": null,
+    "action": "design_specs_created",
+    "detail": "Design system + 15 task designs",
+    "created_at": "2026-03-18 19:57:54"
+  },
+  {
+    "id": 287,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cmo",
+    "task_id": null,
+    "action": "cmo_started",
+    "detail": "Building marketing strategy",
+    "created_at": "2026-03-18 19:57:54"
+  },
+  {
+    "id": 261,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "36f4884a-0000-4905-a82a-2753d1f5005c",
+    "task_id": "05d9d6b9-5035-4fb5-bfe8-2e0b08c6670b",
+    "action": "task_started",
+    "detail": "Implement Clerk Authentication with Multi-Tenant Data Isolation",
+    "created_at": "2026-03-18 19:53:47"
+  },
+  {
+    "id": 262,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "ba21d68c-4302-493b-b9ee-712029ec4f88",
+    "task_id": "8e293a79-ff1a-4433-8270-b6fc3d6b7485",
+    "action": "task_started",
+    "detail": "Implement Stripe Checkout & Webhook-Driven Subscription Management",
+    "created_at": "2026-03-18 19:53:47"
+  },
+  {
+    "id": 263,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "1f1106db-ed1c-4b93-8a2c-a52d1b815d92",
+    "task_id": "0217c920-bb5e-491c-a108-9abee1f4edd4",
+    "action": "task_started",
+    "detail": "Build Admin Analytics Dashboard with Event Tracking & Conversion Metrics",
+    "created_at": "2026-03-18 19:53:47"
+  },
+  {
+    "id": 264,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "811a2375-d1d0-49a4-95b9-0113dca9e86b",
+    "task_id": "b9293c8a-ab7d-40e3-981b-23e5772e8c25",
+    "action": "task_started",
+    "detail": "Build SEO-Optimized Landing Pages with Structured Data and Analytics",
+    "created_at": "2026-03-18 19:53:47"
+  },
+  {
+    "id": 265,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "0587a4f1-4a7d-43b7-8569-5cfb216a328d",
+    "task_id": "abaf790c-bc20-4b50-887f-01ffa4d817fe",
+    "action": "task_started",
+    "detail": "Implement SendGrid Email Drip Campaign with Vercel Cron",
+    "created_at": "2026-03-18 19:53:47"
+  },
+  {
+    "id": 258,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cto",
+    "task_id": "bfb5d262-dde6-493f-a4f3-2cd0ba46d686",
+    "action": "tasks_refined",
+    "detail": "Using recharts for charts (lightweight, Next.js-friendly), better-sqlite3 for sync DB access in server components, Anthropic SDK with streaming for real-time AI responses (prefer over OpenAI for structured reasoning on tax optimization), SHA-256 context hashing to dedupe recommendations, Vercel AI SDK for streaming utilities. FTC carryforward follows CRA T2209 10-year carryback/carryforward rules. AI recommendations use Claude Sonnet 4.6 for cost efficiency (~$3/1M input tokens) vs Opus.",
+    "created_at": "2026-03-18 19:53:33"
+  },
+  {
+    "id": 259,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "designer",
+    "task_id": null,
+    "action": "designer_started",
+    "detail": "Creating design specs",
+    "created_at": "2026-03-18 19:53:33"
+  },
+  {
+    "id": 255,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cto",
+    "task_id": "7fd3a61c-e097-4629-ab6f-ffd5696f70ef",
+    "action": "tasks_refined",
+    "detail": "Using better-sqlite3 transactions for atomicity, Zod for CSV validation (type-safe + runtime checks), react-dropzone for modern file UX, Papa Parse for robust CSV parsing. Row-level security via middleware HOC pattern rather than database triggers (easier to debug in SQLite). Organization invite flow uses time-limited JWT tokens in email links. No ORMs to keep SQLite queries explicit and performant.",
+    "created_at": "2026-03-18 19:52:24"
+  },
+  {
+    "id": 251,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cto",
+    "task_id": "49d11732-b6fe-441f-bd41-25d2f8974f21",
+    "action": "tasks_refined",
+    "detail": "Next.js 14 App Router with server components for SEO pages, Vercel Cron for email automation (simpler than external scheduler), SendGrid Dynamic Templates for email management, SQLite with better-sqlite3 for referral/affiliate tracking, Stripe metadata for referral attribution, nanoid for collision-resistant referral codes, Stripe Connect deferred to v2 (manual payouts initially)",
+    "created_at": "2026-03-18 19:51:18"
+  },
+  {
+    "id": 231,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cto",
+    "task_id": "46fc0173-47c4-4741-839c-5dc0d4346e00",
+    "action": "tasks_refined",
+    "detail": "Clerk for auth (better DX than NextAuth for App Router, built-in <UserButton/>), Stripe Checkout (not Payment Links) for custom metadata passing, better-sqlite3 for analytics (fast local queries, simple migration path to PostgreSQL if needed), recharts over Chart.js (treeshakes better with Next.js), admin role via Clerk publicMetadata (avoids separate RBAC table), webhook-driven subscription updates (source of truth is Stripe, not polling)",
+    "created_at": "2026-03-18 19:49:53"
+  },
+  {
+    "id": 223,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cto",
+    "task_id": "9d3bfe63-7159-4582-bd62-e0ef074dea53",
+    "action": "tasks_refined",
+    "detail": "**Core Stack:** Next.js 14 App Router (server components for data fetching, client components for interactivity), TypeScript strict mode, TailwindCSS for styling. **Tax Engine:** Pure TypeScript functions in /lib/tax/ following IRS Form 1116 and CRA T2209 rules with Article XV treaty allocation. **Visualization:** Recharts for responsive charts (lightweight, React-native, good mobile support). **PDF Generation:** jsPDF + jspdf-autotable (client-side generation avoids server memory issues, faster for single-user MVP). **Testing:** Vitest for unit tests on tax calculations (critical for accuracy). **Database:** Assuming SQLite with better-sqlite3 based on project brief. **Type Safety:** All tax functions return strongly-typed interfaces to prevent calculation errors downstream.",
+    "created_at": "2026-03-18 19:48:18"
+  },
+  {
+    "id": 210,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cto",
+    "task_id": "0a7e8ac3-590a-4f29-be4f-c7c39c320554",
+    "action": "tasks_refined",
+    "detail": "Next.js 15 App Router with Server Components for data fetching, Server Actions for mutations (form completion), optimistic UI updates for instant feedback. SQLite with better-sqlite3 (synchronous queries in Server Components). Radix UI for accessible accordion (WAI-ARIA compliant). Bank of Canada Valet API with 24-hour cache TTL. TypeScript strict mode with explicit types for all data structures. Tailwind CSS for styling with mobile-first responsive design.",
+    "created_at": "2026-03-18 19:45:53"
+  },
+  {
+    "id": 202,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cto",
+    "task_id": "df08608d-fe31-4cb8-b7b1-c371307b86b5",
+    "action": "tasks_refined",
+    "detail": "**Tech Stack:** Next.js 14+ App Router for server components and API routes, TypeScript for type safety, TailwindCSS + shadcn/ui for consistent fintech-style UI with pre-built accessible components (Form, Card, Badge, Progress). SQLite via better-sqlite3 for local-first data persistence (no external DB required for MVP). Zod + react-hook-form for robust client-side validation. Vitest for fast unit testing of tax calculation logic.\n\n**Architecture:** Server components for data fetching (RSU tax page), API routes for CRUD operations and complex tax calculations, client components only where interactivity needed (form submission). Tax calculators are pure functions in `/lib/tax/` for easy testing and reusability. Separation of concerns: DB in `/lib/db/`, tax logic in `/lib/tax/`, UI in `/components/` and `/app/`.\n\n**Key Decisions:**\n1. **Hardcoded 1.35 USD/CAD rate for MVP** - Real Bank of Canada API integration deferred to post-MVP\n2. **100% US-sourced income assumption** - Article XV proration implemented but defaults to 100% for H-1B/TN workers still in US (will add UI for partial-year residents later)\n3. **Single filing status only** - Married filing jointly deferred to post-MVP\n4. **No database migrations** - SQLite schema created via `db.exec()` on initialization, suitable for MVP\n5. **Server-side tax calculations** - Keep sensitive logic server-side, send computed results to client\n6. **shadcn/ui over custom components** - Faster development, better accessibility, consistent design system",
+    "created_at": "2026-03-18 19:44:13"
+  },
+  {
     "id": 190,
     "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
     "agent_id": "cto",

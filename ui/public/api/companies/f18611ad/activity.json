@@ -1,5 +1,203 @@
 [
   {
+    "id": 290,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "711d1fd8-9454-491e-b0bf-4062e2a585a1",
+    "task_id": "a4388081-215b-4c39-bbe4-ecdce3cdb7ca",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:58:37"
+  },
+  {
+    "id": 291,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "f4892078-4c7d-46a3-9010-3d76f87b7ad7",
+    "task_id": "bc279132-c69a-49d2-ae84-d6bdb92f8ddb",
+    "action": "task_started",
+    "detail": "SEO Blog Content for Buyer-Intent Keywords",
+    "created_at": "2026-03-18 19:58:37"
+  },
+  {
+    "id": 274,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "3d28bcb8-51fb-4e9f-b9e4-5c4128e72179",
+    "task_id": "45c512fa-7eab-457f-bc3d-39f0ddbc2264",
+    "action": "task_completed",
+    "detail": "Cleanup: Add Checkout Upsells with Stripe Line Items & A/B Testing",
+    "created_at": "2026-03-18 19:55:47"
+  },
+  {
+    "id": 275,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "76d1992e-21e5-4331-8383-06a4b6e3cfcf",
+    "task_id": "812a2a8b-f02a-4197-a6a5-0e092343e1fa",
+    "action": "task_started",
+    "detail": "Promo Code System with Email Blast Campaigns",
+    "created_at": "2026-03-18 19:55:47"
+  },
+  {
+    "id": 269,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "cmo",
+    "task_id": null,
+    "action": "marketing_strategy_created",
+    "detail": "Professional fur hood replacement for luxury jackets — $199 vs $1000 new jacket, looks brand new in 2 weeks, shipped worldwide.",
+    "created_at": "2026-03-18 19:54:59"
+  },
+  {
+    "id": 266,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "d8a3f8ab-7349-44fe-b36e-ccf6f6a061ad",
+    "task_id": "6d768cec-5aad-470d-83de-b4e396ecc174",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:53:57"
+  },
+  {
+    "id": 267,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "dd46dbef-a3c1-4d89-9475-a63560d6ef7f",
+    "task_id": "cbff53ad-030c-4a8d-a13d-a3b8713b39f8",
+    "action": "task_started",
+    "detail": "Dynamic Surge Pricing Engine with Inventory & Demand Signals",
+    "created_at": "2026-03-18 19:53:57"
+  },
+  {
+    "id": 254,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "cmo",
+    "task_id": null,
+    "action": "cmo_started",
+    "detail": "Building marketing strategy",
+    "created_at": "2026-03-18 19:51:52"
+  },
+  {
+    "id": 252,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "228ec1eb-91bb-4e49-adc5-fc6624a2b5be",
+    "task_id": "6f6c9467-2ef3-493c-b02e-76f40be6eb92",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:51:37"
+  },
+  {
+    "id": 253,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "78a33adb-9b40-4882-b1b6-9aa0aee31774",
+    "task_id": "50ef2937-4c92-4482-a00b-c8931ff4a178",
+    "action": "task_started",
+    "detail": "Automated Email Nurture Sequence with Resend & React-Email Templates",
+    "created_at": "2026-03-18 19:51:37"
+  },
+  {
+    "id": 229,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "d28f7500-a53a-422e-855a-6c9e995e0e51",
+    "task_id": "7f0282d3-4e3d-4354-8621-548f457a0863",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:49:42"
+  },
+  {
+    "id": 230,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "3d28bcb8-51fb-4e9f-b9e4-5c4128e72179",
+    "task_id": "45c512fa-7eab-457f-bc3d-39f0ddbc2264",
+    "action": "task_started",
+    "detail": "Add Checkout Upsells with Stripe Line Items & A/B Testing",
+    "created_at": "2026-03-18 19:49:42"
+  },
+  {
+    "id": 226,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "18e5ed12-976f-4010-8f39-c0f2c00c33c7",
+    "task_id": "9a657b5b-e80d-4728-b936-a53b75021d3b",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:48:52"
+  },
+  {
+    "id": 227,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "711d1fd8-9454-491e-b0bf-4062e2a585a1",
+    "task_id": "a4388081-215b-4c39-bbe4-ecdce3cdb7ca",
+    "action": "task_started",
+    "detail": "Implement Referral System with Unique Codes, Discount Logic, and Viral Tracking",
+    "created_at": "2026-03-18 19:48:52"
+  },
+  {
+    "id": 221,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "65be209d-ddb4-42c8-9ba1-4e2c49f91229",
+    "task_id": "6b5ddf74-3a52-4257-b412-ee42a9bb9ca9",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:48:07"
+  },
+  {
+    "id": 222,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "d8a3f8ab-7349-44fe-b36e-ccf6f6a061ad",
+    "task_id": "6d768cec-5aad-470d-83de-b4e396ecc174",
+    "action": "task_started",
+    "detail": "Integrate Meta Pixel and Conversion API with Server-Side Event Tracking",
+    "created_at": "2026-03-18 19:48:07"
+  },
+  {
+    "id": 215,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "c43b40a0-f679-4816-a428-78220a5e1fa1",
+    "task_id": "81fa3907-b3e3-4189-b3f1-72dc465ad56b",
+    "action": "task_completed",
+    "detail": "Cleanup: Implement A/B Testing with Vercel Edge Config and GA4 Integration",
+    "created_at": "2026-03-18 19:47:17"
+  },
+  {
+    "id": 216,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "a416439f-f2dc-4e61-89d6-872f23dcecaa",
+    "task_id": "45592933-dc98-4fce-8bc0-e43f168d6373",
+    "action": "task_started",
+    "detail": "Build MDX Blog System with SEO-Optimized Articles and Schema Markup",
+    "created_at": "2026-03-18 19:47:17"
+  },
+  {
+    "id": 213,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "cto",
+    "task_id": "98b5b652-bcff-41eb-9bd5-4666023726a2",
+    "action": "tasks_refined",
+    "detail": "Using Supabase for all persistent state (upsells, pricing, promotions, email tracking) to avoid introducing new databases. Resend + react-email for transactional emails (familiar stack, good DX). Vercel Cron for scheduled jobs (email nurture, pricing updates) instead of external scheduler. A/B testing via simple DB flags (upsell_placement, pricing_type) rather than full experimentation platform. Stripe metadata for storing promo codes and upsells on orders. All prices stored in cents (INTEGER) to avoid floating point issues. Dynamic pricing recalculated on-demand + cached via 6-hour cron to balance freshness and API load.",
+    "created_at": "2026-03-18 19:46:51"
+  },
+  {
+    "id": 214,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "designer",
+    "task_id": null,
+    "action": "designer_started",
+    "detail": "Creating design specs",
+    "created_at": "2026-03-18 19:46:51"
+  },
+  {
+    "id": 208,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "cto",
+    "task_id": "df944705-2f93-415e-b055-d3efdb61ce41",
+    "action": "tasks_refined",
+    "detail": "Using Google Tag Manager for ads tracking (more flexible than direct gtag), server-side Conversion API for Meta to ensure event delivery despite browser blockers, MDX for blog (better DX than headless CMS for small content volume), nanoid for referral codes (short, URL-safe), Supabase migrations for schema versioning, React Email for transactional templates, Vercel Cron for scheduled jobs (simpler than external cron service for MVP).",
+    "created_at": "2026-03-18 19:45:26"
+  },
+  {
+    "id": 200,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "cto",
+    "task_id": "0fa4ee6d-76e5-41b4-80b1-88dc1aac3c60",
+    "action": "tasks_refined",
+    "detail": "**Framework**: Next.js 15+ App Router with Server Actions for form submissions. **Database**: Supabase Postgres with Row Level Security disabled for reviews (public read). **Monitoring**: Sentry for error tracking, UptimeRobot for uptime, Vercel native analytics for traffic. **A/B Testing**: Vercel Edge Config for zero-latency variant assignment at edge, GA4 for metrics aggregation. **Email**: Resend for transactional emails with React Email templates. **Cron**: Vercel Cron for cart recovery (runs every 6 hours, queries carts 2-24h old). **Trust Signals**: Trustpilot embed for external validation, custom reviews system for control over content and display. **Key Architectural Choice**: Edge middleware for A/B testing ensures consistent variant assignment before page render, avoiding layout shift. Health check endpoint provides single source of truth for monitoring multiple external services.",
+    "created_at": "2026-03-18 19:44:09"
+  },
+  {
     "id": 196,
     "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
     "agent_id": "cto",

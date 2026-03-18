@@ -30,6 +30,22 @@ function migrate(db) {
     }
   } catch {}
 
+  // Add 'deployment_url' column to companies if missing
+  try {
+    const cols = db.prepare("PRAGMA table_info(companies)").all();
+    if (cols.length > 0 && !cols.find(c => c.name === "deployment_url")) {
+      db.exec("ALTER TABLE companies ADD COLUMN deployment_url TEXT");
+    }
+  } catch {}
+
+  // Add 'user_id' column to companies if missing
+  try {
+    const cols = db.prepare("PRAGMA table_info(companies)").all();
+    if (cols.length > 0 && !cols.find(c => c.name === "user_id")) {
+      db.exec("ALTER TABLE companies ADD COLUMN user_id TEXT");
+    }
+  } catch {}
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY,
@@ -107,13 +123,52 @@ function migrate(db) {
       model TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS usage_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      metric TEXT NOT NULL,
+      value REAL NOT NULL,
+      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+      agent_id TEXT,
+      metadata TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS analytics_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT,
+      user_id TEXT,
+      session_id TEXT,
+      event_type TEXT NOT NULL,
+      event_data TEXT,
+      revenue_usd REAL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id),
+      user_id TEXT,
+      plan TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      mrr REAL NOT NULL DEFAULT 0,
+      started_at TEXT NOT NULL DEFAULT (datetime('now')),
+      cancelled_at TEXT,
+      next_billing_date TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_usage_company_metric ON usage_logs(company_id, metric);
+    CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_logs(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_analytics_company ON analytics_events(company_id);
+    CREATE INDEX IF NOT EXISTS idx_analytics_event_type ON analytics_events(event_type);
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_company ON subscriptions(company_id);
   `);
 }
 
-export function createCompany({ id, name, goal, workspace }) {
+export function createCompany({ id, name, goal, workspace, userId }) {
   const db = getDb();
-  db.prepare("INSERT INTO companies (id, name, goal, workspace) VALUES (?, ?, ?, ?)").run(id, name, goal, workspace);
-  return { id, name, goal, workspace };
+  db.prepare("INSERT INTO companies (id, name, goal, workspace, user_id) VALUES (?, ?, ?, ?, ?)").run(id, name, goal, workspace, userId || null);
+  return { id, name, goal, workspace, userId };
 }
 
 export function getCompany(id) {
@@ -124,7 +179,10 @@ export function getActiveCompany() {
   return getDb().prepare("SELECT * FROM companies WHERE status = 'active' ORDER BY created_at DESC LIMIT 1").get();
 }
 
-export function listCompanies() {
+export function listCompanies(userId) {
+  if (userId) {
+    return getDb().prepare("SELECT * FROM companies WHERE user_id = ? OR user_id IS NULL ORDER BY created_at DESC").all(userId);
+  }
   return getDb().prepare("SELECT * FROM companies ORDER BY created_at DESC").all();
 }
 
@@ -252,6 +310,10 @@ export function getCostSummary(companyId) {
   `).all(companyId);
 }
 
+export function updateCompanyDeploymentUrl(companyId, url) {
+  getDb().prepare("UPDATE companies SET deployment_url = ? WHERE id = ?").run(url, companyId);
+}
+
 export function getCostTotals(companyId) {
   return getDb().prepare(`
     SELECT
@@ -266,4 +328,147 @@ export function getCostTotals(companyId) {
     FROM cost_log
     WHERE company_id = ?
   `).get(companyId);
+}
+
+// ── Usage tracking ──────────────────────────────────────────────────
+
+export function logUsage({ companyId, metric, value, agentId, metadata }) {
+  getDb().prepare(
+    `INSERT INTO usage_logs (company_id, metric, value, agent_id, metadata)
+     VALUES (?, ?, ?, ?, ?)`
+  ).run(companyId, metric, value, agentId || null, metadata ? JSON.stringify(metadata) : null);
+}
+
+export function getUsageByMetric(companyId, metric, startDate = null) {
+  let query = `
+    SELECT
+      SUM(value) as total_value,
+      COUNT(*) as event_count,
+      MIN(timestamp) as first_logged,
+      MAX(timestamp) as last_logged
+    FROM usage_logs
+    WHERE company_id = ? AND metric = ?
+  `;
+  const params = [companyId, metric];
+
+  if (startDate) {
+    query += ` AND timestamp >= ?`;
+    params.push(startDate);
+  }
+
+  return getDb().prepare(query).get(...params);
+}
+
+export function getCurrentMonthUsage(companyId) {
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+  const startDateStr = startOfMonth.toISOString().slice(0, 19).replace('T', ' ');
+
+  const agentHours = getUsageByMetric(companyId, 'agent_hours', startDateStr);
+  const apiCalls = getUsageByMetric(companyId, 'api_calls', startDateStr);
+
+  return {
+    agent_hours: agentHours?.total_value || 0,
+    api_calls: apiCalls?.total_value || 0,
+    period_start: startDateStr,
+    period_end: new Date().toISOString().slice(0, 19).replace('T', ' ')
+  };
+}
+
+export function getUsageHistory(companyId, limit = 100) {
+  return getDb().prepare(`
+    SELECT * FROM usage_logs
+    WHERE company_id = ?
+    ORDER BY timestamp DESC
+    LIMIT ?
+  `).all(companyId, limit);
+}
+
+// ── Analytics tracking ──────────────────────────────────────────────────
+
+export function trackEvent({ companyId, userId, sessionId, eventType, eventData, revenueUsd }) {
+  getDb().prepare(
+    `INSERT INTO analytics_events (company_id, user_id, session_id, event_type, event_data, revenue_usd)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(companyId || null, userId || null, sessionId || null, eventType, eventData ? JSON.stringify(eventData) : null, revenueUsd || 0);
+}
+
+export function getAnalyticsEvents(companyId, limit = 100) {
+  if (companyId) {
+    return getDb().prepare("SELECT * FROM analytics_events WHERE company_id = ? ORDER BY created_at DESC LIMIT ?").all(companyId, limit);
+  }
+  return getDb().prepare("SELECT * FROM analytics_events ORDER BY created_at DESC LIMIT ?").all(limit);
+}
+
+export function getConversionFunnel(companyId) {
+  const db = getDb();
+  const where = companyId ? "WHERE company_id = ?" : "";
+  const whereAnd = companyId ? "WHERE company_id = ? AND" : "WHERE";
+  const params = companyId ? [companyId] : [];
+
+  const pageViews = db.prepare(`SELECT COUNT(*) as count FROM analytics_events ${whereAnd} event_type = 'page_view'`).get(...params)?.count || 0;
+  const signupStarted = db.prepare(`SELECT COUNT(DISTINCT session_id) as count FROM analytics_events ${whereAnd} event_type = 'signup_started'`).get(...params)?.count || 0;
+  const signupCompleted = db.prepare(`SELECT COUNT(DISTINCT user_id) as count FROM analytics_events ${whereAnd} event_type = 'signup_completed'`).get(...params)?.count || 0;
+  const checkoutStarted = db.prepare(`SELECT COUNT(DISTINCT session_id) as count FROM analytics_events ${whereAnd} event_type = 'checkout_started'`).get(...params)?.count || 0;
+  const checkoutCompleted = db.prepare(`SELECT COUNT(DISTINCT session_id) as count FROM analytics_events ${whereAnd} event_type = 'checkout_completed'`).get(...params)?.count || 0;
+  const companyCreated = db.prepare(`SELECT COUNT(*) as count FROM analytics_events ${whereAnd} event_type = 'company_created'`).get(...params)?.count || 0;
+  const firstTaskCompleted = db.prepare(`SELECT COUNT(DISTINCT company_id) as count FROM analytics_events ${whereAnd} event_type = 'first_task_completed'`).get(...params)?.count || 0;
+
+  return {
+    page_view: pageViews,
+    signup_started: signupStarted,
+    signup_completed: signupCompleted,
+    checkout_started: checkoutStarted,
+    checkout_completed: checkoutCompleted,
+    company_created: companyCreated,
+    first_task_completed: firstTaskCompleted,
+  };
+}
+
+export function getRevenueMetrics(companyId) {
+  const db = getDb();
+  const where = companyId ? "WHERE company_id = ? AND status = 'active'" : "WHERE status = 'active'";
+  const params = companyId ? [companyId] : [];
+
+  const activeSubs = db.prepare(`SELECT * FROM subscriptions ${where}`).all(...params);
+  const mrr = activeSubs.reduce((sum, sub) => sum + (sub.mrr || 0), 0);
+  const arr = mrr * 12;
+
+  // Churn calculation (last 30 days)
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const cancelledWhere = companyId ? "WHERE company_id = ? AND cancelled_at > ?" : "WHERE cancelled_at > ?";
+  const cancelledParams = companyId ? [companyId, thirtyDaysAgo] : [thirtyDaysAgo];
+  const cancelledCount = db.prepare(`SELECT COUNT(*) as count FROM subscriptions ${cancelledWhere}`).get(...cancelledParams)?.count || 0;
+  const totalSubs = activeSubs.length + cancelledCount;
+  const churnRate = totalSubs > 0 ? (cancelledCount / totalSubs) * 100 : 0;
+
+  // LTV calculation (simple: average revenue per user * average lifetime)
+  const avgRevenuePerUser = activeSubs.length > 0 ? mrr / activeSubs.length : 0;
+  const avgLifetimeMonths = churnRate > 0 ? 1 / (churnRate / 100) : 12; // If 10% monthly churn, avg lifetime = 10 months
+  const ltv = avgRevenuePerUser * avgLifetimeMonths;
+
+  // Total revenue from all checkout_completed events
+  const totalRevenue = db.prepare(
+    `SELECT SUM(revenue_usd) as total FROM analytics_events WHERE event_type = 'checkout_completed' ${companyId ? 'AND company_id = ?' : ''}`
+  ).get(...(companyId ? [companyId] : []))?.total || 0;
+
+  return {
+    mrr,
+    arr,
+    churnRate,
+    ltv,
+    totalRevenue,
+    activeSubscriptions: activeSubs.length,
+  };
+}
+
+export function createSubscription({ id, companyId, userId, plan, mrr }) {
+  getDb().prepare(
+    "INSERT INTO subscriptions (id, company_id, user_id, plan, mrr) VALUES (?, ?, ?, ?, ?)"
+  ).run(id, companyId, userId || null, plan, mrr);
+}
+
+export function cancelSubscription(id) {
+  getDb().prepare("UPDATE subscriptions SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?").run(id);
 }

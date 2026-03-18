@@ -169,9 +169,19 @@ You must:
    - Chatbot/live chat for conversion
    - Affiliate/referral program
 
-5. COMPETITIVE ANALYSIS: Who are the alternatives? What's our unfair advantage?
+5. ACTIVE SOCIAL MEDIA MANAGEMENT: You OWN these channels. Create tasks for engineers to:
+   - Set up and manage Instagram, Reddit, Twitter/X accounts for the company
+   - Create automated posting pipelines (n8n, cron jobs, scheduled posts)
+   - Write actual post content, captions, hashtags — ready to publish
+   - Engage with communities: comment on relevant posts, answer questions, build presence
+   - Track followers, engagement, conversion from each channel
+   - Create content calendars with specific posts for each day
+   - Use tools like Buffer, Later, or custom scripts for scheduling
+   - Monitor mentions and respond to DMs/comments
 
-6. LAUNCH PLAN: Step-by-step first 30 days after launch — be aggressive, ship fast, iterate
+6. COMPETITIVE ANALYSIS: Who are the alternatives? What's our unfair advantage?
+
+7. LAUNCH PLAN: Step-by-step first 30 days after launch — be aggressive, ship fast, iterate
 
 RESPOND WITH ONLY VALID JSON:
 {
@@ -223,7 +233,7 @@ Instructions:
 - When you finish your task, run: git add -A && git commit -m "your commit message describing what you built" && git push origin main
 - Make sure your commit message is descriptive and mentions the specific feature/component.
 - IMPORTANT: Always push to remote after committing. Do not leave commits local-only.
-- After pushing, deploy to Vercel: npx vercel --prod --yes (the project is already linked)
+- After pushing, deploy to Vercel: npx vercel --prod --yes (the project is already linked). Note the deployment URL.
 - Build for REAL users and REAL money. Payment flows must work. Landing pages must convert. SEO must rank.
 - Every feature you build should be LIVE on Vercel within minutes of completion.`;
 }

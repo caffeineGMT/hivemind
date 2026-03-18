@@ -6,6 +6,7 @@ export interface Company {
   goal: string;
   status: string;
   workspace: string;
+  deployment_url: string | null;
   created_at: string;
 }
 

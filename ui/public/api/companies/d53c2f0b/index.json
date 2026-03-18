@@ -6,5 +6,6 @@
   "workspace": "/Users/michaelguo/pawcasso-atelier",
   "created_at": "2026-03-18 07:35:06",
   "updated_at": "2026-03-18 07:35:06",
-  "sprint": 1
+  "sprint": 1,
+  "deployment_url": "https://website-two-sigma-57.vercel.app"
 }

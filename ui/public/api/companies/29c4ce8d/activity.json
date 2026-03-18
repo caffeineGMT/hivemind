@@ -1,5 +1,230 @@
 [
   {
+    "id": 288,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "cto",
+    "task_id": "2e919c6a-be66-4f2e-a45e-6585561977ac",
+    "action": "tasks_refined",
+    "detail": "**Core Stack:** Cloudflare Workers + KV (already in place) scales to 100K+ users with batched processing. **Email/SMS:** Resend API (10/sec free tier) + Cloudflare Queues for rate limiting. **Payment:** Stripe (already integrated) with monthly ($4.99), annual ($49.99/year), and Pro ($49/mo) price IDs. **Monitoring:** Sentry.io (free 5k events/mo) + Cloudflare Analytics (included) + Slack webhooks. **Frontend:** Next.js 16 static export (already in place) for landing pages, no server-side rendering needed. **B2B Dashboard:** Client-side React with localStorage for JWT auth, calls Worker API directly (no separate backend). **Scaling Strategy:** Cursor-based batching (100 users per 2-min cron = 3.3hr full cycle for 10K users) OR Durable Objects (10 parallel workers = 2min for 1000 users). Choose cursor-based first (simpler, no additional config), upgrade to Durable Objects if <30min full-cycle latency required.",
+    "created_at": "2026-03-18 19:58:24"
+  },
+  {
+    "id": 289,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "designer",
+    "task_id": null,
+    "action": "designer_started",
+    "detail": "Creating design specs",
+    "created_at": "2026-03-18 19:58:24"
+  },
+  {
+    "id": 283,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": null,
+    "task_id": null,
+    "action": "nudge_received",
+    "detail": "test nudge",
+    "created_at": "2026-03-18 19:57:38"
+  },
+  {
+    "id": 279,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "1a5858b4-fa54-4cae-8147-b7f6813a8f88",
+    "task_id": "82062968-8bc9-40fc-8aa6-a31c371fdeb9",
+    "action": "task_completed",
+    "detail": "Cleanup: Reddit/Community Launch with UTM Tracking Backend",
+    "created_at": "2026-03-18 19:57:17"
+  },
+  {
+    "id": 280,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "14f77157-713e-49ae-8f59-381abbf633b5",
+    "task_id": "a9fda2f0-d2e7-4cf1-ac52-7d135cb9715c",
+    "action": "task_started",
+    "detail": "Implement Automated Email Drip Campaigns via Resend with KV-Based Sequence State",
+    "created_at": "2026-03-18 19:57:17"
+  },
+  {
+    "id": 272,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "21fcd23a-3138-4c68-a9f3-5d6571b70c1c",
+    "task_id": "7222a575-c4dc-4145-b5c4-153987ecde61",
+    "action": "task_completed",
+    "detail": "Cleanup: Viral Referral Program: Backend KV + Stripe Credit System",
+    "created_at": "2026-03-18 19:55:17"
+  },
+  {
+    "id": 273,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "73af4ee1-0969-4e1b-9ba0-76f3caad4488",
+    "task_id": "3473c997-a1e1-4ee5-bc5f-0844581492c5",
+    "action": "task_started",
+    "detail": "Add Contextual Upgrade Modals and Scarcity Triggers in Extension",
+    "created_at": "2026-03-18 19:55:17"
+  },
+  {
+    "id": 271,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "cto",
+    "task_id": "faf98434-cfa4-4841-821d-746867ee055a",
+    "action": "tasks_refined",
+    "detail": "Stack: Next.js 14 (web), Cloudflare Workers (backend), KV for state, Stripe for payments, Resend for transactional email. Architecture: (1) Annual pricing uses Stripe Price objects with interval=year, no code changes to checkout flow beyond price selection. (2) Activity feed uses KV list operations with TTL=24h to auto-expire old events; client polls every 30sec via SWR (edge-cached API route). (3) Upgrade prompts use Chrome extension localStorage for install tracking and banner state; modals triggered by existing check flow. (4) Email sequences use cron-triggered worker function that iterates all users in KV, checks sequence state, and sends via Resend API; churn detection via Stripe webhooks. Key tradeoff: Using KV for email sequence state (simple, no DB needed) vs dedicated queue (Cloudflare Queues would be overkill for <10k users). Using faker.js for anonymized activity names (client-side generation) to avoid privacy concerns.",
+    "created_at": "2026-03-18 19:55:09"
+  },
+  {
+    "id": 260,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "cto",
+    "task_id": "a3e01b14-4c7f-4b31-9947-ac2f5ec23d25",
+    "action": "tasks_refined",
+    "detail": "**Stack:** Cloudflare Workers + KV for backend (serverless, $5/mo), Next.js 16 + Tailwind 4 for web (Vercel deploy), Vanilla JS for extension (no build step). **Referral tracking:** KV for simplicity over Postgres (no relational queries needed). **Stripe credits:** Use billing_cycle_anchor extension instead of invoice items (cleaner UX). **SEO:** Focus on long-tail keywords to avoid competing with CBP.gov. **Product Hunt:** Self-hunt if no hunter responds (removes dependency). **Analytics:** Custom KV-based tracking instead of GA4 to avoid Chrome extension CSP issues.",
+    "created_at": "2026-03-18 19:53:38"
+  },
+  {
+    "id": 256,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "15f50061-8843-4c2c-96ce-fdf21e25fa65",
+    "task_id": "ac4ab8ad-20c0-4992-82eb-d9c069751dd0",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:52:42"
+  },
+  {
+    "id": 257,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "1c23b0ad-088a-48b9-812a-ff06c07c2f01",
+    "task_id": "735a6236-e839-4fa6-9de7-8937f22d5eda",
+    "action": "task_started",
+    "detail": "Social Proof & Live Activity Feed",
+    "created_at": "2026-03-18 19:52:42"
+  },
+  {
+    "id": 242,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "3f5fec95-9b55-4617-bd7e-60ad484983a3",
+    "task_id": "534f64c2-f981-406f-9823-4fcb30239afe",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:50:52"
+  },
+  {
+    "id": 243,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "6ef1ea78-c19f-4dc8-b1d4-e523742ac986",
+    "task_id": "679bedc9-169f-4826-a51c-4e7b3dde3db6",
+    "action": "task_started",
+    "detail": "Annual Plan & Pricing Psychology",
+    "created_at": "2026-03-18 19:50:52"
+  },
+  {
+    "id": 241,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "cto",
+    "task_id": "a9b70358-e5ae-4cb9-be7f-cfe776c45f5e",
+    "action": "tasks_refined",
+    "detail": "Using Cloudflare Workers + KV for serverless backend (99.9% uptime SLA, low latency). Stripe Checkout for PCI-compliant payment handling (no card data storage). Resend for transactional emails (99% deliverability, modern API). Twilio for SMS (reliable, pay-as-you-go). Next.js 14 App Router for landing page (SSR SEO benefits). Chrome Extension Manifest V3 with service workers (required for new submissions). All secrets managed via Wrangler CLI (never committed to git). Custom domain api.nexus-alert.com for professional API endpoint and webhook stability.",
+    "created_at": "2026-03-18 19:50:27"
+  },
+  {
+    "id": 239,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "b6b78e0b-3c90-4388-91bb-024e020108f8",
+    "task_id": "fbbf419a-5d69-43ea-9cea-7c8b70bf5886",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:50:22"
+  },
+  {
+    "id": 240,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "210bce72-5d78-461c-95a4-9699636101d4",
+    "task_id": "c3381f30-d6a5-482c-a1a2-4e3a62532f77",
+    "action": "task_started",
+    "detail": "Product Hunt Launch",
+    "created_at": "2026-03-18 19:50:22"
+  },
+  {
+    "id": 228,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "cto",
+    "task_id": "9f964704-4207-4cd2-9887-4c6ce6dd5be1",
+    "action": "tasks_refined",
+    "detail": "**Key architectural findings from code review:**\n\n1. **Task 1 is mostly done** — `src/slotFilters.js` already exists with all 4 pure functions implemented. background.js already imports them. Only the test file is missing.\n\n2. **KV namespace binding** — The backend uses `NEXUS_ALERTS_KV` (not `NEXUS_KV` as the original task spec stated). All tests must use this exact binding name.\n\n3. **Test framework** — Both root and backend package.json already have Vitest 1.6+ and @cloudflare/vitest-pool-workers installed. No additional dependencies needed.\n\n4. **Stripe webhook testing** — Cannot be integration-tested without real Stripe signatures. The `/api/webhook` route exists but is explicitly excluded from the test suite. Add a comment in the test file noting this limitation.\n\n5. **Time mocking** — Use `vi.setSystemTime()` in beforeEach/afterEach blocks for isDuplicate and pruneOldSlots tests. This ensures deterministic time-based assertions.\n\n6. **Miniflare KV** — The vitest config uses miniflare's in-memory KV implementation. No need to create real KV namespaces for testing. The binding config in vitest.config.js overrides wrangler.toml.\n\n7. **README architecture diagram** — Use a plain-text ASCII diagram in a markdown code block to ensure it renders correctly on GitHub without external image dependencies.",
+    "created_at": "2026-03-18 19:49:14"
+  },
+  {
+    "id": 224,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": null,
+    "task_id": "f2bb98f2-d601-4500-84d1-f9edc8411b20",
+    "action": "comment_added",
+    "detail": "test - see if agent would pick this up",
+    "created_at": "2026-03-18 19:48:25"
+  },
+  {
+    "id": 217,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "b47927d3-8aaa-4121-b799-a74697a62c47",
+    "task_id": "405f36a9-ab69-452a-a63e-1541c406cf5b",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:47:52"
+  },
+  {
+    "id": 218,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "21fcd23a-3138-4c68-a9f3-5d6571b70c1c",
+    "task_id": "7222a575-c4dc-4145-b5c4-153987ecde61",
+    "action": "task_started",
+    "detail": "Viral Referral Program",
+    "created_at": "2026-03-18 19:47:52"
+  },
+  {
+    "id": 209,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "cto",
+    "task_id": "b3662336-56a5-4d5b-88df-590943d14b9a",
+    "action": "tasks_refined",
+    "detail": "Next.js 15 App Router with Server Components (page.tsx, FAQ) + Client Components ('use client' for PricingSection, EmailCaptureForm due to useState/form handlers). Route Handlers (app/api/checkout/route.ts) for API endpoints. Tailwind CSS v4 for styling with custom keyframe animations in globals.css. No external dependencies — uses built-in fetch, React 19 hooks, Next.js Metadata API. Stripe integration stubbed for now (checkout route returns mock URL). Backend API endpoint (api.nexus-alert.com) assumed operational for email capture. Chrome Web Store URL placeholder requires manual update post-publishing.",
+    "created_at": "2026-03-18 19:45:41"
+  },
+  {
+    "id": 203,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "19fdac4c-2fa5-43b6-9234-a437b5d36625",
+    "task_id": "a965708e-7bcc-47ba-9547-f3eb784dc702",
+    "action": "task_completed",
+    "detail": "Cleanup: Legal Compliance: Privacy Policy & Terms of Service",
+    "created_at": "2026-03-18 19:45:02"
+  },
+  {
+    "id": 204,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "19fdac4c-2fa5-43b6-9234-a437b5d36625",
+    "task_id": "a965708e-7bcc-47ba-9547-f3eb784dc702",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:45:02"
+  },
+  {
+    "id": 205,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "1a5858b4-fa54-4cae-8147-b7f6813a8f88",
+    "task_id": "82062968-8bc9-40fc-8aa6-a31c371fdeb9",
+    "action": "task_started",
+    "detail": "Reddit & Community Seeding",
+    "created_at": "2026-03-18 19:45:02"
+  },
+  {
+    "id": 201,
+    "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
+    "agent_id": "cto",
+    "task_id": "48cd86fb-241c-4b77-9a81-fbcca79a9182",
+    "action": "tasks_refined",
+    "detail": "Chrome Extension Manifest V3 with vanilla JS (no build tooling). Exponential backoff for network resilience (base interval × 2^failureCount, capped at 30min). Freemium enforcement via dual-layer checks: (1) checkAllLocations early return for < 30min delta, (2) setupAlarm interval clamping to prevent alarm manipulation. Backend integration requires POST /api/checkout (Stripe session creation) and GET /api/license (license validation). MV3 compliance: declarative notifications permission instead of Notification.requestPermission(), web_accessible_resources for onboarding page, host_permissions for backend API fetch from popup context.",
+    "created_at": "2026-03-18 19:44:10"
+  },
+  {
     "id": 195,
     "company_id": "29c4ce8d-2588-4115-aea3-dda05e7b6dc9",
     "agent_id": "cto",

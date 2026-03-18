@@ -3,11 +3,15 @@ import * as db from "./db.js";
 import * as claude from "./claude.js";
 import * as prompts from "./prompts.js";
 import { HEARTBEAT_INTERVAL_SEC, MAX_CONCURRENT_AGENTS, LOGS_DIR } from "./config.js";
+import { reportUsageToStripe } from "./stripe.js";
 
 function uid() { return crypto.randomUUID(); }
 
 // Track running agent handles (in-memory, keyed by agent id)
 const runningAgents = new Map();
+
+// Track agent start times for calculating hours
+const agentStartTimes = new Map();
 
 // ── Helper to mark agent status in DB ────────────────────────────────────
 
@@ -299,7 +303,14 @@ function dispatchEngineers(company, designSpecs) {
   const tasks = db.getTasksByCompany(company.id);
   const todoTasks = tasks.filter(t =>
     !t.title.startsWith("[PROJECT]") && (t.status === "backlog" || t.status === "todo")
-  );
+  ).sort((a, b) => {
+    // Prioritize: high > medium > low, and todo > backlog
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    const statusOrder = { todo: 0, backlog: 1 };
+    const pd = (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1);
+    if (pd !== 0) return pd;
+    return (statusOrder[a.status] || 1) - (statusOrder[b.status] || 1);
+  });
 
   // Count actually running agents
   let runningCount = 0;
@@ -376,6 +387,9 @@ function dispatchEngineers(company, designSpecs) {
 
     const agentHandle = { ...handle, taskId: task.id, agentName, companyId: company.id };
     runningAgents.set(agent.id, agentHandle);
+
+    // Track agent start time for usage metering
+    agentStartTimes.set(agent.id, Date.now());
 
     // Watch for completion — immediately update DB and dispatch next tasks
     const watchInterval = setInterval(() => {
@@ -520,6 +534,17 @@ function checkRunningAgents(company) {
     const task = db.getDb().prepare("SELECT title FROM tasks WHERE id = ?").get(handle.taskId);
     log(company.id, handle.agentName.toUpperCase(), `Completed: ${task?.title || handle.taskId}`);
 
+    // Track first_task_completed event
+    const allTasks = db.getTasksByCompany(company.id);
+    const completedTasks = allTasks.filter(t => t.status === "done" && !t.title.startsWith("[PROJECT]"));
+    if (completedTasks.length === 1) {
+      db.trackEvent({
+        companyId: company.id,
+        eventType: "first_task_completed",
+        eventData: { taskTitle: task?.title, taskId: handle.taskId },
+      });
+    }
+
     runningAgents.delete(agentId);
     completed++;
   }
@@ -573,6 +598,13 @@ export async function startCompany(goal, opts = {}) {
   db.createAgent({ id: uid(), companyId, name: "cfo", role: "cfo", title: "CFO" });
   db.createAgent({ id: uid(), companyId, name: "cmo", role: "cmo", title: "CMO" });
 
+  // Track company_created event
+  db.trackEvent({
+    companyId,
+    eventType: "company_created",
+    eventData: { name, goal },
+  });
+
   // Phase 1: CEO — full session, can read files, explore workspace
   const plan = await runCeoPlanning(db.getCompany(companyId));
   if (!plan) {
@@ -618,9 +650,8 @@ async function runHeartbeatLoop(companyId) {
       const cleanedUp = cleanupStaleAgents(company);
 
       const completedNow = checkRunningAgents(company);
-      if (completedNow > 0 || cleanedUp > 0) {
-        dispatchEngineers(company, undefined);
-      }
+      // Always try to dispatch — picks up any backlog/todo tasks with available slots
+      dispatchEngineers(company, undefined);
 
       // Check for unread user comments/nudges and feed to CEO
       if (!processingComments) {
@@ -807,12 +838,27 @@ export async function nudge(companyIdPrefix, message) {
   }
 
   console.log(`\n  Nudging ${company.name}...`);
+  cleanupStaleAgents(company);
   checkRunningAgents(company);
+
+  // Also pick up any unread comments and include them in the nudge
+  const unread = db.getUnreadComments(company.id);
+  let fullMessage = message || "";
+  if (unread.length > 0) {
+    const commentIds = unread.map(c => c.id);
+    db.markCommentsRead(commentIds);
+    const commentSummary = unread.map(c => {
+      const taskRef = c.task_id ? ` (on task ${c.task_id.slice(0, 8)})` : " (general)";
+      return `- "${c.message}"${taskRef}`;
+    }).join("\n");
+    fullMessage = `${fullMessage}\n\nUnread user comments:\n${commentSummary}`.trim();
+    log(company.id, "NUDGE", `Processing ${unread.length} unread comment(s) alongside nudge`);
+  }
 
   setAgentRunning(company.id, "ceo");
   const agents = db.getAgentsByCompany(company.id);
   const tasks = db.getTasksByCompany(company.id);
-  const prompt = prompts.heartbeatPrompt(company, agents, tasks, message || null);
+  const prompt = prompts.heartbeatPrompt(company, agents, tasks, fullMessage || null);
 
   try {
     const { output: raw, usage: nudgeUsage } = await claude.claudeSessionSync("ceo-nudge", prompt, {
@@ -834,14 +880,17 @@ export async function nudge(companyIdPrefix, message) {
         for (const action of assessment.actions) {
           log(company.id, "CEO", `→ ${action.type}: ${action.detail}`);
           if (action.type === "create_task") {
+            const taskId = uid();
             db.createTask({
-              id: uid(),
+              id: taskId,
               companyId: company.id,
               title: action.detail.slice(0, 100),
               description: action.detail,
               priority: "high",
               createdById: "ceo",
             });
+            // Mark as todo (not backlog) so it gets dispatched immediately
+            db.updateTaskStatus(taskId, "todo");
           }
         }
       }

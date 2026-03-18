@@ -7,6 +7,8 @@ import {
   DollarSign,
   ChevronDown,
   Hexagon,
+  Menu,
+  X,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Company } from '../api';
@@ -19,11 +21,11 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/tasks', icon: ListTodo, label: 'Tasks' },
-  { to: '/agents', icon: Users, label: 'Agents' },
-  { to: '/activity', icon: Activity, label: 'Activity' },
-  { to: '/finance', icon: DollarSign, label: 'Finance' },
+  { to: '/app', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/app/tasks', icon: ListTodo, label: 'Tasks' },
+  { to: '/app/agents', icon: Users, label: 'Agents' },
+  { to: '/app/activity', icon: Activity, label: 'Activity' },
+  { to: '/app/finance', icon: DollarSign, label: 'Finance' },
 ];
 
 function statusColor(status: string) {
@@ -39,6 +41,7 @@ function statusColor(status: string) {
 
 export default function Layout({ companies, selectedCompany, onSelectCompany, children }: LayoutProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,86 +54,160 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, ch
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  return (
-    <div className="flex h-screen overflow-hidden bg-zinc-950">
-      {/* Sidebar */}
-      <aside className="flex w-64 flex-col border-r border-zinc-800/60 bg-zinc-925">
-        {/* Logo area */}
-        <div className="flex items-center gap-2.5 border-b border-zinc-800/60 px-5 py-4">
+  // Close sidebar on route change (mobile)
+  const closeSidebar = () => setSidebarOpen(false);
+
+  const sidebarContent = (
+    <>
+      {/* Logo area */}
+      <div className="flex items-center justify-between border-b border-zinc-800/60 px-5 py-4">
+        <div className="flex items-center gap-2.5">
           <Hexagon className="h-7 w-7 text-amber-500" strokeWidth={1.5} />
           <div>
             <h1 className="text-base font-semibold tracking-tight text-zinc-100">Hivemind</h1>
             <p className="text-[11px] text-zinc-500">AI Company Orchestrator</p>
           </div>
         </div>
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 md:hidden"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
 
-        {/* Company selector */}
-        <div className="border-b border-zinc-800/60 px-3 py-3" ref={dropdownRef}>
-          <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex w-full items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm transition hover:border-zinc-700"
-          >
-            <div className="flex items-center gap-2 truncate">
-              <span className={`h-2 w-2 shrink-0 rounded-full ${statusColor(selectedCompany.status)} ${selectedCompany.status === 'running' ? 'animate-pulse-dot' : ''}`} />
-              <span className="truncate text-zinc-200">{selectedCompany.name}</span>
-            </div>
-            {companies.length > 1 && (
-              <ChevronDown className={`h-4 w-4 text-zinc-500 transition ${dropdownOpen ? 'rotate-180' : ''}`} />
-            )}
-          </button>
-          {dropdownOpen && companies.length > 1 && (
-            <div className="absolute z-50 mt-1 w-[232px] rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl">
-              {companies.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => { onSelectCompany(c.id); setDropdownOpen(false); }}
-                  className={`flex w-full items-center gap-2 px-3 py-2 text-sm transition hover:bg-zinc-800 ${
-                    c.id === selectedCompany.id ? 'text-amber-400' : 'text-zinc-300'
-                  }`}
-                >
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${statusColor(c.status)}`} />
-                  <span className="truncate">{c.name}</span>
-                </button>
-              ))}
-            </div>
+      {/* Company selector */}
+      <div className="border-b border-zinc-800/60 px-3 py-3" ref={dropdownRef}>
+        <button
+          onClick={() => setDropdownOpen(!dropdownOpen)}
+          className="flex w-full items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm transition hover:border-zinc-700"
+        >
+          <div className="flex items-center gap-2 truncate">
+            <span className={`h-2 w-2 shrink-0 rounded-full ${statusColor(selectedCompany.status)} ${selectedCompany.status === 'running' ? 'animate-pulse-dot' : ''}`} />
+            <span className="truncate text-zinc-200">{selectedCompany.name}</span>
+          </div>
+          {companies.length > 1 && (
+            <ChevronDown className={`h-4 w-4 text-zinc-500 transition ${dropdownOpen ? 'rotate-180' : ''}`} />
           )}
-        </div>
+        </button>
+        {dropdownOpen && companies.length > 1 && (
+          <div className="absolute z-50 mt-1 w-[232px] max-h-[60vh] overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl">
+            {companies.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => { onSelectCompany(c.id); setDropdownOpen(false); closeSidebar(); }}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-sm transition hover:bg-zinc-800 ${
+                  c.id === selectedCompany.id ? 'text-amber-400' : 'text-zinc-300'
+                }`}
+              >
+                <span className={`h-2 w-2 shrink-0 rounded-full ${statusColor(c.status)}`} />
+                <span className="truncate">{c.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-        {/* Nav items */}
-        <nav className="flex-1 space-y-0.5 px-3 py-3">
-          {navItems.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                  isActive
-                    ? 'bg-zinc-800/80 text-zinc-100'
-                    : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'
-                }`
-              }
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
+      {/* Nav items */}
+      <nav className="flex-1 space-y-0.5 px-3 py-3">
+        {navItems.map(({ to, icon: Icon, label }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/app'}
+            onClick={closeSidebar}
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                isActive
+                  ? 'bg-zinc-800/80 text-zinc-100'
+                  : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'
+              }`
+            }
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
 
-        {/* Footer */}
-        <div className="border-t border-zinc-800/60 px-4 py-3">
-          <p className="truncate text-[11px] text-zinc-600" title={selectedCompany.goal}>
-            Goal: {selectedCompany.goal}
-          </p>
+      {/* Footer */}
+      <div className="border-t border-zinc-800/60 px-4 py-3">
+        <p className="truncate text-[11px] text-zinc-600" title={selectedCompany.goal}>
+          Goal: {selectedCompany.goal}
+        </p>
+        {(selectedCompany as any).deployment_url && (
+          <a
+            href={(selectedCompany as any).deployment_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1 block truncate text-[11px] text-amber-500 hover:text-amber-400"
+          >
+            Live: {(selectedCompany as any).deployment_url}
+          </a>
+        )}
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-zinc-950">
+      {/* Mobile top bar */}
+      <div className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-zinc-800/60 bg-zinc-950/95 px-4 backdrop-blur md:hidden">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <div className="flex items-center gap-2">
+          <Hexagon className="h-5 w-5 text-amber-500" strokeWidth={1.5} />
+          <span className="text-sm font-semibold text-zinc-100">{selectedCompany.name}</span>
         </div>
+        <div className="w-9" /> {/* Spacer for centering */}
+      </div>
+
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-zinc-800/60 bg-zinc-950 transition-transform duration-200 md:static md:w-64 md:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {sidebarContent}
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-6xl p-6">
+      <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
+        <div className="mx-auto max-w-6xl p-4 pb-20 md:p-6 md:pb-6">
           {children}
         </div>
       </main>
+
+      {/* Mobile bottom navigation */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-zinc-800/60 bg-zinc-950/95 backdrop-blur md:hidden">
+        {navItems.map(({ to, icon: Icon, label }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/app'}
+            className={({ isActive }) =>
+              `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition ${
+                isActive ? 'text-amber-400' : 'text-zinc-500'
+              }`
+            }
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
     </div>
   );
 }

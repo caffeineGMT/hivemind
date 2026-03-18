@@ -82,8 +82,15 @@ export async function run(args) {
         break;
 
       case "nudge": {
-        const message = rest.join(" ");
-        await nudge(null, message);
+        // nudge [company-id-prefix] "message"
+        // If first arg looks like a company ID prefix (hex, 8+ chars), use it
+        let nudgeCompanyId = null;
+        let nudgeMessage = rest.join(" ");
+        if (rest.length >= 2 && /^[0-9a-f]{6,}$/i.test(rest[0])) {
+          nudgeCompanyId = rest[0];
+          nudgeMessage = rest.slice(1).join(" ");
+        }
+        await nudge(nudgeCompanyId, nudgeMessage);
         break;
       }
 

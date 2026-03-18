@@ -1,11 +1,11 @@
 import { FolderKanban, CheckCircle2, Clock, Circle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { StatusBadge } from './StatusBadge';
 import { Project } from '../api';
 
 export default function ProjectCard({ project }: { project: Project }) {
   const children = project.childTasks || [];
   const done = children.filter((t) => t.status === 'done').length;
-  const inProgress = children.filter((t) => t.status === 'in_progress').length;
   const total = children.length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
@@ -37,11 +37,15 @@ export default function ProjectCard({ project }: { project: Project }) {
         </div>
       </div>
 
-      {/* Child tasks */}
+      {/* Child tasks — clickable */}
       {children.length > 0 && (
-        <div className="mt-3 space-y-1 border-t border-zinc-800/40 pt-3">
+        <div className="mt-3 space-y-0.5 border-t border-zinc-800/40 pt-3">
           {children.slice(0, 6).map((task) => (
-            <div key={task.id} className="flex items-center gap-2 text-xs">
+            <Link
+              key={task.id}
+              to={`/tasks/${task.id}`}
+              className="flex items-center gap-2 rounded-md px-1.5 py-1 text-xs transition hover:bg-zinc-800/40"
+            >
               {task.status === 'done' ? (
                 <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />
               ) : task.status === 'in_progress' ? (
@@ -52,10 +56,10 @@ export default function ProjectCard({ project }: { project: Project }) {
               <span className={`truncate ${task.status === 'done' ? 'text-zinc-500 line-through' : 'text-zinc-400'}`}>
                 {task.title}
               </span>
-            </div>
+            </Link>
           ))}
           {children.length > 6 && (
-            <p className="text-[11px] text-zinc-600">+{children.length - 6} more</p>
+            <p className="px-1.5 text-[11px] text-zinc-600">+{children.length - 6} more</p>
           )}
         </div>
       )}

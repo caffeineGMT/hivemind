@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { api, Company } from './api';
 import Layout from './components/Layout';
+import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
 import Agents from './pages/Agents';
@@ -11,7 +12,7 @@ import AgentLog from './pages/AgentLog';
 import TaskDetail from './pages/TaskDetail';
 import Finance from './pages/Finance';
 
-export default function App() {
+function AppRoutes() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
 
   const { data: companies, isLoading, error } = useQuery({
@@ -76,8 +77,17 @@ export default function App() {
         <Route path="/finance" element={<Finance companyId={selectedCompany.id} />} />
         <Route path="/tasks/:taskId" element={<TaskDetail />} />
         <Route path="/logs/:agentName" element={<AgentLog />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>
     </Layout>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/app/*" element={<AppRoutes />} />
+    </Routes>
   );
 }

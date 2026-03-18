@@ -22,7 +22,7 @@
     "status": "idle",
     "tmux_window": null,
     "pid": null,
-    "last_heartbeat": "2026-03-18 19:40:02",
+    "last_heartbeat": "2026-03-18 19:50:08",
     "created_at": "2026-03-18 07:34:07"
   },
   {
@@ -35,7 +35,7 @@
     "status": "idle",
     "tmux_window": null,
     "pid": null,
-    "last_heartbeat": "2026-03-18 07:42:15",
+    "last_heartbeat": "2026-03-18 19:55:08",
     "created_at": "2026-03-18 07:34:07"
   },
   {
@@ -191,7 +191,72 @@
     "status": "idle",
     "tmux_window": null,
     "pid": null,
-    "last_heartbeat": null,
+    "last_heartbeat": "2026-03-18 19:58:40",
     "created_at": "2026-03-18 19:38:15"
+  },
+  {
+    "id": "9f0c3350-1892-483e-8a6c-7a3097cddcd7",
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "name": "eng-dd9ac21a",
+    "role": "engineer",
+    "title": "Software Engineer",
+    "reports_to": null,
+    "status": "running",
+    "tmux_window": null,
+    "pid": 97329,
+    "last_heartbeat": "2026-03-18 19:50:17",
+    "created_at": "2026-03-18 19:50:17"
+  },
+  {
+    "id": "43c3dc0a-0f34-4eee-a88a-17e09d3b3ccd",
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "name": "eng-32cf4f2e",
+    "role": "engineer",
+    "title": "Software Engineer",
+    "reports_to": null,
+    "status": "running",
+    "tmux_window": null,
+    "pid": 97330,
+    "last_heartbeat": "2026-03-18 19:50:17",
+    "created_at": "2026-03-18 19:50:17"
+  },
+  {
+    "id": "d42089cd-3175-4868-9973-bdef9f3d72d8",
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "name": "eng-3cb4e3d2",
+    "role": "engineer",
+    "title": "Software Engineer",
+    "reports_to": null,
+    "status": "running",
+    "tmux_window": null,
+    "pid": 97331,
+    "last_heartbeat": "2026-03-18 19:50:17",
+    "created_at": "2026-03-18 19:50:17"
+  },
+  {
+    "id": "b3e8f1f4-e71d-4545-a052-29b89e2f47c7",
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "name": "eng-dbe4b468",
+    "role": "engineer",
+    "title": "Software Engineer",
+    "reports_to": null,
+    "status": "running",
+    "tmux_window": null,
+    "pid": 97332,
+    "last_heartbeat": "2026-03-18 19:50:17",
+    "created_at": "2026-03-18 19:50:17"
+  },
+  {
+    "id": "c4ff7619-ca89-47ca-80e2-a60d7a975dfc",
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "name": "eng-d2cc5f8c",
+    "role": "engineer",
+    "title": "Software Engineer",
+    "reports_to": null,
+    "status": "running",
+    "tmux_window": null,
+    "pid": 97333,
+    "last_heartbeat": "2026-03-18 19:50:17",
+    "created_at": "2026-03-18 19:50:17"
   }
 ]

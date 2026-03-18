@@ -1,5 +1,221 @@
 [
   {
+    "id": 295,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "877a157a-95ce-4d1f-8ca4-0d6f6da8d21d",
+    "task_id": "43239ff2-2cc4-4b34-a100-a2435e0a195a",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:58:52"
+  },
+  {
+    "id": 296,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "452ae1b1-80a8-4951-9d7b-54034f499c5f",
+    "task_id": "2915024a-7c4d-4d8e-9070-8c2fa886210b",
+    "action": "task_started",
+    "detail": "Implement Stripe → n8n → Manus Portrait Generation Pipeline with Email Delivery",
+    "created_at": "2026-03-18 19:58:52"
+  },
+  {
+    "id": 293,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "7e95a75a-13c1-45a2-9363-5087b6e00166",
+    "task_id": "13fac3e4-880d-4a09-8f74-17780d2bd46f",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:58:42"
+  },
+  {
+    "id": 294,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "e7df029f-b011-43c7-8746-b43e3f7c9b7b",
+    "task_id": "a62af00f-3765-42b1-88a7-a1ab757bff54",
+    "action": "task_started",
+    "detail": "Implement NextAuth magic link authentication with customer portal and referral analytics",
+    "created_at": "2026-03-18 19:58:42"
+  },
+  {
+    "id": 284,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "df9f6a18-eb51-4dcc-83dc-46a3dd00fdc4",
+    "task_id": "45624289-faaf-4360-9a49-569115645545",
+    "action": "task_completed",
+    "detail": "Cleanup: Build testimonials carousel and live order counter with realistic animations",
+    "created_at": "2026-03-18 19:57:47"
+  },
+  {
+    "id": 285,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "877a157a-95ce-4d1f-8ca4-0d6f6da8d21d",
+    "task_id": "43239ff2-2cc4-4b34-a100-a2435e0a195a",
+    "action": "task_started",
+    "detail": "Build Stripe post-purchase webhook with 3-email drip sequence and referral system",
+    "created_at": "2026-03-18 19:57:47"
+  },
+  {
+    "id": 281,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "332e4348-2e08-430f-a1d8-a6285c54ec19",
+    "task_id": "c6798208-ae2f-48c4-8186-732faa22ae32",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:57:27"
+  },
+  {
+    "id": 282,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "ce699e66-67af-4c4d-afb4-158f38e02b53",
+    "task_id": "f4765a23-501d-444f-9297-d5a9094d9445",
+    "action": "task_started",
+    "detail": "Implement Stripe abandoned cart webhook with email recovery sequence",
+    "created_at": "2026-03-18 19:57:27"
+  },
+  {
+    "id": 276,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "66b9d43d-e4c4-45fe-b5a6-a44dd5e5d348",
+    "task_id": "5696229d-d9dd-41e0-a147-dd17f8647992",
+    "action": "task_completed",
+    "detail": "Cleanup: Add tiered pricing radio group with Stripe Price ID mapping",
+    "created_at": "2026-03-18 19:56:02"
+  },
+  {
+    "id": 277,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "66b9d43d-e4c4-45fe-b5a6-a44dd5e5d348",
+    "task_id": "5696229d-d9dd-41e0-a147-dd17f8647992",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 19:56:02"
+  },
+  {
+    "id": 278,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cc815b11-7eed-4642-99a5-1e14833811f5",
+    "task_id": "8a08940c-95b4-41e4-baf3-c7cf4c861e39",
+    "action": "task_started",
+    "detail": "Create exit-intent email modal with Mailchimp integration and 7-day suppression",
+    "created_at": "2026-03-18 19:56:02"
+  },
+  {
+    "id": 268,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cmo",
+    "task_id": null,
+    "action": "marketing_strategy_created",
+    "detail": "Turn any pet photo into a stunning AI art portrait in 24 hours for $9—no artist, no wait, no expensive commissions.",
+    "created_at": "2026-03-18 19:54:13"
+  },
+  {
+    "id": 246,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "66b9d43d-e4c4-45fe-b5a6-a44dd5e5d348",
+    "task_id": "5696229d-d9dd-41e0-a147-dd17f8647992",
+    "action": "task_started",
+    "detail": "Add tiered pricing radio group with Stripe Price ID mapping",
+    "created_at": "2026-03-18 19:51:17"
+  },
+  {
+    "id": 247,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "7e95a75a-13c1-45a2-9363-5087b6e00166",
+    "task_id": "13fac3e4-880d-4a09-8f74-17780d2bd46f",
+    "action": "task_started",
+    "detail": "Build success page with timed upsell modal and Stripe session linking",
+    "created_at": "2026-03-18 19:51:17"
+  },
+  {
+    "id": 248,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "332e4348-2e08-430f-a1d8-a6285c54ec19",
+    "task_id": "c6798208-ae2f-48c4-8186-732faa22ae32",
+    "action": "task_started",
+    "detail": "Build responsive pricing comparison table component with mobile scroll",
+    "created_at": "2026-03-18 19:51:17"
+  },
+  {
+    "id": 249,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "50b5d27b-1670-418f-bc0d-7c2590604b1c",
+    "task_id": "43f0ce05-49c0-41a4-9f0c-b91fa167af89",
+    "action": "task_started",
+    "detail": "Implement GA4 and Meta Pixel with comprehensive event tracking",
+    "created_at": "2026-03-18 19:51:17"
+  },
+  {
+    "id": 250,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "df9f6a18-eb51-4dcc-83dc-46a3dd00fdc4",
+    "task_id": "45624289-faaf-4360-9a49-569115645545",
+    "action": "task_started",
+    "detail": "Build testimonials carousel and live order counter with realistic animations",
+    "created_at": "2026-03-18 19:51:17"
+  },
+  {
+    "id": 244,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "designer",
+    "task_id": null,
+    "action": "design_specs_created",
+    "detail": "Design system + 9 task designs",
+    "created_at": "2026-03-18 19:51:06"
+  },
+  {
+    "id": 245,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cmo",
+    "task_id": null,
+    "action": "cmo_started",
+    "detail": "Building marketing strategy",
+    "created_at": "2026-03-18 19:51:06"
+  },
+  {
+    "id": 219,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cto",
+    "task_id": "5cd0c821-6bf5-4127-9a87-e957edcd8594",
+    "action": "tasks_refined",
+    "detail": "Tech stack locked to existing: Next.js 14 App Router, TypeScript, Tailwind CSS, Vercel Blob, Vercel Postgres. n8n for async workflow orchestration (self-hosted or cloud). Manus for AI portrait generation (internal Meta API, requires employee access). OpenAI GPT-4o for quality scoring (Vision API). Resend for transactional email. Stripe webhooks for order events. Quality threshold: 7/10 auto-approves, <7 queues for human review. Refund flow integrated via Stripe Refunds API. Admin auth: simple password-based middleware (upgrade to NextAuth if multiple admins needed). Database: Vercel Postgres with simple schema (quality_scores table tracks all generated portraits). No Redis/queue needed initially — n8n handles async processing, quality checks run synchronously on webhook receipt.",
+    "created_at": "2026-03-18 19:47:58"
+  },
+  {
+    "id": 220,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "designer",
+    "task_id": null,
+    "action": "designer_started",
+    "detail": "Creating design specs",
+    "created_at": "2026-03-18 19:47:58"
+  },
+  {
+    "id": 211,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cto",
+    "task_id": "c3a645a5-13ac-423f-b046-274c7d5b1927",
+    "action": "tasks_refined",
+    "detail": "Using Resend for email delivery (simpler Next.js integration than SendGrid), Stripe metadata + Customer balance for referral tracking (avoids database overhead), NextAuth with EmailProvider for passwordless auth (secure, low friction), Stripe Customer Portal for payment management (offloads PCI compliance), cookie-based referral attribution with 30-day expiry, React Email for type-safe templates, Vercel Edge Config or scheduled sends for email drip sequence.",
+    "created_at": "2026-03-18 19:46:34"
+  },
+  {
+    "id": 207,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cto",
+    "task_id": "6760d76b-5ae5-4257-8f69-c5fc62c4cdda",
+    "action": "tasks_refined",
+    "detail": "Using Next.js built-in Script component for analytics (no extra deps). Embla Carousel chosen for testimonials (modern, TypeScript-friendly, tree-shakeable vs react-slick's jQuery dependency). Mailchimp API direct integration vs form action (allows custom discount code response). Exit-intent via mouseleave instead of dedicated library (reduces bundle size). localStorage for modal suppression (simple, works without backend). All components use 'use client' directive for interactivity. Environment variables follow Next.js NEXT_PUBLIC_ convention for client-side access.",
+    "created_at": "2026-03-18 19:45:17"
+  },
+  {
+    "id": 199,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cto",
+    "task_id": "1a690a3a-2002-4f80-bf5a-f264a9736a5d",
+    "action": "tasks_refined",
+    "detail": "Using React Server Components for success page to securely fetch Stripe session data server-side (keeps API keys safe). Client Components only for interactive modal (useEffect timer, state management). No additional dependencies needed beyond existing stripe SDK. Stripe Price IDs stored in .env.local for easy tier price updates without code changes. Metadata linking approach for upsells allows post-purchase analytics and refund handling. Table component uses pure Tailwind (no shadcn/ui) to match existing stack. Mobile-first responsive with CSS overflow-x-auto instead of JavaScript scroll libraries.",
+    "created_at": "2026-03-18 19:43:55"
+  },
+  {
     "id": 198,
     "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
     "agent_id": "cto",
