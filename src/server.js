@@ -870,9 +870,232 @@ export function createServer(port = 3100) {
       console.error('[analytics] Error fetching cross-project data:', err);
       res.status(500).json({ error: 'Failed to fetch analytics data' });
     }
+  });
 
+  // ── Health Monitoring & Circuit Breaker API ──────────────────────────
 
+  app.get("/api/circuit-breaker/status", async (req, res) => {
+    try {
+      const { circuitBreaker } = await import("./circuit-breaker.js");
+      const status = circuitBreaker.getStatus();
 
+      // Calculate seconds remaining if paused
+      let pausedSecondsRemaining = 0;
+      if (status.state === 'OPEN' && status.pausedUntil) {
+        pausedSecondsRemaining = Math.max(0, Math.floor((status.pausedUntil - Date.now()) / 1000));
+      }
+
+      res.json({
+        state: status.state,
+        consecutive_failures: status.consecutiveFailures,
+        paused_until: status.pausedUntil,
+        can_attempt: status.canAttempt,
+        paused_seconds_remaining: pausedSecondsRemaining,
+      });
+    } catch (err) {
+      console.error("[circuit-breaker] Error fetching status:", err);
+      res.status(500).json({ error: "Failed to fetch circuit breaker status" });
+    }
+  });
+
+  app.post("/api/circuit-breaker/reset", async (req, res) => {
+    try {
+      const { circuitBreaker } = await import("./circuit-breaker.js");
+      circuitBreaker.reset();
+
+      db.logActivity({
+        companyId: null,
+        action: "circuit_breaker_reset",
+        detail: "Circuit breaker manually reset",
+      });
+
+      req.app.locals.broadcast('circuit_breaker_reset', {});
+
+      res.json({ success: true, message: "Circuit breaker reset to CLOSED state" });
+    } catch (err) {
+      console.error("[circuit-breaker] Error resetting:", err);
+      res.status(500).json({ error: "Failed to reset circuit breaker" });
+    }
+  });
+
+  app.post("/api/agents/:id/restart", (req, res) => {
+    try {
+      const agent = db.getAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+      // Update agent status to idle first
+      db.updateAgentStatus(agent.id, "idle", { pid: null });
+
+      // Find any in-progress task and reset it
+      const tasks = db.getTasksByAssignee(agent.id, "in_progress");
+      for (const task of tasks) {
+        db.updateTaskStatus(task.id, "todo", null);
+        db.assignTask(task.id, null);
+      }
+
+      // Log the manual restart
+      db.logActivity({
+        companyId: agent.company_id,
+        agentId: agent.id,
+        action: "agent_manual_restart",
+        detail: `Agent ${agent.name} manually restarted by user`,
+      });
+
+      db.logIncident({
+        companyId: agent.company_id,
+        agentId: agent.id,
+        taskId: null,
+        incidentType: "manual_restart",
+        description: `Agent ${agent.name} manually restarted by user`,
+        recoveryAction: "Agent reset to idle, tasks reassigned",
+      });
+
+      req.app.locals.broadcast('agent_restarted', { agentId: agent.id });
+
+      // Trigger orchestrator to pick up the reset agent
+      triggerResume(agent.company_id);
+
+      res.json({
+        success: true,
+        message: `Agent ${agent.name} restarted. Orchestrator will reassign tasks.`
+      });
+    } catch (err) {
+      console.error("[agent] Error restarting:", err);
+      res.status(500).json({ error: "Failed to restart agent" });
+    }
+  });
+
+  app.delete("/api/agents/:id/reset", (req, res) => {
+    try {
+      const agent = db.getAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+      // Force kill the process if it exists
+      if (agent.pid) {
+        try {
+          process.kill(agent.pid, 'SIGKILL');
+          console.log(`[agent] Force killed PID ${agent.pid} for agent ${agent.name}`);
+        } catch (err) {
+          console.log(`[agent] PID ${agent.pid} already dead or inaccessible`);
+        }
+      }
+
+      // Reset agent completely
+      db.updateAgentStatus(agent.id, "idle", { pid: null, tmuxWindow: null });
+
+      // Cancel all tasks assigned to this agent
+      const tasks = db.getTasksByAssignee(agent.id);
+      for (const task of tasks) {
+        if (task.status !== "done") {
+          db.updateTaskStatus(task.id, "todo", null);
+          db.assignTask(task.id, null);
+        }
+      }
+
+      // Delete checkpoints for this agent
+      const agentTasks = db.getTasksByAssignee(agent.id);
+      for (const task of agentTasks) {
+        db.deleteCheckpoints(agent.id, task.id);
+      }
+
+      db.logActivity({
+        companyId: agent.company_id,
+        agentId: agent.id,
+        action: "agent_hard_reset",
+        detail: `Agent ${agent.name} hard reset by user (PID killed, checkpoints cleared)`,
+      });
+
+      db.logIncident({
+        companyId: agent.company_id,
+        agentId: agent.id,
+        taskId: null,
+        incidentType: "manual_hard_reset",
+        description: `Agent ${agent.name} hard reset by user`,
+        recoveryAction: "Process killed, checkpoints cleared, tasks reassigned",
+      });
+
+      req.app.locals.broadcast('agent_reset', { agentId: agent.id });
+
+      res.json({
+        success: true,
+        message: `Agent ${agent.name} hard reset. Process killed, checkpoints cleared.`
+      });
+    } catch (err) {
+      console.error("[agent] Error hard resetting:", err);
+      res.status(500).json({ error: "Failed to hard reset agent" });
+    }
+  });
+
+  app.get("/api/companies/:id/incidents/timeline", (req, res) => {
+    try {
+      const company = findCompany(req.params.id);
+      if (!company) return res.status(404).json({ error: "Not found" });
+
+      const limit = parseInt(req.query.limit || "100", 10);
+      const incidents = db.getIncidents(company.id, limit);
+      const agents = db.getAgentsByCompany(company.id);
+
+      // Enrich incidents with agent details and recovery time
+      const timeline = incidents.map((incident, index) => {
+        const agent = agents.find(a => a.id === incident.agent_id);
+        let recoveryTimeMinutes = null;
+
+        if (incident.incident_type === "agent_crash" && incident.recovery_action) {
+          const incidentTime = new Date(incident.created_at).getTime();
+
+          // Find next non-crash incident from same agent (indicates recovery)
+          const laterIncidents = incidents.slice(index + 1);
+          const nextActivity = laterIncidents.find(
+            i => i.agent_id === incident.agent_id && i.incident_type !== "agent_crash"
+          );
+
+          if (nextActivity) {
+            const recoveryTime = new Date(nextActivity.created_at).getTime();
+            recoveryTimeMinutes = Math.floor((recoveryTime - incidentTime) / (1000 * 60));
+          } else {
+            // Default estimated recovery time
+            recoveryTimeMinutes = 0.5; // 30 seconds
+          }
+        }
+
+        return {
+          ...incident,
+          agent_name: agent?.name || "Unknown",
+          agent_role: agent?.role || "unknown",
+          recovery_time_minutes: recoveryTimeMinutes,
+        };
+      });
+
+      // Calculate metrics
+      const byType = {};
+      timeline.forEach(i => {
+        byType[i.incident_type] = (byType[i.incident_type] || 0) + 1;
+      });
+
+      const crashIncidents = timeline.filter(i => i.incident_type === "agent_crash");
+      const withRecovery = crashIncidents.filter(i => i.recovery_time_minutes !== null);
+      const avgRecoveryMinutes = withRecovery.length > 0
+        ? withRecovery.reduce((sum, i) => sum + (i.recovery_time_minutes || 0), 0) / withRecovery.length
+        : 0;
+      const maxRecoveryMinutes = withRecovery.length > 0
+        ? Math.max(...withRecovery.map(i => i.recovery_time_minutes || 0))
+        : 0;
+
+      res.json({
+        timeline,
+        metrics: {
+          by_type: Object.entries(byType).map(([incident_type, count]) => ({ incident_type, count })),
+          total_incidents: timeline.length,
+          with_recovery: withRecovery.length,
+          avg_recovery_minutes: parseFloat(avgRecoveryMinutes.toFixed(2)),
+          avg_recovery_time_seconds: parseFloat((avgRecoveryMinutes * 60).toFixed(0)),
+          max_recovery_time_seconds: parseFloat((maxRecoveryMinutes * 60).toFixed(0)),
+        },
+      });
+    } catch (err) {
+      console.error("[incidents] Error fetching timeline:", err);
+      res.status(500).json({ error: "Failed to fetch incident timeline" });
+    }
   });
 
   if (fs.existsSync(uiDist)) {
