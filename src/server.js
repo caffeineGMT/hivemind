@@ -12,11 +12,7 @@ export function createServer(port = 3100) {
   const app = express();
   app.use(express.json());
 
-  // Serve built UI
   const uiDist = path.join(__dirname, "../ui/dist");
-  if (fs.existsSync(uiDist)) {
-    app.use(express.static(uiDist));
-  }
 
   // CORS for dev
   app.use((req, res, next) => {
@@ -220,6 +216,11 @@ export function createServer(port = 3100) {
 
     res.json({ success: true, message: "Nudge queued — CEO will pick it up on next heartbeat" });
   });
+
+  // Serve built UI static assets (after API routes so live API takes priority)
+  if (fs.existsSync(uiDist)) {
+    app.use(express.static(uiDist, { index: false }));
+  }
 
   // SPA fallback
   app.get("*", (req, res) => {
