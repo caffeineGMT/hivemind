@@ -1,0 +1,182 @@
+[
+  {
+    "id": 81,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": null,
+    "task_id": null,
+    "action": "company_completed",
+    "detail": "All tasks done",
+    "created_at": "2026-03-18 16:10:02"
+  },
+  {
+    "id": 76,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "6f200ce1-7d39-4a19-96ff-1e391e8dc68c",
+    "task_id": "bd3c0253-3bfa-4e6f-8888-bcc60950f8b6",
+    "action": "task_started",
+    "detail": "Generate Dynamic Sitemap and Robots.txt with Next.js Route Handlers",
+    "created_at": "2026-03-18 07:58:02"
+  },
+  {
+    "id": 77,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "fc06d6ef-fb71-488a-8a5f-30afd1a08d3f",
+    "task_id": "00d3ba07-0283-4b57-94f8-7646da56719d",
+    "action": "task_started",
+    "detail": "Implement Vercel Blob API route for pet photo uploads",
+    "created_at": "2026-03-18 07:58:02"
+  },
+  {
+    "id": 78,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "02e7d135-4095-49c3-a9ff-bedd32a037a1",
+    "task_id": "13de030d-e04a-4bdd-ae4f-2dd723104d78",
+    "action": "task_started",
+    "detail": "Integrate pet photo upload field into order form with Stripe metadata",
+    "created_at": "2026-03-18 07:58:02"
+  },
+  {
+    "id": 79,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "a1d2b057-d59c-454a-91f8-45e1bb404f6d",
+    "task_id": "65f7c2b7-4a9b-43ef-847c-a6ef6f919e84",
+    "action": "task_started",
+    "detail": "Implement gallery skeleton loading with Suspense and shimmer animation",
+    "created_at": "2026-03-18 07:58:02"
+  },
+  {
+    "id": 80,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "66a83f63-a365-4241-892f-3be361647ed6",
+    "task_id": "8d4a9597-2792-4fab-b1eb-1d72156a67bb",
+    "action": "task_started",
+    "detail": "Optimize gallery filters and order form for mobile touch interaction (320px-428px viewports)",
+    "created_at": "2026-03-18 07:58:02"
+  },
+  {
+    "id": 54,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "designer",
+    "task_id": null,
+    "action": "design_specs_created",
+    "detail": "Design system + 3 task designs",
+    "created_at": "2026-03-18 07:41:24"
+  },
+  {
+    "id": 55,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "05c6b8ac-e07e-4b2d-b045-aa4b1110bbaa",
+    "task_id": "1dd15fc9-6845-4712-be57-08c9d9fe1a49",
+    "action": "task_started",
+    "detail": "Batch convert gallery PNGs to WebP using sharp CLI with quality optimization",
+    "created_at": "2026-03-18 07:41:24"
+  },
+  {
+    "id": 56,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "8c91fbff-0086-4fdd-a507-d38ceffdcc23",
+    "task_id": "02d7b983-f198-4899-8ee5-042624316e40",
+    "action": "task_started",
+    "detail": "Replace <img> tags with next/image throughout gallery with responsive sizing",
+    "created_at": "2026-03-18 07:41:24"
+  },
+  {
+    "id": 57,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "a0c8d8df-6dd0-4a76-ac97-e386cd5049f2",
+    "task_id": "4dd63736-b871-45eb-9bb3-003e934ac53b",
+    "action": "task_started",
+    "detail": "Auto-generate base64 blur placeholders and integrate with gallery data schema",
+    "created_at": "2026-03-18 07:41:24"
+  },
+  {
+    "id": 58,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "fd11dc78-fac1-4ef2-a67c-7cefcf4bf857",
+    "task_id": "108770e8-61d1-4729-9757-98e9ab7940bb",
+    "action": "task_started",
+    "detail": "Implement Next.js Metadata API for Open Graph and Twitter Cards",
+    "created_at": "2026-03-18 07:41:24"
+  },
+  {
+    "id": 59,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "30f203d4-af8a-46cb-8c44-20d28dbf82b5",
+    "task_id": "daa2cb2a-9a79-406a-aa5f-84e74c20cc6c",
+    "action": "task_started",
+    "detail": "Inject JSON-LD Structured Data (Product + ImageGallery Schemas)",
+    "created_at": "2026-03-18 07:41:24"
+  },
+  {
+    "id": 52,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cto",
+    "task_id": "b01a8cbd-2454-4ae8-8817-ae012ed8133f",
+    "action": "tasks_refined",
+    "detail": "Using React 18 Suspense with Next.js 14 App Router for zero-config streaming SSR skeleton states. Tailwind utility-first approach for all responsive behavior (no custom media queries). Native CSS scroll-snap for performant touch scrolling without JavaScript. Following iOS Human Interface Guidelines for 44px minimum touch targets.",
+    "created_at": "2026-03-18 07:39:51"
+  },
+  {
+    "id": 53,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "designer",
+    "task_id": null,
+    "action": "designer_started",
+    "detail": "Creating design specs",
+    "created_at": "2026-03-18 07:39:51"
+  },
+  {
+    "id": 47,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cto",
+    "task_id": "bcf2dd6e-67ae-4d52-970a-8bdd2ff7d08b",
+    "action": "tasks_refined",
+    "detail": "Using Vercel Blob for storage (serverless-native, no infra setup). Client uploads to Next.js API route before Stripe checkout (not during payment). Blob URL stored in Stripe session metadata for artist reference post-purchase. File validation done both client-side (UX) and server-side (security). Public blob access for artist convenience.",
+    "created_at": "2026-03-18 07:39:03"
+  },
+  {
+    "id": 46,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cto",
+    "task_id": "a0da5d07-dd95-4e23-9876-f1733dcd37f7",
+    "action": "tasks_refined",
+    "detail": "Use Next.js 14 App Router native Metadata API (no react-helmet needed). Use route handlers (sitemap.ts/robots.ts) instead of static public/ files for maintainability. Use dangerouslySetInnerHTML for JSON-LD injection per React best practices. Set metadataBase in root layout to ensure absolute URLs. All zero-dependency implementation leveraging Next.js built-ins.",
+    "created_at": "2026-03-18 07:38:11"
+  },
+  {
+    "id": 43,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cto",
+    "task_id": "579b10a0-0dea-4f53-8a44-40aa5af83624",
+    "action": "tasks_refined",
+    "detail": "Using sharp (pure Node.js) instead of cwebp CLI for better cross-platform compatibility and TypeScript integration. Next.js Image component with responsive sizes tuned for 3-column desktop / 2-column tablet / 1-column mobile layout. Blur placeholders stored directly in data.ts for zero runtime overhead (static compilation). Quality set to 82% WebP (sweet spot for visual quality vs file size based on Google's research). Preserving original PNGs as backup for potential future reprocessing or higher-quality variants.",
+    "created_at": "2026-03-18 07:37:25"
+  },
+  {
+    "id": 40,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "ceo",
+    "task_id": null,
+    "action": "strategy_created",
+    "detail": "Transform Pawcasso Atelier into a high-performance, SEO-optimized e-commerce site by addressing critical image optimization bottlenecks, implementing modern SEO best practices, and enhancing the order flow with customer photo uploads. Focus on quick wins that improve Core Web Vitals and conversion rates.",
+    "created_at": "2026-03-18 07:36:07"
+  },
+  {
+    "id": 41,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "cto",
+    "task_id": null,
+    "action": "cto_started",
+    "detail": "Refining tasks",
+    "created_at": "2026-03-18 07:36:07"
+  },
+  {
+    "id": 37,
+    "company_id": "d53c2f0b-fe81-4581-956a-db0f322532a4",
+    "agent_id": "ceo",
+    "task_id": null,
+    "action": "ceo_started",
+    "detail": "Planning strategy",
+    "created_at": "2026-03-18 07:35:06"
+  }
+]

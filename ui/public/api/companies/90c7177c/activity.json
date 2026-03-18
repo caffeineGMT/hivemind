@@ -1,0 +1,272 @@
+[
+  {
+    "id": 98,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "f314d4de-06cc-4c1d-893b-ee1f700aa49b",
+    "task_id": "354e06d6-da34-4842-b989-a8c1bd6f28f7",
+    "action": "task_completed",
+    "detail": "Cleanup: Implement Canada Federal + Provincial Tax Calculator with 2025 CRA Brackets",
+    "created_at": "2026-03-18 18:46:37"
+  },
+  {
+    "id": 99,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "b055b06e-7c31-4a38-a033-4398b193f1af",
+    "task_id": "480999d0-190e-4e6b-9c79-25cbc3548c83",
+    "action": "task_completed",
+    "detail": "Cleanup: Build RSU Tax Breakdown Page with Dual-Country Comparison Cards",
+    "created_at": "2026-03-18 18:46:37"
+  },
+  {
+    "id": 100,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "132a39d9-87d8-4ab1-991f-87791be64ff9",
+    "task_id": "3f1c5b64-0521-4871-a521-549eab542844",
+    "action": "task_completed",
+    "detail": "Cleanup: Implement Dashboard Page with RSU Summary and Quick Actions",
+    "created_at": "2026-03-18 18:46:37"
+  },
+  {
+    "id": 101,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "185f0f35-2ff8-4765-a53d-a4aa3eaaf757",
+    "task_id": "881572a8-952f-44fb-b7d5-328a3077449b",
+    "action": "task_completed",
+    "detail": "Cleanup: Replace Static Exchange Rates with Bank of Canada API Integration and DB Caching",
+    "created_at": "2026-03-18 18:46:37"
+  },
+  {
+    "id": 102,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "5ea9c14b-761d-4b1a-8616-82533b6a45a3",
+    "task_id": "eb3f54d1-a8a0-47ee-8a93-c71c277c44ca",
+    "action": "task_completed",
+    "detail": "Cleanup: Build Tax Forms Checklist Page with Accordion UI and Persistent State",
+    "created_at": "2026-03-18 18:46:37"
+  },
+  {
+    "id": 103,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cd66b0f9-dd10-4ccd-b863-78e8c90417dd",
+    "task_id": "6dd7b68c-3bdd-4887-9fb2-2db4c31e3925",
+    "action": "task_completed",
+    "detail": "Cleanup: Build Foreign Tax Credit Calculator with Treaty Article XV Logic",
+    "created_at": "2026-03-18 18:46:37"
+  },
+  {
+    "id": 104,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "898adcb2-5219-42ae-a4c1-2105a08ef711",
+    "task_id": "5d5b3ee8-32c4-4899-a146-a8eefc6a20dd",
+    "action": "task_completed",
+    "detail": "Cleanup: Create FTC Optimizer Component with Visual Tax Comparison",
+    "created_at": "2026-03-18 18:46:37"
+  },
+  {
+    "id": 105,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "f2319873-ad9e-496f-90ba-de9a112309e6",
+    "task_id": "d8342284-82d8-4a92-8959-50b3854f3f7f",
+    "action": "task_completed",
+    "detail": "Cleanup: Implement PDF Tax Summary Export with jsPDF",
+    "created_at": "2026-03-18 18:46:37"
+  },
+  {
+    "id": 106,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "9e48c0c3-85dd-4a9d-b68d-f4aacd87ec2e",
+    "task_id": "29a2f854-48c8-41e8-a72d-18af3062016c",
+    "action": "task_completed",
+    "detail": "Cleanup: Create high-priority task: 'Fix agent live streaming UI - agents should show real-time updates when ",
+    "created_at": "2026-03-18 18:46:37"
+  },
+  {
+    "id": 18,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cd66b0f9-dd10-4ccd-b863-78e8c90417dd",
+    "task_id": "6dd7b68c-3bdd-4887-9fb2-2db4c31e3925",
+    "action": "task_started",
+    "detail": "Build Foreign Tax Credit Calculator with Treaty Article XV Logic",
+    "created_at": "2026-03-18 06:24:02"
+  },
+  {
+    "id": 19,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "898adcb2-5219-42ae-a4c1-2105a08ef711",
+    "task_id": "5d5b3ee8-32c4-4899-a146-a8eefc6a20dd",
+    "action": "task_started",
+    "detail": "Create FTC Optimizer Component with Visual Tax Comparison",
+    "created_at": "2026-03-18 06:24:02"
+  },
+  {
+    "id": 20,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "f2319873-ad9e-496f-90ba-de9a112309e6",
+    "task_id": "d8342284-82d8-4a92-8959-50b3854f3f7f",
+    "action": "task_started",
+    "detail": "Implement PDF Tax Summary Export with jsPDF",
+    "created_at": "2026-03-18 06:24:02"
+  },
+  {
+    "id": 21,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "9e48c0c3-85dd-4a9d-b68d-f4aacd87ec2e",
+    "task_id": "29a2f854-48c8-41e8-a72d-18af3062016c",
+    "action": "task_started",
+    "detail": "Create high-priority task: 'Fix agent live streaming UI - agents should show real-time updates when ",
+    "created_at": "2026-03-18 06:24:02"
+  },
+  {
+    "id": 17,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": null,
+    "task_id": null,
+    "action": "nudge_received",
+    "detail": "to ceo: make sure each agent show their live update on clicking them, right now it is not live streaming iteself",
+    "created_at": "2026-03-18 06:23:32"
+  },
+  {
+    "id": 12,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "f314d4de-06cc-4c1d-893b-ee1f700aa49b",
+    "task_id": "354e06d6-da34-4842-b989-a8c1bd6f28f7",
+    "action": "task_started",
+    "detail": "Implement Canada Federal + Provincial Tax Calculator with 2025 CRA Brackets",
+    "created_at": "2026-03-18 06:15:06"
+  },
+  {
+    "id": 13,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "b055b06e-7c31-4a38-a033-4398b193f1af",
+    "task_id": "480999d0-190e-4e6b-9c79-25cbc3548c83",
+    "action": "task_started",
+    "detail": "Build RSU Tax Breakdown Page with Dual-Country Comparison Cards",
+    "created_at": "2026-03-18 06:15:06"
+  },
+  {
+    "id": 14,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "132a39d9-87d8-4ab1-991f-87791be64ff9",
+    "task_id": "3f1c5b64-0521-4871-a521-549eab542844",
+    "action": "task_started",
+    "detail": "Implement Dashboard Page with RSU Summary and Quick Actions",
+    "created_at": "2026-03-18 06:15:06"
+  },
+  {
+    "id": 15,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "185f0f35-2ff8-4765-a53d-a4aa3eaaf757",
+    "task_id": "881572a8-952f-44fb-b7d5-328a3077449b",
+    "action": "task_started",
+    "detail": "Replace Static Exchange Rates with Bank of Canada API Integration and DB Caching",
+    "created_at": "2026-03-18 06:15:06"
+  },
+  {
+    "id": 16,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "5ea9c14b-761d-4b1a-8616-82533b6a45a3",
+    "task_id": "eb3f54d1-a8a0-47ee-8a93-c71c277c44ca",
+    "action": "task_started",
+    "detail": "Build Tax Forms Checklist Page with Accordion UI and Persistent State",
+    "created_at": "2026-03-18 06:15:06"
+  },
+  {
+    "id": 6,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "designer",
+    "task_id": null,
+    "action": "design_specs_created",
+    "detail": "Design system + 8 task designs",
+    "created_at": "2026-03-18 05:56:33"
+  },
+  {
+    "id": 7,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "69844360-de49-4772-a2ec-52618faee0ba",
+    "task_id": "2af4cbaf-1e2e-4985-9adb-174d61035256",
+    "action": "task_started",
+    "detail": "Initialize Next.js 14+ App Router project with shadcn/ui and fintech-grade styling",
+    "created_at": "2026-03-18 05:56:33"
+  },
+  {
+    "id": 8,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "7f81bc90-45bf-4eba-8f09-8e254f172d23",
+    "task_id": "b95cbee8-ae02-4ae4-942d-96b4258dd221",
+    "action": "task_started",
+    "detail": "Implement SQLite database with better-sqlite3, schema migrations, and type-safe queries",
+    "created_at": "2026-03-18 05:56:33"
+  },
+  {
+    "id": 9,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "e404332d-b300-4901-a3a1-4b82097a97dc",
+    "task_id": "7c645eca-c74f-4226-9fec-68695126d4ef",
+    "action": "task_started",
+    "detail": "Define TypeScript domain models and 2025 US/Canada tax bracket constants with CRA/IRS sources",
+    "created_at": "2026-03-18 05:56:33"
+  },
+  {
+    "id": 10,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "100ad21b-5c21-4e65-9ac0-032518355c95",
+    "task_id": "9979db49-51e8-4b1c-b2eb-3b1443408a57",
+    "action": "task_started",
+    "detail": "Build RSU Entry Form with shadcn/ui Components",
+    "created_at": "2026-03-18 05:56:33"
+  },
+  {
+    "id": 11,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cf4bbeb0-2967-4807-80e2-b9162f99f598",
+    "task_id": "e1816b89-7242-4f51-a976-396993491ccf",
+    "action": "task_started",
+    "detail": "Implement US Federal + State Tax Calculator with 2025 IRS Brackets",
+    "created_at": "2026-03-18 05:56:33"
+  },
+  {
+    "id": 5,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cto",
+    "task_id": "9d3bfe63-7159-4582-bd62-e0ef074dea53",
+    "action": "tasks_refined",
+    "detail": "Using jsPDF over alternatives (pdfmake, react-pdf) for simpler server-side generation without React component complexity. Recharts for FTC visualization provides responsive charts with minimal bundle size. All calculations server-side in API routes for security (no client-side tax logic exposure). SQLite queries via better-sqlite3 synchronous API for simplicity in Next.js route handlers. Treaty Article XV logic centralized in ftc-calculator.ts for reusability across UI and PDF export.",
+    "created_at": "2026-03-18 05:54:33"
+  },
+  {
+    "id": 4,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cto",
+    "task_id": "0a7e8ac3-590a-4f29-be4f-c7c39c320554",
+    "action": "tasks_refined",
+    "detail": "Next.js 15 App Router with Server Components for data fetching, better-sqlite3 for local database (already in use), Radix UI for accessible accordion component, Bank of Canada Valet API for live exchange rates with 24-hour caching strategy, TailwindCSS for styling (existing), TypeScript for type safety (existing). Database schema extends existing tables (users, rsu_events, tax_calculations) with exchange_rates and form_completion. MVP uses hardcoded user_id=1 to avoid auth complexity.",
+    "created_at": "2026-03-18 05:53:04"
+  },
+  {
+    "id": 3,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cto",
+    "task_id": "df08608d-fe31-4cb8-b7b1-c371307b86b5",
+    "action": "tasks_refined",
+    "detail": "**Stack:** Next.js 15 App Router, TypeScript, TailwindCSS, shadcn/ui (Radix UI primitives), better-sqlite3 (SQLite DB already initialized at `/lib/db/init.ts`), Zod validation (already in use), react-hook-form, Vitest for testing. **Architecture:** Server-side API routes for data fetching, server components for pages, client components for interactive forms. **Tax Logic:** Article XV treaty proration for US-sourced income, FTC calculation to prevent double taxation. **Exchange Rates:** Bank of Canada API via `/lib/currency.ts` or hardcoded 1.35 CAD/USD for MVP. **UI:** Modern fintech aesthetic with gradient accents (blue-600 to indigo-600), shadcn/ui components, responsive 2-column layout, color-coded tax brackets, animated progress bars.",
+    "created_at": "2026-03-18 05:50:22"
+  },
+  {
+    "id": 2,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "cto",
+    "task_id": "957f92b0-156b-4986-a62a-4d92df0b02b5",
+    "action": "tasks_refined",
+    "detail": "Next.js 14+ App Router for modern React architecture with server components, better-sqlite3 for zero-config embedded database (no network overhead, ideal for MVP), shadcn/ui for production-ready accessible components, TypeScript strict mode for type safety on financial calculations, TailwindCSS for rapid fintech-grade UI development with dark mode support.",
+    "created_at": "2026-03-18 05:47:56"
+  },
+  {
+    "id": 1,
+    "company_id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+    "agent_id": "ceo",
+    "task_id": null,
+    "action": "strategy_created",
+    "detail": "Build TaxBridge MVP in 4 phases: (1) establish Next.js foundation with SQLite database and TypeScript types, (2) implement core RSU entry and dual-country tax calculation engine using 2024/2025 tax brackets and treaty Article XV, (3) build user-facing dashboard with currency conversion and forms checklist, (4) add Foreign Tax Credit optimizer to eliminate double taxation. Prioritize working end-to-end flow over polish.",
+    "created_at": "2026-03-18 05:46:48"
+  }
+]

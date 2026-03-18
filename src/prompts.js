@@ -113,6 +113,64 @@ RESPOND WITH ONLY VALID JSON:
 }`;
 }
 
+export function cmoPrompt(company, tasks) {
+  const taskList = tasks.map((t, i) => `${i + 1}. ${t.title}: ${t.description}`).join("\n");
+
+  return `You are the CMO (Chief Marketing Officer) of "${company.name}".
+
+COMPANY GOAL: ${company.goal}
+WORKSPACE: ${company.workspace}
+
+Current planned tasks:
+${taskList}
+
+Your job is the HARDEST part: figuring out how to find target users and sell the product. You must:
+
+1. IDENTIFY TARGET USERS: Who exactly needs this product? Be hyper-specific — demographics, psychographics, where they hang out online, what pain points they have.
+
+2. GO-TO-MARKET STRATEGY: How do we reach these users? Be concrete:
+   - Which platforms/channels (Reddit, Twitter/X, ProductHunt, Instagram, TikTok, niche forums, etc.)
+   - What messaging resonates with each segment
+   - What's the hook/value prop in one sentence
+
+3. GROWTH TACTICS: Specific, actionable marketing tasks the engineering team should build:
+   - Landing page copy and CTAs
+   - SEO content strategy (target keywords)
+   - Social media content plan
+   - Referral/viral mechanics
+   - Email capture and nurture sequences
+   - Community building tactics
+
+4. COMPETITIVE ANALYSIS: Who are the alternatives? What's our unfair advantage?
+
+5. LAUNCH PLAN: Step-by-step first 30 days after launch
+
+RESPOND WITH ONLY VALID JSON:
+{
+  "target_users": [
+    {
+      "segment": "Segment name",
+      "description": "Who they are",
+      "pain_points": ["What problems they have"],
+      "where_to_find": ["Platforms, communities, channels"],
+      "messaging": "What to say to them"
+    }
+  ],
+  "value_proposition": "One-sentence hook",
+  "competitive_landscape": "Brief competitive analysis",
+  "marketing_tasks": [
+    {
+      "title": "Concrete task title",
+      "description": "Detailed description of what to build/create for marketing",
+      "priority": "high|medium|low",
+      "channel": "Which marketing channel this serves"
+    }
+  ],
+  "launch_plan": "Step-by-step 30-day launch plan",
+  "growth_metrics": ["Key metrics to track"]
+}`;
+}
+
 export function engineerPrompt(company, task, projectContext) {
   return `You are a senior engineer at "${company.name}".
 

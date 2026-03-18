@@ -1,0 +1,119 @@
+[
+  {
+    "id": 60,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "designer",
+    "task_id": null,
+    "action": "design_specs_created",
+    "detail": "Design system + 10 task designs",
+    "created_at": "2026-03-18 07:42:15"
+  },
+  {
+    "id": 61,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "4bba09cf-7be1-4144-b95e-7321f060aff7",
+    "task_id": "2cd34865-709e-4861-a184-f5c3900e3c42",
+    "action": "task_started",
+    "detail": "Add Google Directions API routing with Leaflet polylines and travel time display",
+    "created_at": "2026-03-18 07:42:15"
+  },
+  {
+    "id": 62,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "c385a9c2-b007-46c5-9124-83f43df3609d",
+    "task_id": "81af4df0-5909-4651-a421-8978253d3301",
+    "action": "task_started",
+    "detail": "Implement real-time activity tracker with dayjs and auto-scroll highlighting",
+    "created_at": "2026-03-18 07:42:15"
+  },
+  {
+    "id": 63,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "05ff0730-dcf3-4704-a55d-fd548dd10704",
+    "task_id": "e26f1cf8-4467-4272-bc28-1c146f89bfe6",
+    "action": "task_started",
+    "detail": "Add OpenWeatherMap 14-day forecast with localStorage caching and city-specific widgets",
+    "created_at": "2026-03-18 07:42:15"
+  },
+  {
+    "id": 64,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "26c5694c-9eb8-4b9b-9da2-1bc83dea0267",
+    "task_id": "906e9041-7aaf-4de3-9fe8-90ff40f34bb9",
+    "action": "task_started",
+    "detail": "Implement mobile-first CSS Grid layout with hamburger sidebar and 60fps touch optimization",
+    "created_at": "2026-03-18 07:42:15"
+  },
+  {
+    "id": 65,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "a0921c29-ee65-46f0-9b0a-9ee8278e4e74",
+    "task_id": "39e7c3ea-d229-4158-8f36-06cac197e043",
+    "action": "task_started",
+    "detail": "Implement trilingual data structure with language switcher UI",
+    "created_at": "2026-03-18 07:42:15"
+  },
+  {
+    "id": 50,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "cto",
+    "task_id": "65101539-0ca2-4139-b39c-bdcde7ec2e62",
+    "action": "tasks_refined",
+    "detail": "**Tech Stack:** Vanilla JavaScript (no framework) to minimize bundle size and maintain fast offline performance. Leaflet 1.9.4 for maps. Service Worker API (consider Workbox for simpler cache management). LocalStorage for client-side persistence (checklist, custom items, sakura cache). **Architecture:** Progressive enhancement - core features work without JavaScript, enhanced with interactivity. Offline-first PWA using Cache-First for static assets, Network-First for dynamic data (sakura API) with static JSON fallback. **API Strategy:** Cherry blossom forecast uses tiered fallback (live API → cached data → static JSON). **Performance:** Pre-cache map tiles only for trip cities at relevant zoom levels (12-16) to limit cache size (~50-100 tiles per city = ~5-10MB total). Lazy-load non-critical features. **Mobile-First:** Responsive design with mobile breakpoint at 768px. Touch-optimized interactions. Install prompt for native app feel.",
+    "created_at": "2026-03-18 07:39:46"
+  },
+  {
+    "id": 51,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "designer",
+    "task_id": null,
+    "action": "designer_started",
+    "detail": "Creating design specs",
+    "created_at": "2026-03-18 07:39:46"
+  },
+  {
+    "id": 44,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "cto",
+    "task_id": "52011341-7ff0-4d81-aaa4-a72d1bf12696",
+    "action": "tasks_refined",
+    "detail": "Stay with vanilla JavaScript (no framework overhead for PWA performance). Use Web Speech API for free phrase pronunciation (browser-native, no API costs). Implement i18n as simple utility module rather than library (i18next/vue-i18n overkill for static content). Store language preference in localStorage for persistence. Use Noto Sans JP (already loaded) for CJK character rendering. Consider DeepL API over Google Translate for higher translation quality (~$5/500k chars). Phrases modal uses native <details> elements for collapsible categories (accessible, no JS needed for expand/collapse).",
+    "created_at": "2026-03-18 07:37:50"
+  },
+  {
+    "id": 42,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "cto",
+    "task_id": "3c544a00-5b2d-481f-b400-7711282dc112",
+    "action": "tasks_refined",
+    "detail": "Using vanilla JavaScript with Leaflet for mapping (already implemented), Google Directions API for accurate Japan transit routing (better than OSM for Asia), OpenWeatherMap for weather (generous free tier, 14-day forecast), dayjs for lightweight time manipulation (2KB vs 67KB for moment.js), localStorage for offline caching, mobile-first CSS with CSS Grid/Flexbox (no framework overhead), and progressive enhancement approach (core functionality works without JavaScript for map fallback).",
+    "created_at": "2026-03-18 07:36:26"
+  },
+  {
+    "id": 38,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "ceo",
+    "task_id": null,
+    "action": "strategy_created",
+    "detail": "Transform the existing Leaflet-based itinerary into a production-ready, offline-first travel companion by building three interconnected layers: (1) Enhanced navigation with real-time routing and time-aware features, (2) Comprehensive multilingual support with cultural tools, and (3) Offline PWA capabilities with travel intelligence. This approach prioritizes features that work seamlessly during the actual trip in Japan, with mobile-first design and offline functionality as core requirements.",
+    "created_at": "2026-03-18 07:35:24"
+  },
+  {
+    "id": 39,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "cto",
+    "task_id": null,
+    "action": "cto_started",
+    "detail": "Refining tasks",
+    "created_at": "2026-03-18 07:35:24"
+  },
+  {
+    "id": 36,
+    "company_id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+    "agent_id": "ceo",
+    "task_id": null,
+    "action": "ceo_started",
+    "detail": "Planning strategy",
+    "created_at": "2026-03-18 07:34:07"
+  }
+]

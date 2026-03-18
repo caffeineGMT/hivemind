@@ -1,0 +1,254 @@
+[
+  {
+    "id": 97,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": null,
+    "task_id": null,
+    "action": "company_completed",
+    "detail": "All tasks done",
+    "created_at": "2026-03-18 18:38:46"
+  },
+  {
+    "id": 95,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "984adb6e-954a-44c4-bbae-707ee7332fea",
+    "task_id": "3e097e16-dd3b-41bf-998d-0d21917a0a8f",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 18:38:36"
+  },
+  {
+    "id": 96,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "5ee8b237-3018-4917-83ac-550e4deeadf2",
+    "task_id": "f52cc97c-8ce3-48ce-a6d2-cf0e6e7d30a9",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 18:38:36"
+  },
+  {
+    "id": 94,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "3ad6dc6c-a0e5-473f-8576-7c3bf23742ab",
+    "task_id": "aa9ab114-250d-4a4d-a18c-f7f527e057de",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 18:30:56"
+  },
+  {
+    "id": 93,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "74d80f9b-0602-4e21-bf22-494947e6a49f",
+    "task_id": "0ea4bae6-9be9-48f4-bae8-42c18157658d",
+    "action": "task_completed",
+    "detail": "Cleanup: Create task: Add photo upload capability to checkout order form (assign to available engineer)",
+    "created_at": "2026-03-18 18:30:01"
+  },
+  {
+    "id": 92,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "066906ee-f2b0-4e57-85a2-ba6e12c28972",
+    "task_id": "71157b9e-c359-4c32-9382-27f298b37e99",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 18:29:41"
+  },
+  {
+    "id": 90,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "013a1da4-259c-4a54-8892-3a67b56a6457",
+    "task_id": "93fcfae9-efce-43f9-b4ad-682c870f3561",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 18:28:41"
+  },
+  {
+    "id": 91,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "984adb6e-954a-44c4-bbae-707ee7332fea",
+    "task_id": "3e097e16-dd3b-41bf-998d-0d21917a0a8f",
+    "action": "task_started",
+    "detail": "Create task: Set up cost tracking system for completed development tasks (assign to CTO)",
+    "created_at": "2026-03-18 18:28:41"
+  },
+  {
+    "id": 88,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "7be13686-3992-43ab-a5eb-c3fb528e5eb8",
+    "task_id": "151a0afd-0e62-4697-8875-37e57ceb1197",
+    "action": "task_completed",
+    "detail": "Task completed",
+    "created_at": "2026-03-18 18:28:26"
+  },
+  {
+    "id": 89,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "5ee8b237-3018-4917-83ac-550e4deeadf2",
+    "task_id": "f52cc97c-8ce3-48ce-a6d2-cf0e6e7d30a9",
+    "action": "task_started",
+    "detail": "Create task: Audit and fix mobile responsiveness across all pages (assign to designer/engineer)",
+    "created_at": "2026-03-18 18:28:26"
+  },
+  {
+    "id": 83,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "3ad6dc6c-a0e5-473f-8576-7c3bf23742ab",
+    "task_id": "aa9ab114-250d-4a4d-a18c-f7f527e057de",
+    "action": "task_started",
+    "detail": "Add SEO and analytics",
+    "created_at": "2026-03-18 18:24:01"
+  },
+  {
+    "id": 84,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "013a1da4-259c-4a54-8892-3a67b56a6457",
+    "task_id": "93fcfae9-efce-43f9-b4ad-682c870f3561",
+    "action": "task_started",
+    "detail": "Create task: Implement sitemap.xml and robots.txt for SEO (assign to available engineer)",
+    "created_at": "2026-03-18 18:24:01"
+  },
+  {
+    "id": 85,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "066906ee-f2b0-4e57-85a2-ba6e12c28972",
+    "task_id": "71157b9e-c359-4c32-9382-27f298b37e99",
+    "action": "task_started",
+    "detail": "Create task: Set up Vercel Blob storage API for order photo uploads (assign to available engineer)",
+    "created_at": "2026-03-18 18:24:01"
+  },
+  {
+    "id": 86,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "74d80f9b-0602-4e21-bf22-494947e6a49f",
+    "task_id": "0ea4bae6-9be9-48f4-bae8-42c18157658d",
+    "action": "task_started",
+    "detail": "Create task: Add photo upload capability to checkout order form (assign to available engineer)",
+    "created_at": "2026-03-18 18:24:01"
+  },
+  {
+    "id": 87,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "7be13686-3992-43ab-a5eb-c3fb528e5eb8",
+    "task_id": "151a0afd-0e62-4697-8875-37e57ceb1197",
+    "action": "task_started",
+    "detail": "Create task: Implement skeleton loading states across checkout flow (assign to designer/engineer)",
+    "created_at": "2026-03-18 18:24:01"
+  },
+  {
+    "id": 71,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "2cd0e8a3-045c-4c2a-90ed-67fa838add07",
+    "task_id": "a4e53849-a906-431f-bbc7-c9e2400cbe39",
+    "action": "task_started",
+    "detail": "Implement Chinese order translation system",
+    "created_at": "2026-03-18 07:57:03"
+  },
+  {
+    "id": 72,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "2ade4eac-d785-45e6-ab00-2abd758c2436",
+    "task_id": "5db89d80-316a-4bae-a61e-af8c586a63bc",
+    "action": "task_started",
+    "detail": "Set up automated supplier relay via email",
+    "created_at": "2026-03-18 07:57:03"
+  },
+  {
+    "id": 73,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "1f371e3a-ab9e-41ed-9a9c-33dc2df3cfe2",
+    "task_id": "c2d30810-225d-493f-95d8-7ef2468cebbd",
+    "action": "task_started",
+    "detail": "Create inventory sync cron job",
+    "created_at": "2026-03-18 07:57:03"
+  },
+  {
+    "id": 74,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "d1d2348e-3d91-407c-8322-374149b587f8",
+    "task_id": "c0b1ae7a-d2d2-4c42-a1b9-61fca66ddc40",
+    "action": "task_started",
+    "detail": "Build admin dashboard at /admin",
+    "created_at": "2026-03-18 07:57:03"
+  },
+  {
+    "id": 75,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "9eb7c9ae-113c-43c6-a2e4-e6511ceaa6b3",
+    "task_id": "afea4e63-5282-4912-af6a-82932dbd8c23",
+    "action": "task_started",
+    "detail": "Implement notification system",
+    "created_at": "2026-03-18 07:57:03"
+  },
+  {
+    "id": 66,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "d3fa75d9-be45-4f66-81e2-186dbb6a7ae5",
+    "task_id": "f911ac59-2b50-43cb-a2ca-c4e11bc33cb5",
+    "action": "task_started",
+    "detail": "Set up Supabase database schema",
+    "created_at": "2026-03-18 07:48:47"
+  },
+  {
+    "id": 67,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "8e8d3ff3-6644-44d7-a3ea-e88e30e63edb",
+    "task_id": "81cf166a-6bc3-4a6f-a3af-fbd485b9d7c6",
+    "action": "task_started",
+    "detail": "Build Stripe checkout page at /checkout",
+    "created_at": "2026-03-18 07:48:47"
+  },
+  {
+    "id": 68,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "885c48e0-a83d-40b4-bf36-a080c2b6a283",
+    "task_id": "f9911d0e-40b4-456c-a508-1d755865532d",
+    "action": "task_started",
+    "detail": "Implement Stripe webhook for order creation",
+    "created_at": "2026-03-18 07:48:47"
+  },
+  {
+    "id": 69,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "a602eadb-b519-4a36-91f1-a0245701dfab",
+    "task_id": "da684020-546b-4f28-854d-960bfe94dea3",
+    "action": "task_started",
+    "detail": "Create order confirmation page at /success",
+    "created_at": "2026-03-18 07:48:47"
+  },
+  {
+    "id": 70,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "5243707a-4038-4c7a-9cfa-5f46fe05ccc1",
+    "task_id": "a56a3178-f1d5-4317-a08e-0d6e6ab7f091",
+    "action": "task_started",
+    "detail": "Build Taobao inventory scraper",
+    "created_at": "2026-03-18 07:48:47"
+  },
+  {
+    "id": 48,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "ceo",
+    "task_id": null,
+    "action": "strategy_created",
+    "detail": "Build a fully automated dropshipping pipeline in 3 phases: (1) establish payment infrastructure and order database, (2) integrate with Chinese suppliers via inventory sync and bilingual order relay, (3) deploy admin tools and analytics for operations. Each phase unlocks the next, with Phase 1 enabling revenue collection, Phase 2 enabling fulfillment, and Phase 3 enabling scale.",
+    "created_at": "2026-03-18 07:39:03"
+  },
+  {
+    "id": 49,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "cto",
+    "task_id": null,
+    "action": "cto_started",
+    "detail": "Refining tasks",
+    "created_at": "2026-03-18 07:39:03"
+  },
+  {
+    "id": 45,
+    "company_id": "f18611ad-0434-47e9-bb7e-3e65ffea98e3",
+    "agent_id": "ceo",
+    "task_id": null,
+    "action": "ceo_started",
+    "detail": "Planning strategy",
+    "created_at": "2026-03-18 07:37:55"
+  }
+]

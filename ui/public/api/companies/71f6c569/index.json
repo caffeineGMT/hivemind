@@ -1,0 +1,9 @@
+{
+  "id": "71f6c569-ce90-4339-ba0a-fb329cd01856",
+  "name": "Japan Trip Companion",
+  "goal": "Build the ultimate Japan trip companion web app for a 2-week cherry blossom trip (Tokyo, Kyoto, Osaka, Nara). The existing site is at ~/japan-trip/ with an interactive Leaflet map and day-by-day sidebar. Enhance it into a world-class travel guide with: (1) Interactive maps with walking/transit route directions between stops, estimated travel times, and Google Maps deep links. (2) Trilingual support — toggle between English, Chinese (Simplified), and Japanese for place names, descriptions, and key phrases. (3) A 'What's Next' mode that highlights the current/next activity based on time of day. (4) Useful Japanese travel phrases with pronunciation for each context (restaurant, train, temple). (5) Restaurant reservation details, confirmation numbers, and direct links. (6) Cherry blossom forecast integration. (7) Offline-friendly PWA with service worker so it works without internet in Japan. (8) Weather widget showing forecast for each day. (9) A packing/checklist feature with local storage persistence. (10) Mobile-first responsive design optimized for using on-the-go.",
+  "status": "active",
+  "workspace": "/Users/michaelguo/japan-trip",
+  "created_at": "2026-03-18 07:34:07",
+  "updated_at": "2026-03-18 07:34:07"
+}

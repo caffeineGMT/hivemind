@@ -1,0 +1,9 @@
+{
+  "id": "90c7177c-bff4-4b16-956f-3197cc2a7b14",
+  "name": "TaxBridge",
+  "goal": "Build TaxBridge MVP — a US-Canada Cross-Border Tax Bridge web app for the core scenario: H-1B/TN visa tech workers with US RSUs who now live in Canada. MVP features: (1) RSU vesting entry with date, FMV, shares, employer (Meta/Amazon/Google/Microsoft), (2) Dual-country tax calculator showing US federal+state and Canada federal+provincial tax on RSU income using treaty Article XV, (3) Foreign Tax Credit optimizer to avoid double taxation, (4) Required forms checklist (W-2, 1040/1040-NR, T1, T4, FBAR, 8938, 8833), (5) USD/CAD conversion at Bank of Canada rates, (6) Dashboard with filing status. Tech: Next.js App Router, TailwindCSS, TypeScript, SQLite via better-sqlite3. Modern fintech UI.",
+  "status": "completed",
+  "workspace": "/Users/michaelguo/hivemind-projects/cross-border-tax",
+  "created_at": "2026-03-18 05:45:32",
+  "updated_at": "2026-03-18 05:45:32"
+}

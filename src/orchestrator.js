@@ -205,6 +205,89 @@ async function runDesignerPhase(company) {
   }
 }
 
+// ── Phase 2.75: CMO — Marketing Strategy ────────────────────────────────
+
+async function runCmoPhase(company) {
+  const allTasks = db.getTasksByCompany(company.id);
+  const work = allTasks.filter(t => !t.title.startsWith("[PROJECT]"));
+
+  if (work.length === 0) return null;
+
+  log(company.id, "CMO", "Analyzing market, identifying target users, building go-to-market strategy...");
+  setAgentRunning(company.id, "cmo");
+  db.logActivity({ companyId: company.id, agentId: "cmo", action: "cmo_started", detail: "Building marketing strategy" });
+
+  try {
+    const prompt = prompts.cmoPrompt(company, work);
+    const { output: raw, usage: cmoUsage } = await claude.claudeSessionSync("cmo", prompt, {
+      cwd: company.workspace,
+      timeout: 300000,
+      maxTurns: 20,
+    });
+    const strategy = claude.parseJsonResponse(raw);
+
+    setAgentIdle(company.id, "cmo");
+
+    if (cmoUsage) {
+      db.logCost({ companyId: company.id, agentName: "cmo", inputTokens: cmoUsage.inputTokens, outputTokens: cmoUsage.outputTokens, cacheReadTokens: cmoUsage.cacheReadTokens, cacheWriteTokens: cmoUsage.cacheWriteTokens, totalTokens: cmoUsage.totalTokens, costUsd: cmoUsage.costUsd, durationMs: cmoUsage.durationMs, numTurns: cmoUsage.numTurns, model: cmoUsage.model });
+      log(company.id, "CFO", `CMO: ${cmoUsage.totalTokens} tokens, $${cmoUsage.costUsd.toFixed(4)}`);
+    }
+
+    if (!strategy) {
+      log(company.id, "CMO", "Could not generate marketing strategy, proceeding without.");
+      return null;
+    }
+
+    log(company.id, "CMO", `Value prop: ${strategy.value_proposition}`);
+    if (strategy.target_users) {
+      log(company.id, "CMO", `Identified ${strategy.target_users.length} target segments`);
+      for (const seg of strategy.target_users) {
+        log(company.id, "CMO", `  → ${seg.segment}: ${seg.messaging}`);
+      }
+    }
+
+    // Create a Marketing project with tasks
+    if (strategy.marketing_tasks && strategy.marketing_tasks.length > 0) {
+      const projectId = uid();
+      db.createTask({
+        id: projectId,
+        companyId: company.id,
+        title: "[PROJECT] Marketing & Growth",
+        description: `Go-to-market strategy. Value prop: ${strategy.value_proposition}. Launch plan: ${strategy.launch_plan?.slice(0, 300) || "See CMO strategy"}`,
+        priority: "high",
+        createdById: "cmo",
+      });
+
+      for (const mt of strategy.marketing_tasks) {
+        db.createTask({
+          id: uid(),
+          companyId: company.id,
+          parentId: projectId,
+          title: mt.title,
+          description: `${mt.description}\n\nChannel: ${mt.channel}\nTarget users: ${strategy.target_users?.map(u => u.segment).join(", ")}`,
+          priority: mt.priority || "medium",
+          createdById: "cmo",
+        });
+      }
+
+      log(company.id, "CMO", `Created ${strategy.marketing_tasks.length} marketing tasks`);
+    }
+
+    db.logActivity({
+      companyId: company.id,
+      agentId: "cmo",
+      action: "marketing_strategy_created",
+      detail: strategy.value_proposition || "Marketing strategy complete",
+    });
+
+    return strategy;
+  } catch (err) {
+    setAgentIdle(company.id, "cmo");
+    log(company.id, "CMO", `Marketing phase error: ${err.message}`);
+    return null;
+  }
+}
+
 // ── Store design specs ───────────────────────────────────────────────────
 
 let _designSpecs = null;
@@ -488,6 +571,7 @@ export async function startCompany(goal, opts = {}) {
   db.createAgent({ id: uid(), companyId, name: "cto", role: "cto", title: "CTO" });
   db.createAgent({ id: uid(), companyId, name: "designer", role: "designer", title: "Lead Designer" });
   db.createAgent({ id: uid(), companyId, name: "cfo", role: "cfo", title: "CFO" });
+  db.createAgent({ id: uid(), companyId, name: "cmo", role: "cmo", title: "CMO" });
 
   // Phase 1: CEO — full session, can read files, explore workspace
   const plan = await runCeoPlanning(db.getCompany(companyId));
@@ -501,6 +585,9 @@ export async function startCompany(goal, opts = {}) {
 
   // Phase 2.5: Designer — full session, can create design files, review code
   const designSpecs = await runDesignerPhase(db.getCompany(companyId));
+
+  // Phase 2.75: CMO — marketing strategy, target users, go-to-market tasks
+  await runCmoPhase(db.getCompany(companyId));
 
   // Phase 3: Engineers — full sessions, each one has all Claude capabilities
   dispatchEngineers(db.getCompany(companyId), designSpecs);
