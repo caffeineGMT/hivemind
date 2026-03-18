@@ -46,6 +46,22 @@ function migrate(db) {
     }
   } catch {}
 
+  // Add 'stripe_customer_id' column to companies if missing
+  try {
+    const cols = db.prepare("PRAGMA table_info(companies)").all();
+    if (cols.length > 0 && !cols.find(c => c.name === "stripe_customer_id")) {
+      db.exec("ALTER TABLE companies ADD COLUMN stripe_customer_id TEXT");
+    }
+  } catch {}
+
+  // Add 'plan_tier' column to companies if missing
+  try {
+    const cols = db.prepare("PRAGMA table_info(companies)").all();
+    if (cols.length > 0 && !cols.find(c => c.name === "plan_tier")) {
+      db.exec("ALTER TABLE companies ADD COLUMN plan_tier TEXT DEFAULT 'STARTER'");
+    }
+  } catch {}
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY,
@@ -157,11 +173,33 @@ function migrate(db) {
       next_billing_date TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS checkpoints (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      agent_id TEXT NOT NULL REFERENCES agents(id),
+      task_id TEXT NOT NULL REFERENCES tasks(id),
+      turn_number INTEGER NOT NULL,
+      state_data TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS incidents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL REFERENCES companies(id),
+      agent_id TEXT NOT NULL REFERENCES agents(id),
+      task_id TEXT REFERENCES tasks(id),
+      incident_type TEXT NOT NULL,
+      description TEXT,
+      recovery_action TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_usage_company_metric ON usage_logs(company_id, metric);
     CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_logs(timestamp);
     CREATE INDEX IF NOT EXISTS idx_analytics_company ON analytics_events(company_id);
     CREATE INDEX IF NOT EXISTS idx_analytics_event_type ON analytics_events(event_type);
     CREATE INDEX IF NOT EXISTS idx_subscriptions_company ON subscriptions(company_id);
+    CREATE INDEX IF NOT EXISTS idx_checkpoints_agent ON checkpoints(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_incidents_company ON incidents(company_id);
   `);
 }
 

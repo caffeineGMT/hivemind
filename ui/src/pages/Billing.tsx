@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { api, SubscriptionStatus } from '../api';
+
+interface BillingProps {
+  companyId?: string;
+}
 
 const PRICING_TIERS = [
   {
@@ -45,8 +49,7 @@ const PRICING_TIERS = [
   },
 ];
 
-export default function Billing() {
-  const { companyId } = useParams<{ companyId: string }>();
+export default function Billing({ companyId }: BillingProps) {
   const navigate = useNavigate();
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,8 +87,8 @@ export default function Billing() {
         tier,
         companyId,
         email,
-        successUrl: `${window.location.origin}/companies/${companyId}/billing?success=true`,
-        cancelUrl: `${window.location.origin}/companies/${companyId}/billing`,
+        successUrl: `${window.location.origin}/app/billing?success=true`,
+        cancelUrl: `${window.location.origin}/app/billing`,
       });
 
       // Redirect to Stripe Checkout
@@ -125,7 +128,7 @@ export default function Billing() {
         {/* Header */}
         <div className="text-center mb-12">
           <button
-            onClick={() => navigate(`/companies/${companyId}`)}
+            onClick={() => navigate('/app')}
             className="mb-6 text-purple-300 hover:text-white transition-colors"
           >
             ← Back to Dashboard

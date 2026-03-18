@@ -1,4 +1,3 @@
-import "dotenv/config";
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,16 +6,19 @@ import * as db from "./db.js";
 import { readAgentLog } from "./claude.js";
 import { LOGS_DIR } from "./config.js";
 import fs from "node:fs";
+import { WebSocketServer } from "ws";
 import {
   createCheckoutSession,
   createPortalSession,
   getSubscriptionStatus,
   handleWebhook
 } from "./stripe-routes.js";
-import { clerkMiddleware, requireAuth, getAuth } from "@clerk/express";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Trigger orchestrator resume if no live agents are running for a company.
+// If orchestrator IS running, the heartbeat will pick up comments within 15s.
+// If NOT running, spawn resume AND also run a direct nudge for immediate pickup.
 function triggerResume(companyId) {
   try {
     const agents = db.getAgentsByCompany(companyId);
@@ -28,6 +30,7 @@ function triggerResume(companyId) {
       }
     }
     if (!hasLiveAgent) {
+      // No orchestrator running — spawn resume (which starts heartbeat loop)
       const child = spawn("node", ["bin/hivemind.js", "resume", companyId.slice(0, 8)], {
         cwd: path.resolve(__dirname, ".."),
         stdio: "ignore",
@@ -36,6 +39,8 @@ function triggerResume(companyId) {
       child.unref();
       console.log(`[server] Auto-resumed orchestrator for company ${companyId.slice(0, 8)}`);
     }
+    // Always spawn a direct nudge command for immediate processing
+    // (the heartbeat loop only checks every 15s)
     const nudgeChild = spawn("node", ["bin/hivemind.js", "nudge", companyId.slice(0, 8), "Process unread comments and dispatch tasks immediately"], {
       cwd: path.resolve(__dirname, ".."),
       stdio: "ignore",
@@ -47,54 +52,94 @@ function triggerResume(companyId) {
   }
 }
 
+// Try to detect Vercel deployment URL from workspace
+function detectDeploymentUrl(workspace) {
+  if (!workspace) return null;
+  try {
+    const projectJson = path.join(workspace, ".vercel", "project.json");
+    if (fs.existsSync(projectJson)) {
+      const data = JSON.parse(fs.readFileSync(projectJson, "utf-8"));
+      if (data.projectId) {
+        // Try to read the deployment URL from .vercel/project.json
+        // The actual URL isn't stored there, but we know the project is on Vercel
+        return true; // Signal that it's deployed
+      }
+    }
+  } catch {}
+  return null;
+}
+
 export function createServer(port = 3100) {
   const app = express();
+
+  // WebSocket server setup
+  const wss = new WebSocketServer({ noServer: true });
+  const clients = new Set();
+
+  wss.on('connection', (ws) => {
+    clients.add(ws);
+    console.log('[ws] Client connected. Total:', clients.size);
+
+    ws.on('close', () => {
+      clients.delete(ws);
+      console.log('[ws] Client disconnected. Total:', clients.size);
+    });
+  });
+
+  // Broadcast helper function
+  function broadcast(event, data) {
+    const message = JSON.stringify({ event, data, timestamp: new Date().toISOString() });
+    clients.forEach(client => {
+      if (client.readyState === 1) { // WebSocket.OPEN
+        client.send(message);
+      }
+    });
+  }
+
+  // Store broadcast function on app for use in routes
+  app.locals.broadcast = broadcast;
+
+  // Stripe webhook needs raw body for signature verification
   app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), handleWebhook);
+
+  // JSON parsing for all other routes
   app.use(express.json());
+
   const uiDist = path.join(__dirname, "../ui/dist");
 
+  // CORS for dev
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.header("Access-Control-Allow-Headers", "Content-Type");
     res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
     if (req.method === "OPTIONS") return res.sendStatus(200);
     next();
   });
 
-  app.use(clerkMiddleware());
-
+  // Health
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", version: "0.1.0" });
   });
 
-  app.get("/api/auth/me", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    res.json({ userId, authenticated: true });
-  });
-
-  app.post("/api/auth/signout", (req, res) => {
-    res.json({ success: true });
-  });
-
+  // Stripe endpoints
   app.post("/api/stripe/checkout", createCheckoutSession);
   app.post("/api/stripe/portal", createPortalSession);
   app.get("/api/stripe/subscription/:companyId", getSubscriptionStatus);
 
-  app.get("/api/companies", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    res.json(db.listCompanies(userId));
+  // Companies
+  app.get("/api/companies", (req, res) => {
+    res.json(db.listCompanies());
   });
 
-  app.get("/api/companies/:id", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  app.get("/api/companies/:id", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     res.json(company);
   });
 
-  app.patch("/api/companies/:id", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  // Update company (for deployment_url etc)
+  app.patch("/api/companies/:id", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     const { deployment_url } = req.body || {};
     if (deployment_url !== undefined) {
@@ -103,19 +148,22 @@ export function createServer(port = 3100) {
     res.json({ success: true });
   });
 
-  app.get("/api/companies/:id/dashboard", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  // Dashboard summary for a company
+  app.get("/api/companies/:id/dashboard", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
+
     const agents = db.getAgentsByCompany(company.id);
     const tasks = db.getTasksByCompany(company.id);
     const work = tasks.filter(t => !t.title.startsWith("[PROJECT]"));
     const projects = tasks.filter(t => t.title.startsWith("[PROJECT]"));
+
     const done = work.filter(t => t.status === "done").length;
     const inProgress = work.filter(t => t.status === "in_progress").length;
     const backlog = work.filter(t => t.status === "backlog" || t.status === "todo").length;
     const total = work.length;
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
     res.json({
       company,
       metrics: {
@@ -138,44 +186,48 @@ export function createServer(port = 3100) {
     });
   });
 
-  app.get("/api/companies/:id/agents", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  // Agents
+  app.get("/api/companies/:id/agents", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     res.json(db.getAgentsByCompany(company.id));
   });
 
-  app.get("/api/companies/:id/tasks", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  // Tasks
+  app.get("/api/companies/:id/tasks", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     const status = req.query.status;
     res.json(db.getTasksByCompany(company.id, status || undefined));
   });
 
-  app.get("/api/companies/:id/activity", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  // Activity
+  app.get("/api/companies/:id/activity", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     const limit = parseInt(req.query.limit || "50", 10);
     res.json(db.getRecentActivity(company.id, limit));
   });
 
+  // Agent logs
   app.get("/api/logs/:agentName", (req, res) => {
     const log = readAgentLog(req.params.agentName);
     if (!log) return res.status(404).json({ error: "No logs found" });
     res.json({ agentName: req.params.agentName, log });
   });
 
+  // Live agent log stream (SSE)
   app.get("/api/logs/:agentName/stream", (req, res) => {
     const logPath = path.join(LOGS_DIR, `${req.params.agentName}.log`);
     if (!fs.existsSync(logPath)) return res.status(404).json({ error: "No logs found" });
+
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       "Connection": "keep-alive",
       "Access-Control-Allow-Origin": "*",
     });
+
     let lastSize = 0;
     const sendUpdate = () => {
       try {
@@ -190,11 +242,13 @@ export function createServer(port = 3100) {
         }
       } catch {}
     };
+
     sendUpdate();
     const interval = setInterval(sendUpdate, 1000);
     req.on("close", () => clearInterval(interval));
   });
 
+  // List all log files
   app.get("/api/logs", (req, res) => {
     try {
       const files = fs.readdirSync(LOGS_DIR).filter(f => f.endsWith(".log"));
@@ -204,9 +258,9 @@ export function createServer(port = 3100) {
     }
   });
 
-  app.get("/api/companies/:id/costs", requireAuth(), (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  // Cost tracking
+  app.get("/api/companies/:id/costs", (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     const summary = db.getCostSummary(company.id);
     const totals = db.getCostTotals(company.id);
@@ -214,6 +268,39 @@ export function createServer(port = 3100) {
     res.json({ summary, totals, recent: recent.slice(0, 50) });
   });
 
+  // Usage tracking
+  app.get("/api/companies/:id/usage", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const currentMonth = db.getCurrentMonthUsage(company.id);
+    const history = db.getUsageHistory(company.id, 50);
+
+    res.json({
+      current_month: currentMonth,
+      history,
+    });
+  });
+
+  // Usage + billing summary (with plan limits and overages)
+  app.get("/api/companies/:id/billing", async (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const usage = db.getCurrentMonthUsage(company.id);
+    const planTier = company.plan_tier || "STARTER";
+
+    // Import calculateOverages from stripe module
+    const { calculateOverages } = await import("./stripe.js");
+    const billing = calculateOverages(usage, planTier);
+
+    res.json({
+      ...billing,
+      stripe_customer_id: company.stripe_customer_id || null,
+    });
+  });
+
+  // Analytics endpoints
   app.get("/api/analytics/events", (req, res) => {
     const companyId = req.query.companyId;
     const limit = parseInt(req.query.limit || "100", 10);
@@ -240,26 +327,18 @@ export function createServer(port = 3100) {
     res.json({ success: true });
   });
 
-  app.get("/api/tasks/:id", requireAuth(), (req, res) => {
+  // Task detail
+  app.get("/api/tasks/:id", (req, res) => {
     const task = db.getTask(req.params.id);
     if (!task) return res.status(404).json({ error: "Not found" });
-    const { userId } = getAuth(req);
-    const company = db.getCompany(task.company_id);
-    if (company && company.user_id && company.user_id !== userId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
     const comments = db.getComments(req.params.id);
     res.json({ task, comments });
   });
 
-  app.post("/api/tasks/:id/comments", requireAuth(), (req, res) => {
+  // Add comment to task — triggers immediate agent pickup
+  app.post("/api/tasks/:id/comments", (req, res) => {
     const task = db.getTask(req.params.id);
     if (!task) return res.status(404).json({ error: "Not found" });
-    const { userId } = getAuth(req);
-    const company = db.getCompany(task.company_id);
-    if (company && company.user_id && company.user_id !== userId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
     const { message } = req.body || {};
     if (!message) return res.status(400).json({ error: "Message required" });
     db.addComment({
@@ -274,63 +353,74 @@ export function createServer(port = 3100) {
       action: "comment_added",
       detail: message.slice(0, 100),
     });
+    // Trigger immediate pickup
     triggerResume(task.company_id);
     res.json({ success: true });
   });
 
-  app.post("/api/companies/:id/nudge", requireAuth(), async (req, res) => {
-    const { userId } = getAuth(req);
-    const company = findCompany(req.params.id, userId);
+  // Nudge endpoint (company-specific) — store as unread comment + trigger agent
+  app.post("/api/companies/:id/nudge", async (req, res) => {
+    const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
+
     const { message } = req.body || {};
     if (!message) return res.status(400).json({ error: "Message required" });
+
     db.addComment({
       companyId: company.id,
       taskId: null,
       author: "user",
       message: `[NUDGE] ${message}`,
     });
+
     db.logActivity({
       companyId: company.id,
       action: "nudge_received",
       detail: message,
     });
+
     triggerResume(company.id);
     res.json({ success: true, message: "Nudge sent — agent picking it up now" });
   });
 
-  app.post("/api/nudge", requireAuth(), async (req, res) => {
-    const { userId } = getAuth(req);
+  // Generic nudge endpoint (used by Vercel frontend and mobile)
+  app.post("/api/nudge", async (req, res) => {
     const { companyId, message } = req.body || {};
     if (!message) return res.status(400).json({ error: "Message required" });
+
     let company;
     if (companyId) {
-      company = findCompany(companyId, userId);
+      company = findCompany(companyId);
       if (!company) return res.status(404).json({ error: "Company not found" });
     } else {
-      const companies = db.listCompanies(userId);
+      const companies = db.listCompanies();
       company = companies.find(c => c.status === "active") || companies[0];
       if (!company) return res.status(404).json({ error: "No companies found" });
     }
+
     db.addComment({
       companyId: company.id,
       taskId: null,
       author: "user",
       message: `[NUDGE] ${message}`,
     });
+
     db.logActivity({
       companyId: company.id,
       action: "nudge_received",
       detail: message,
     });
+
     triggerResume(company.id);
     res.json({ success: true, message: "Nudge sent — agent picking it up now" });
   });
 
+  // Serve built UI static assets (after API routes so live API takes priority)
   if (fs.existsSync(uiDist)) {
     app.use(express.static(uiDist, { index: false }));
   }
 
+  // SPA fallback
   app.get("*", (req, res) => {
     const indexPath = path.join(uiDist, "index.html");
     if (fs.existsSync(indexPath)) {
@@ -340,25 +430,29 @@ export function createServer(port = 3100) {
     }
   });
 
-  return app;
+  return { app, wss };
 }
 
-function findCompany(idOrPrefix, userId) {
+function findCompany(idOrPrefix) {
   let company = db.getCompany(idOrPrefix);
-  if (company) {
-    if (userId && company.user_id && company.user_id !== userId) {
-      return null;
-    }
-    return company;
-  }
-  const all = db.listCompanies(userId);
+  if (company) return company;
+  const all = db.listCompanies();
   return all.find(c => c.id.startsWith(idOrPrefix)) || null;
 }
 
 export function startServer(port = 3100) {
-  const app = createServer(port);
-  app.listen(port, () => {
+  const { app, wss } = createServer(port);
+  const server = app.listen(port, () => {
     console.log(`  Hivemind dashboard: http://localhost:${port}`);
+    console.log(`  WebSocket server ready`);
   });
-  return app;
+
+  // Handle WebSocket upgrade
+  server.on('upgrade', (req, socket, head) => {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit('connection', ws, req);
+    });
+  });
+
+  return server;
 }

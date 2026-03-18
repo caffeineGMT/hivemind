@@ -1,9 +1,17 @@
 import Stripe from "stripe";
 
-// Initialize Stripe with secret key from environment
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2024-12-18.acacia"
-});
+// Initialize Stripe lazily — only when actually needed (avoids crash without API key)
+let _stripe = null;
+export function getStripe() {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) return null;
+    _stripe = new Stripe(key, { apiVersion: "2024-12-18.acacia" });
+  }
+  return _stripe;
+}
+// Legacy export for files that import `stripe` directly
+export const stripe = null;
 
 // Stripe pricing configuration
 export const STRIPE_PRICES = {

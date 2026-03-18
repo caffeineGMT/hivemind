@@ -85,7 +85,7 @@ function AppRoutes() {
         <Route path="/activity" element={<Activity companyId={selectedCompany.id} />} />
         <Route path="/finance" element={<Finance companyId={selectedCompany.id} />} />
         <Route path="/analytics" element={<Analytics companyId={selectedCompany.id} />} />
-        <Route path="/billing" element={<Billing />} />
+        <Route path="/billing" element={<Billing companyId={selectedCompany.id} />} />
         <Route path="/tasks/:taskId" element={<TaskDetail />} />
         <Route path="/logs/:agentName" element={<AgentLog />} />
         <Route path="*" element={<Navigate to="/app" replace />} />
