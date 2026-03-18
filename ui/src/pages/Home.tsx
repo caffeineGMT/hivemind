@@ -1,4 +1,4 @@
-import { ArrowRight, Check, Play, Zap, Brain, TrendingUp, Users, Clock, Github, Twitter, MessageCircle } from 'lucide-react';
+import { ArrowRight, Check, Play, Zap, Brain, TrendingUp, Users, Clock, Github, Twitter, MessageCircle, Terminal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import TestimonialForm from '../components/TestimonialForm';
@@ -14,7 +14,7 @@ interface Testimonial {
   created_at: string;
 }
 
-export default function Landing() {
+export default function Home() {
   const navigate = useNavigate();
   const [showTestimonialForm, setShowTestimonialForm] = useState(false);
 
@@ -45,6 +45,15 @@ export default function Landing() {
       user_company: 'AutomateScale',
       rating: 5,
       quote: "The ROI is insane. My AI company built and deployed a SaaS product in 2 weeks. Revenue hit $12K MRR in the first month, all automated.",
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 0,
+      user_name: 'Jessica Park',
+      user_role: 'Technical Founder',
+      user_company: 'CloudSync Pro',
+      rating: 5,
+      quote: "The auto-healing feature saved me countless hours. Agents detect and fix deployment failures automatically. I sleep better knowing my AI team is on it.",
       created_at: new Date().toISOString(),
     },
   ];
@@ -98,13 +107,13 @@ export default function Landing() {
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => navigate('/app')}
+                onClick={() => navigate('/dashboard')}
                 className="text-sm text-zinc-400 transition hover:text-zinc-200"
               >
-                Sign In
+                Dashboard
               </button>
               <button
-                onClick={() => navigate('/app')}
+                onClick={() => navigate('/dashboard')}
                 className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-500"
               >
                 Get Started
@@ -122,10 +131,10 @@ export default function Landing() {
             <span>AI Companies That Build Themselves</span>
           </div>
           <h1 className="text-4xl font-bold tracking-tight text-zinc-100 sm:text-6xl lg:text-7xl">
-            Your AI Company,
+            Build Your AI Company
             <br />
             <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-amber-600 bg-clip-text text-transparent">
-              Working 24/7
+              in Minutes
             </span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-400 sm:text-xl">
@@ -134,7 +143,7 @@ export default function Landing() {
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <button
-              onClick={() => navigate('/app')}
+              onClick={() => navigate('/dashboard')}
               className="group flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-8 py-4 text-base font-semibold text-white transition hover:bg-amber-500 sm:w-auto"
             >
               Start Your AI Company
@@ -147,6 +156,37 @@ export default function Landing() {
               <Play className="h-5 w-5" />
               Watch Demo
             </button>
+          </div>
+        </div>
+
+        {/* Animated Terminal Demo */}
+        <div className="mt-16">
+          <div className="mx-auto max-w-4xl overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+            <div className="flex items-center gap-2 border-b border-zinc-800 bg-zinc-900 px-4 py-3">
+              <div className="flex gap-2">
+                <div className="h-3 w-3 rounded-full bg-red-500"></div>
+                <div className="h-3 w-3 rounded-full bg-yellow-500"></div>
+                <div className="h-3 w-3 rounded-full bg-green-500"></div>
+              </div>
+              <div className="ml-4 flex items-center gap-2 text-xs text-zinc-500">
+                <Terminal className="h-3 w-3" />
+                <span>hivemind@orchestrator:~</span>
+              </div>
+            </div>
+            <div className="p-6 font-mono text-sm">
+              <div className="text-green-400">$ hivemind create TechStartup</div>
+              <div className="mt-2 text-zinc-400">→ Spawning CEO agent...</div>
+              <div className="text-zinc-400">→ Spawning CTO agent...</div>
+              <div className="text-zinc-400">→ Spawning CMO agent...</div>
+              <div className="mt-2 text-amber-400">✓ Company created: TechStartup</div>
+              <div className="mt-4 text-green-400">$ hivemind status</div>
+              <div className="mt-2 text-zinc-400">
+                <div>CEO: Planning product roadmap...</div>
+                <div>CTO: Building authentication system...</div>
+                <div>CMO: Crafting landing page copy...</div>
+                <div className="mt-2 text-amber-400">⚡ 3 agents active | 12 tasks in progress</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -163,34 +203,6 @@ export default function Landing() {
               <div className="mt-1 text-sm text-zinc-400">{stat.label}</div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="border-y border-zinc-800/50 bg-zinc-900/30 py-16 sm:py-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold text-zinc-100 sm:text-4xl">
-              Built for Speed and Revenue
-            </h2>
-            <p className="mt-4 text-lg text-zinc-400">
-              Everything you need to launch and scale AI-powered companies
-            </p>
-          </div>
-          <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {features.map((feature) => (
-              <div
-                key={feature.title}
-                className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-6 transition hover:border-zinc-700"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-950/50">
-                  <feature.icon className="h-6 w-6 text-amber-500" />
-                </div>
-                <h3 className="mt-4 text-lg font-semibold text-zinc-100">{feature.title}</h3>
-                <p className="mt-2 text-sm text-zinc-400">{feature.description}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -224,17 +236,46 @@ export default function Landing() {
                   <p className="mt-2 text-sm text-zinc-400">
                     Use OBS Studio to record:
                   </p>
-                  <ol className="mt-4 text-left text-sm text-zinc-400 space-y-2">
+                  <ol className="mt-4 space-y-2 text-left text-sm text-zinc-400">
                     <li>1. Create 'TechStartup' company with goal 'Build a SaaS landing page'</li>
                     <li>2. Show agents planning → coding → deploying</li>
                     <li>3. Navigate to dashboard and show real-time metrics</li>
                   </ol>
                 </div>
                 <p className="mt-4 text-xs text-zinc-500">
-                  Upload to Loom, then add <code className="rounded bg-zinc-800 px-2 py-0.5">VITE_LOOM_VIDEO_ID=your_video_id</code> to .env
+                  Upload to Loom, then add{' '}
+                  <code className="rounded bg-zinc-800 px-2 py-0.5">VITE_LOOM_VIDEO_ID=your_video_id</code> to .env
                 </p>
               </div>
             )}
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="border-y border-zinc-800/50 bg-zinc-900/30 py-16 sm:py-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-zinc-100 sm:text-4xl">
+              Built for Speed and Revenue
+            </h2>
+            <p className="mt-4 text-lg text-zinc-400">
+              Everything you need to launch and scale AI-powered companies
+            </p>
+          </div>
+          <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {features.map((feature) => (
+              <div
+                key={feature.title}
+                className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-6 transition hover:border-zinc-700"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-950/50">
+                  <feature.icon className="h-6 w-6 text-amber-500" />
+                </div>
+                <h3 className="mt-4 text-lg font-semibold text-zinc-100">{feature.title}</h3>
+                <p className="mt-2 text-sm text-zinc-400">{feature.description}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -263,8 +304,8 @@ export default function Landing() {
             </div>
           ) : (
             <>
-              <div className="mt-16 grid gap-8 sm:grid-cols-2">
-                {displayedTestimonials.slice(0, 4).map((testimonial: Testimonial) => (
+              <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                {displayedTestimonials.slice(0, 6).map((testimonial: Testimonial) => (
                   <div
                     key={testimonial.id || testimonial.user_name}
                     className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-8"
@@ -337,7 +378,7 @@ export default function Landing() {
               ))}
             </ul>
             <button
-              onClick={() => navigate('/app')}
+              onClick={() => navigate('/dashboard')}
               className="mt-8 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-6 py-3 font-semibold text-zinc-200 transition hover:bg-zinc-700"
             >
               Start Free
@@ -370,7 +411,7 @@ export default function Landing() {
               ))}
             </ul>
             <button
-              onClick={() => navigate('/app')}
+              onClick={() => navigate('/dashboard')}
               className="mt-8 w-full rounded-lg bg-amber-600 px-6 py-3 font-semibold text-white transition hover:bg-amber-500"
             >
               Start Free Trial
@@ -399,7 +440,7 @@ export default function Landing() {
               ))}
             </ul>
             <button
-              onClick={() => window.location.href = 'mailto:sales@hivemind.ai'}
+              onClick={() => (window.location.href = 'mailto:sales@hivemind.ai')}
               className="mt-8 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-6 py-3 font-semibold text-zinc-200 transition hover:bg-zinc-700"
             >
               Contact Sales
@@ -418,7 +459,7 @@ export default function Landing() {
             Join the future of entrepreneurship. Launch your first AI company in minutes.
           </p>
           <button
-            onClick={() => navigate('/app')}
+            onClick={() => navigate('/dashboard')}
             className="mt-10 inline-flex items-center gap-2 rounded-lg bg-amber-600 px-8 py-4 text-lg font-semibold text-white transition hover:bg-amber-500"
           >
             Start Free
