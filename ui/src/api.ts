@@ -138,10 +138,42 @@ export interface CostData {
 
 // ── Fetch helpers ──────────────────────────────────────────────────
 
+// Try live API first, fall back to static JSON snapshots (for Vercel deployment)
 async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
-  return res.json();
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) return res.json();
+    }
+  } catch {
+    // Live API unavailable
+  }
+
+  // Map API URL to static JSON file path
+  const staticUrl = mapToStaticUrl(url);
+  const staticRes = await fetch(staticUrl);
+  if (!staticRes.ok) throw new Error(`Data unavailable: ${url}`);
+  return staticRes.json();
+}
+
+function mapToStaticUrl(url: string): string {
+  // Truncate full UUIDs to 8-char prefixes (static files use prefixes as dir names)
+  const shortened = url.replace(
+    /\/api\/companies\/([0-9a-f]{8})[0-9a-f-]*/,
+    '/api/companies/$1'
+  );
+
+  if (/^\/api\/companies\/([^/]+)\/(dashboard|agents|tasks|activity)/.test(shortened)) {
+    return shortened.replace(/(\?.*)?$/, '.json');
+  }
+  if (/^\/api\/companies\/[^/]+$/.test(shortened)) {
+    return shortened + '/index.json';
+  }
+  if (shortened === '/api/companies') return '/api/companies.json';
+  if (shortened === '/api/health') return '/api/health.json';
+  if (shortened === '/api/logs') return '/api/logs.json';
+  return shortened + '.json';
 }
 
 export const api = {
@@ -182,10 +214,10 @@ export const api = {
     fetchJson<CostData>(`/api/companies/${companyId}/costs`),
 
   nudge: async (companyId: string, message: string) => {
-    const res = await fetch(`/api/companies/${companyId}/nudge`, {
+    const res = await fetch('/api/nudge', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ companyId, message }),
     });
     return res.json();
   },
