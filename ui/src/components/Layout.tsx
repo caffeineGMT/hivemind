@@ -13,6 +13,7 @@ import {
   HeartPulse,
   Building2,
   BarChart3,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Company } from '../api';
@@ -35,6 +36,7 @@ const navItems = [
   { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
   { to: '/cross-project-analytics', icon: BarChart3, label: 'Cross-Project' },
   { to: '/costs', icon: DollarSign, label: 'Costs' },
+  { to: '/settings', icon: SettingsIcon, label: 'Settings' },
 ];
 
 function statusColor(status: string) {
