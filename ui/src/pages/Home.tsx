@@ -107,6 +107,12 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-3">
               <button
+                onClick={() => navigate('/pricing')}
+                className="text-sm text-zinc-400 transition hover:text-zinc-200"
+              >
+                Pricing
+              </button>
+              <button
                 onClick={() => navigate('/dashboard')}
                 className="text-sm text-zinc-400 transition hover:text-zinc-200"
               >
@@ -358,19 +364,19 @@ export default function Home() {
         <div className="text-center">
           <h2 className="text-3xl font-bold text-zinc-100 sm:text-4xl">Simple, Transparent Pricing</h2>
           <p className="mt-4 text-lg text-zinc-400">
-            Start free, scale as you grow
+            Start at just $29/month. Scale as you grow.
           </p>
         </div>
         <div className="mt-16 grid gap-8 lg:grid-cols-3">
-          {/* Free Tier */}
+          {/* Starter Tier */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-8">
-            <h3 className="text-xl font-bold text-zinc-100">Free</h3>
+            <h3 className="text-xl font-bold text-zinc-100">Starter</h3>
             <div className="mt-4 flex items-baseline gap-1">
-              <span className="text-4xl font-bold text-zinc-100">$0</span>
+              <span className="text-4xl font-bold text-zinc-100">$29</span>
               <span className="text-zinc-400">/month</span>
             </div>
             <ul className="mt-8 space-y-4">
-              {['1 AI company', '5 agents max', 'Basic monitoring', 'Community support'].map((feature) => (
+              {['3 AI companies', '10 agents per company', 'Basic monitoring', 'Community support', '100 deployments/month'].map((feature) => (
                 <li key={feature} className="flex items-start gap-3">
                   <Check className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-500" />
                   <span className="text-sm text-zinc-300">{feature}</span>
@@ -381,7 +387,7 @@ export default function Home() {
               onClick={() => navigate('/dashboard')}
               className="mt-8 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-6 py-3 font-semibold text-zinc-200 transition hover:bg-zinc-700"
             >
-              Start Free
+              Start 14-Day Trial
             </button>
           </div>
 
@@ -392,7 +398,7 @@ export default function Home() {
             </div>
             <h3 className="text-xl font-bold text-zinc-100">Pro</h3>
             <div className="mt-4 flex items-baseline gap-1">
-              <span className="text-4xl font-bold text-zinc-100">$49</span>
+              <span className="text-4xl font-bold text-zinc-100">$99</span>
               <span className="text-zinc-400">/month</span>
             </div>
             <ul className="mt-8 space-y-4">
@@ -400,7 +406,7 @@ export default function Home() {
                 '10 AI companies',
                 'Unlimited agents',
                 'Advanced analytics',
-                'Priority support',
+                'Priority support (24h)',
                 'Custom integrations',
                 'Team collaboration',
               ].map((feature) => (
@@ -414,7 +420,7 @@ export default function Home() {
               onClick={() => navigate('/dashboard')}
               className="mt-8 w-full rounded-lg bg-amber-600 px-6 py-3 font-semibold text-white transition hover:bg-amber-500"
             >
-              Start Free Trial
+              Start 14-Day Trial
             </button>
           </div>
 
@@ -422,16 +428,17 @@ export default function Home() {
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-8">
             <h3 className="text-xl font-bold text-zinc-100">Enterprise</h3>
             <div className="mt-4 flex items-baseline gap-1">
-              <span className="text-4xl font-bold text-zinc-100">Custom</span>
+              <span className="text-4xl font-bold text-zinc-100">$299</span>
+              <span className="text-zinc-400">/month</span>
             </div>
             <ul className="mt-8 space-y-4">
               {[
                 'Unlimited companies',
-                'Dedicated infrastructure',
-                'SLA guarantees',
+                'Unlimited agents',
                 'White-label options',
-                'Custom AI models',
                 'Dedicated support',
+                'SLA guarantees',
+                'Custom AI models',
               ].map((feature) => (
                 <li key={feature} className="flex items-start gap-3">
                   <Check className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-500" />
@@ -440,12 +447,21 @@ export default function Home() {
               ))}
             </ul>
             <button
-              onClick={() => (window.location.href = 'mailto:sales@hivemind.ai')}
+              onClick={() => navigate('/dashboard')}
               className="mt-8 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-6 py-3 font-semibold text-zinc-200 transition hover:bg-zinc-700"
             >
-              Contact Sales
+              Start 14-Day Trial
             </button>
           </div>
+        </div>
+        <div className="mt-12 text-center">
+          <button
+            onClick={() => navigate('/pricing')}
+            className="inline-flex items-center gap-2 text-sm font-medium text-amber-400 transition hover:text-amber-300"
+          >
+            View Full Pricing Details
+            <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
       </section>
 

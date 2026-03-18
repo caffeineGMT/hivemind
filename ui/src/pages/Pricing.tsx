@@ -1,80 +1,76 @@
 import { useState } from 'react';
-import { Check, Zap, Users, Building, Sparkles, Shield, Clock } from 'lucide-react';
+import { Check, Zap, Users, Building, Sparkles, Shield, Clock, Brain, Github, Twitter, MessageCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const TIER_CONFIG = {
-  free: {
-    name: 'Free',
-    price: 0,
-    interval: '',
-    description: 'Perfect for trying out Hivemind',
+  starter: {
+    name: 'Starter',
+    price: 29,
+    interval: 'month',
+    description: 'Perfect for solo founders testing AI automation',
     icon: Zap,
     features: [
-      'Up to 3 AI agents',
-      'Single project',
-      '$50/month AI budget',
+      '3 AI companies',
+      '10 agents per company',
+      'Basic monitoring dashboard',
       'Community support',
-      'Basic analytics',
+      '100 deployments/month',
+      'Cost tracking & alerts',
+      'Auto-healing enabled',
     ],
-    cta: 'Current Plan',
-    disabled: true,
+    cta: 'Start 14-Day Trial',
+    popular: false,
+    disabled: false,
   },
   pro: {
     name: 'Pro',
-    price: 49,
+    price: 99,
     interval: 'month',
-    description: 'For serious builders and teams',
+    description: 'For entrepreneurs scaling multiple AI businesses',
     icon: Users,
     features: [
-      'Up to 10 AI agents',
-      '5 concurrent projects',
-      '$500/month AI budget',
-      'Priority support',
-      'Advanced analytics',
-      'Cost tracking & budgets',
-      '14-day free trial',
-    ],
-    cta: 'Start Free Trial',
-    popular: true,
-  },
-  team: {
-    name: 'Team',
-    price: 199,
-    interval: 'month',
-    description: 'For growing companies',
-    icon: Building,
-    features: [
-      'Up to 50 AI agents',
-      '20 concurrent projects',
-      '$2,000/month AI budget',
-      'Team collaboration',
-      'Advanced health monitoring',
+      '10 AI companies',
+      'Unlimited agents',
+      'Advanced analytics & insights',
+      'Priority support (24h response)',
+      'Unlimited deployments',
+      'Cross-project analytics',
+      'Team collaboration (5 seats)',
       'Custom integrations',
-      'Dedicated support',
-      '14-day free trial',
+      'API access',
     ],
-    cta: 'Start Free Trial',
+    cta: 'Start 14-Day Trial',
+    popular: true,
+    disabled: false,
   },
   enterprise: {
     name: 'Enterprise',
-    price: 999,
+    price: 299,
     interval: 'month',
-    description: 'For large organizations',
-    icon: Shield,
+    description: 'For agencies and teams managing AI portfolios',
+    icon: Building,
     features: [
+      'Unlimited AI companies',
       'Unlimited agents',
-      'Unlimited projects',
-      'Unlimited AI budget',
       'White-label options',
-      'SLA guarantees',
-      'Custom deployment',
-      '24/7 premium support',
-      'Dedicated account manager',
+      'Dedicated support manager',
+      'Unlimited deployments',
+      'Advanced security & compliance',
+      'Team collaboration (unlimited)',
+      'Custom AI models',
+      'SLA guarantees (99.9% uptime)',
+      'Dedicated infrastructure',
+      'Priority feature requests',
+      'Onboarding & training',
     ],
-    cta: 'Contact Sales',
+    cta: 'Start 14-Day Trial',
+    popular: false,
+    disabled: false,
   },
 };
 
 export default function Pricing() {
+  const navigate = useNavigate();
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -114,7 +110,41 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950">
-      {/* Header */}
+      {/* Navigation Header */}
+      <header className="border-b border-zinc-800/50 bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600">
+                <Brain className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-lg font-bold text-zinc-100">Hivemind Engine</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/')}
+                className="text-sm text-zinc-400 transition hover:text-zinc-200"
+              >
+                Home
+              </button>
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="text-sm text-zinc-400 transition hover:text-zinc-200"
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-500"
+              >
+                Get Started
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Header */}
       <div className="mx-auto max-w-7xl px-4 pt-12 pb-16 text-center">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-amber-600/20 ring-1 ring-amber-500/30">
           <Sparkles className="h-8 w-8 text-amber-500" />
@@ -135,7 +165,7 @@ export default function Pricing() {
       </div>
 
       {/* Pricing Cards */}
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 pb-20 md:grid-cols-2 lg:grid-cols-4">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 pb-20 md:grid-cols-2 lg:grid-cols-3">
         {Object.entries(TIER_CONFIG).map(([key, tier]) => {
           const Icon = tier.icon;
           const isPopular = tier.popular;
@@ -254,6 +284,52 @@ export default function Pricing() {
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-zinc-800/50 bg-zinc-950 py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600">
+                <Brain className="h-4 w-4 text-white" />
+              </div>
+              <span className="font-semibold text-zinc-100">Hivemind Engine</span>
+            </div>
+            <div className="flex items-center gap-6">
+              <a
+                href="https://github.com/hivemind-engine"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-400 transition hover:text-zinc-200"
+                aria-label="GitHub"
+              >
+                <Github className="h-5 w-5" />
+              </a>
+              <a
+                href="https://twitter.com/hivemindengine"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-400 transition hover:text-zinc-200"
+                aria-label="Twitter"
+              >
+                <Twitter className="h-5 w-5" />
+              </a>
+              <a
+                href="https://discord.gg/hivemind"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-400 transition hover:text-zinc-200"
+                aria-label="Discord"
+              >
+                <MessageCircle className="h-5 w-5" />
+              </a>
+            </div>
+            <p className="text-sm text-zinc-500">
+              &copy; 2026 Hivemind Engine. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
