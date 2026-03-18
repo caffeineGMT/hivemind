@@ -35,17 +35,31 @@ const EMAIL_CONFIG = {
 
 // Pricing tiers with early-bird discount (30% off first 3 months)
 const PRICING = {
-  pro: {
-    name: "Pro",
+  starter: {
+    name: "Starter",
     regular: 49,
     earlyBird: 34.30,
     savings: 44.10,
     features: [
-      "Up to 10 AI agents",
-      "5 concurrent projects",
-      "$500/month AI budget",
+      "Up to 5 AI agents",
+      "3 concurrent projects",
+      "$200/month AI budget",
+      "Email support",
+      "Basic analytics",
+    ],
+  },
+  pro: {
+    name: "Pro",
+    regular: 99,
+    earlyBird: 69.30,
+    savings: 89.10,
+    features: [
+      "Up to 20 AI agents",
+      "10 concurrent projects",
+      "$1,000/month AI budget",
       "Priority support",
       "Advanced analytics",
+      "Team collaboration",
     ],
   },
   team: {
@@ -55,26 +69,30 @@ const PRICING = {
     savings: 179.10,
     features: [
       "Up to 50 AI agents",
-      "20 concurrent projects",
-      "$2,000/month AI budget",
-      "Team collaboration",
-      "Advanced health monitoring",
-    ],
-  },
-  enterprise: {
-    name: "Enterprise",
-    regular: 999,
-    earlyBird: 699.30,
-    savings: 899.10,
-    features: [
-      "Unlimited agents",
       "Unlimited projects",
-      "Unlimited AI budget",
-      "White-label options",
-      "24/7 premium support",
+      "$3,000/month AI budget",
+      "Dedicated support",
+      "Advanced health monitoring",
+      "Custom integrations",
     ],
   },
 };
+
+// Testimonials from beta users
+const TESTIMONIALS = [
+  {
+    quote: "Built our MVP in 48 hours. The CEO agent broke down our vague idea into 12 concrete tasks, and the engineers just... built it. Saved us 2 weeks of work.",
+    author: "SaaS founder",
+  },
+  {
+    quote: "Cost was ~$15 for a landing page that would've taken me 4-6 hours. Worth every penny.",
+    author: "Solo developer",
+  },
+  {
+    quote: "Not perfect, but incredibly useful for prototyping. I use it to validate ideas before committing serious dev time.",
+    author: "Product manager",
+  },
+];
 
 // Create email HTML template
 function createEmailHTML(firstName) {
@@ -280,10 +298,23 @@ function createEmailHTML(firstName) {
       <p>Before we launch publicly, we want to give our beta users an exclusive opportunity:</p>
 
       <p style="font-size: 18px; font-weight: 600; color: #fbbf24; text-align: center; margin: 24px 0;">
-        Get 30% off Pro or Team for your first 3 months
+        Get 30% off any plan for your first 3 months
       </p>
 
       <div class="pricing-cards">
+        <!-- Starter Plan -->
+        <div class="pricing-card">
+          <div class="tier-name">Starter</div>
+          <div class="price-row">
+            <span class="old-price">$${PRICING.starter.regular}/mo</span>
+            <span class="new-price">$${PRICING.starter.earlyBird}/mo</span>
+          </div>
+          <div class="savings">Save $${PRICING.starter.savings} over 3 months</div>
+          <ul class="features">
+            ${PRICING.starter.features.map(f => `<li>${f}</li>`).join('')}
+          </ul>
+        </div>
+
         <!-- Pro Plan (Most Popular) -->
         <div class="pricing-card popular">
           <div class="tier-name">
@@ -314,8 +345,8 @@ function createEmailHTML(firstName) {
         </div>
       </div>
 
-      <a href="https://hivemind.dev/pricing?utm_source=email&utm_campaign=early-bird&coupon=EARLYBIRD30" class="cta-button">
-        Claim Your Discount →
+      <a href="https://hivemind.dev/pricing?utm_source=email&utm_campaign=early-bird&coupon=EARLYBETA" class="cta-button">
+        Claim Your Discount with Code: EARLYBETA →
       </a>
 
       <div class="urgency">
@@ -323,12 +354,29 @@ function createEmailHTML(firstName) {
         This early-bird pricing is only available to beta users before our public launch.
       </div>
 
+      <p><strong>What's new since beta:</strong></p>
+      <ul style="color: #d4d4d8; line-height: 1.8;">
+        <li><strong>Health Monitoring Dashboard</strong> — Real-time agent status, circuit breakers, self-healing</li>
+        <li><strong>Project Isolation</strong> — Separate workspaces, budgets, and agent limits per project</li>
+        <li><strong>Smart Checkpointing</strong> — Agents resume from last checkpoint on crashes</li>
+        <li><strong>Usage Billing</strong> — Transparent per-project cost tracking with Paddle integration</li>
+        <li><strong>Partnership Program</strong> — Affiliate system with recurring commissions</li>
+      </ul>
+
+      <p><strong>What our beta users are saying:</strong></p>
+      <div style="background-color: #27272a; border-left: 3px solid #f59e0b; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        ${TESTIMONIALS.map(t => `
+          <p style="font-style: italic; color: #d4d4d8; margin: 0 0 8px 0;">"${t.quote}"</p>
+          <p style="color: #a1a1aa; font-size: 14px; margin: 0 0 20px 0;">— ${t.author}</p>
+        `).join('')}
+      </div>
+
       <p><strong>Why upgrade now?</strong></p>
       <ul style="color: #d4d4d8; line-height: 1.8;">
-        <li>Lock in early-bird pricing before launch</li>
-        <li>Get 14-day free trial to test Pro/Team features</li>
+        <li>Lock in early-bird pricing before public launch</li>
+        <li>Get 14-day free trial to test all features</li>
         <li>Priority support and advanced analytics</li>
-        <li>Scale to 10-50 agents for serious projects</li>
+        <li>Scale to 5-50 agents for serious projects</li>
         <li>Support development of new features</li>
       </ul>
 
@@ -366,7 +414,13 @@ Thank you for being an early Hivemind Engine user. Your feedback helped us build
 
 Before we launch publicly, we want to give our beta users an exclusive opportunity:
 
-🎁 Get 30% off Pro or Team for your first 3 months
+🎁 Get 30% off any plan for your first 3 months
+
+STARTER PLAN
+- Regular price: $${PRICING.starter.regular}/month
+- Early bird price: $${PRICING.starter.earlyBird}/month
+- Save $${PRICING.starter.savings} over 3 months
+- ${PRICING.starter.features.join('\n- ')}
 
 PRO PLAN (MOST POPULAR)
 - Regular price: $${PRICING.pro.regular}/month
@@ -380,17 +434,29 @@ TEAM PLAN
 - Save $${PRICING.team.savings} over 3 months
 - ${PRICING.team.features.join('\n- ')}
 
-Claim your discount:
-https://hivemind.dev/pricing?utm_source=email&utm_campaign=early-bird&coupon=EARLYBIRD30
+Claim your discount with code EARLYBETA:
+https://hivemind.dev/pricing?utm_source=email&utm_campaign=early-bird&coupon=EARLYBETA
 
 ⏰ OFFER EXPIRES IN 7 DAYS
 This early-bird pricing is only available to beta users before our public launch.
 
+WHAT'S NEW SINCE BETA:
+• Health Monitoring Dashboard — Real-time agent status, circuit breakers, self-healing
+• Project Isolation — Separate workspaces, budgets, and agent limits per project
+• Smart Checkpointing — Agents resume from last checkpoint on crashes
+• Usage Billing — Transparent per-project cost tracking with Paddle integration
+• Partnership Program — Affiliate system with recurring commissions
+
+WHAT OUR BETA USERS ARE SAYING:
+"${TESTIMONIALS[0].quote}" — ${TESTIMONIALS[0].author}
+"${TESTIMONIALS[1].quote}" — ${TESTIMONIALS[1].author}
+"${TESTIMONIALS[2].quote}" — ${TESTIMONIALS[2].author}
+
 Why upgrade now?
-• Lock in early-bird pricing before launch
-• Get 14-day free trial to test Pro/Team features
+• Lock in early-bird pricing before public launch
+• Get 14-day free trial to test all features
 • Priority support and advanced analytics
-• Scale to 10-50 agents for serious projects
+• Scale to 5-50 agents for serious projects
 • Support development of new features
 
 Questions? Just reply to this email. We're here to help.
@@ -490,7 +556,7 @@ async function runCampaign(options = {}) {
     const mailOptions = {
       from: `"Hivemind Engine" <${EMAIL_CONFIG.auth.user}>`,
       to: testEmail,
-      subject: "🚀 Early Bird Pricing: 30% Off Pro & Team (Beta Users Only)",
+      subject: "You helped us build this. Here's 30% off for 3 months.",
       text: createEmailText("Test User"),
       html: createEmailHTML("Test User"),
     };
@@ -531,7 +597,7 @@ async function runCampaign(options = {}) {
     const mailOptions = {
       from: `"Hivemind Engine" <${EMAIL_CONFIG.auth.user}>`,
       to: account.email,
-      subject: "🚀 Early Bird Pricing: 30% Off Pro & Team (Beta Users Only)",
+      subject: "You helped us build this. Here's 30% off for 3 months.",
       text: createEmailText(firstName),
       html: createEmailHTML(firstName),
     };
