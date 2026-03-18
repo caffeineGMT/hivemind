@@ -5,6 +5,7 @@ import * as prompts from "./prompts.js";
 import { HEARTBEAT_INTERVAL_SEC, MAX_CONCURRENT_AGENTS, LOGS_DIR, CHECKPOINT_EVERY_N_TURNS } from "./config.js";
 // Stripe usage reporting removed — not needed for monitoring dashboard
 import { startHealthMonitoring, stopHealthMonitoring } from "./health-monitoring.js";
+import { log as structuredLog } from "./logger.js";
 
 function uid() { return crypto.randomUUID(); }
 
@@ -644,6 +645,14 @@ function checkRunningAgents(company) {
 function log(companyId, source, message) {
   const ts = new Date().toLocaleTimeString();
   console.log(`  [${ts}] [${source}] ${message}`);
+
+  // Also log to structured logging system
+  structuredLog({
+    level: 'info',
+    source,
+    companyId,
+    action: message
+  });
 }
 
 function printProgress(company) {
@@ -723,6 +732,7 @@ export async function startCompany(goal, opts = {}) {
 async function runHeartbeatLoop(companyId) {
   let processingComments = false;
   let sprintPlanning = false;
+  let lastCleanupDate = new Date().toDateString();
 
   return new Promise((resolve) => {
     // Start health monitoring loop (separate from heartbeat)
@@ -746,6 +756,20 @@ async function runHeartbeatLoop(companyId) {
 
       // Clean up agents whose PIDs died (e.g. after orchestrator restart)
       const cleanedUp = cleanupStaleAgents(company);
+
+      // Clean up old logs once per day (at midnight)
+      const today = new Date().toDateString();
+      if (today !== lastCleanupDate) {
+        try {
+          const deleted = db.cleanOldLogs(30);
+          if (deleted > 0) {
+            log(companyId, "CLEANUP", `Deleted ${deleted} log entries older than 30 days`);
+          }
+          lastCleanupDate = today;
+        } catch (err) {
+          log(companyId, "CLEANUP", `Log cleanup error: ${err.message}`);
+        }
+      }
 
       const completedNow = checkRunningAgents(company);
       // Always try to dispatch — picks up any backlog/todo tasks with available slots

@@ -189,64 +189,6 @@ export function createServer(port = 3100) {
     if (!company) return res.status(404).json({ error: "Not found" });
     const status = req.query.status;
     res.json(db.getTasksByCompany(company.id, status || undefined));
-  // Bulk task updates
-  app.patch("/api/tasks/bulk", requireAuth(), (req, res) => {
-    const { taskIds, updates } = req.body || {};
-    if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
-      return res.status(400).json({ error: "taskIds array required" });
-    }
-    if (!updates || typeof updates !== 'object') {
-      return res.status(400).json({ error: "updates object required" });
-    }
-
-    try {
-      for (const id of taskIds) {
-        const task = db.getTask(id);
-        if (!task) continue;
-
-        if (updates.status !== undefined) {
-          db.updateTaskStatus(id, updates.status, task.result);
-        }
-        if (updates.assignee_id !== undefined) {
-          db.assignTask(id, updates.assignee_id);
-        }
-
-        // Log activity for each task updated
-        db.logActivity({
-          companyId: task.company_id,
-          taskId: id,
-          action: 'bulk_update',
-          detail: `Updated: ${JSON.stringify(updates)}`,
-        });
-      }
-
-      res.json({ success: true, updated: taskIds.length });
-    } catch (err) {
-      console.error('[server] Bulk update error:', err);
-      res.status(500).json({ error: 'Bulk update failed' });
-    }
-  });
-
-  // Delete task
-  app.delete("/api/tasks/:id", requireAuth(), (req, res) => {
-    const task = db.getTask(req.params.id);
-    if (!task) return res.status(404).json({ error: "Task not found" });
-
-    try {
-      db.getDb().prepare('DELETE FROM tasks WHERE id = ?').run(req.params.id);
-      db.logActivity({
-        companyId: task.company_id,
-        taskId: req.params.id,
-        action: 'task_deleted',
-        detail: task.title,
-      });
-      res.json({ success: true });
-    } catch (err) {
-      console.error('[server] Delete task error:', err);
-      res.status(500).json({ error: 'Delete failed' });
-    }
-  });
-
   });
 
   app.get("/api/companies/:id/activity", requireAuth(), (req, res) => {
