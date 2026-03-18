@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   Target,
+  HeartPulse,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Company } from '../api';
@@ -26,6 +27,7 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/tasks', icon: ListTodo, label: 'Tasks' },
   { to: '/agents', icon: Users, label: 'Agents' },
+  { to: '/agent-health', icon: HeartPulse, label: 'Health' },
   { to: '/activity', icon: Activity, label: 'Activity' },
   { to: '/finance', icon: DollarSign, label: 'Finance' },
   { to: '/analytics', icon: TrendingUp, label: 'Analytics' },

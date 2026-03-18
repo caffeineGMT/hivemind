@@ -131,10 +131,43 @@ export interface CostTotals {
   total_turns: number;
 }
 
+export interface TaskCostEntry {
+  task_id: string;
+  sessions: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cache_read_tokens: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  total_duration_ms: number;
+  total_turns: number;
+}
+
+export interface BudgetConfig {
+  id: number;
+  company_id: string;
+  monthly_budget: number;
+  alert_threshold: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CostData {
   summary: CostSummaryEntry[];
   totals: CostTotals;
   recent: CostEntry[];
+  taskCosts: TaskCostEntry[];
+  budget: BudgetConfig | null;
+  monthlySpend: number;
+}
+
+export interface CostByDateEntry {
+  date: string;
+  sessions: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_tokens: number;
+  total_cost_usd: number;
 }
 
 export interface SubscriptionStatus {
@@ -362,6 +395,20 @@ export const api = {
 
   getCosts: (companyId: string) =>
     fetchJson<CostData>(`/api/companies/${companyId}/costs`),
+
+  setCostBudget: async (companyId: string, monthlyBudget: number, alertThreshold: number) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch(`/api/companies/${companyId}/budget`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ monthlyBudget, alertThreshold }),
+    });
+    return res.json();
+  },
+
+  getCostsByDateRange: (companyId: string, startDate: string, endDate: string) =>
+    fetchJson<CostByDateEntry[]>(`/api/companies/${companyId}/costs/range?startDate=${startDate}&endDate=${endDate}`),
 
   nudge: async (companyId: string, message: string) => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
