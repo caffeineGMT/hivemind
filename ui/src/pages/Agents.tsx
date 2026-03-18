@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, Agent } from '../api';
+import { useState, useEffect } from 'react';
+import { api, Agent, wsClient } from '../api';
 import AgentCard from '../components/AgentCard';
 import { useSwipeNavigation } from '../hooks/useSwipeNavigation';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
@@ -8,6 +9,7 @@ import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
 export default function Agents({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
   const swipeHandlers = useSwipeNavigation();
+  const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
 
   const { isPulling, isRefreshing, pullDistance } = usePullToRefresh({
     onRefresh: async () => {
@@ -15,10 +17,19 @@ export default function Agents({ companyId }: { companyId: string }) {
     },
   });
 
+  // WebSocket status listener
+  useEffect(() => {
+    const statusListener = (status: 'connecting' | 'connected' | 'disconnected') => {
+      setWsStatus(status);
+    };
+
+    wsClient.addStatusListener(statusListener);
+    return () => wsClient.removeStatusListener(statusListener);
+  }, []);
+
   const { data: agents, isLoading } = useQuery({
     queryKey: ['agents', companyId],
     queryFn: () => api.getAgents(companyId),
-    refetchInterval: 3000,
   });
 
   if (isLoading || !agents) {

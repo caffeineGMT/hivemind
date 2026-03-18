@@ -282,18 +282,6 @@ export function createServer(port = 3100) {
     res.json(incidents);
   });
 
-  app.get("/api/companies/:id/incident-timeline", (req, res) => {
-    const company = findCompany(req.params.id);
-    if (!company) return res.status(404).json({ error: "Not found" });
-    const limit = parseInt(req.query.limit || "100", 10);
-    const timeline = db.getIncidentTimeline(company.id, limit);
-    const metrics = db.getIncidentMetrics(company.id);
-    res.json({
-      timeline,
-      metrics,
-    });
-  });
-
   app.get("/api/agents/:id/incidents", (req, res) => {
     const limit = parseInt(req.query.limit || "20", 10);
     const incidents = db.getIncidentsByAgent(req.params.id, limit);

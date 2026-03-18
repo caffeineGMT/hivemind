@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-do
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api, Company } from './api';
+import { wsClient } from './websocket';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
@@ -17,9 +18,7 @@ import AgentHealth from './pages/AgentHealth';
 import Companies from './pages/Companies';
 import CrossProjectAnalytics from './pages/CrossProjectAnalytics';
 import Settings from './pages/Settings';
-import Pricing from './pages/Pricing';
 import Roadmap from './pages/Roadmap';
-import Onboarding from './components/Onboarding';
 
 // Helper to create URL-safe slugs from company names
 function slugify(name: string): string {
@@ -39,82 +38,84 @@ function CompanyRoutes() {
   const { companySlug } = useParams<{ companySlug: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
 
   const { data: companies, isLoading, error } = useQuery({
     queryKey: ['companies'],
     queryFn: api.getCompanies,
   });
 
-  // Check onboarding status on first load
+  // WebSocket connection and real-time updates
   useEffect(() => {
-    const checkOnboarding = async () => {
-      try {
-        const status = await api.getOnboardingStatus();
-        if (!status.onboarding_completed && (!companies || companies.length === 0)) {
-          setShowOnboarding(true);
-          // Track onboarding started
-          await api.markOnboardingStarted();
-        }
-        setOnboardingChecked(true);
-      } catch (error) {
-        console.error('Failed to check onboarding status:', error);
-        setOnboardingChecked(true);
+    // Connect WebSocket on mount
+    wsClient.connect();
+
+    // Handle incoming WebSocket events
+    const handleMessage = (event: string, data: any) => {
+      console.log('[ws] Event received:', event, data);
+
+      // Invalidate relevant queries based on event type
+      switch (event) {
+        case 'agent_status_changed':
+          queryClient.invalidateQueries({ queryKey: ['agents'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          queryClient.invalidateQueries({ queryKey: ['agent-health'] });
+          break;
+
+        case 'task_updated':
+        case 'task_created':
+        case 'task_assigned':
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          break;
+
+        case 'cost_logged':
+          queryClient.invalidateQueries({ queryKey: ['costs'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          break;
+
+        case 'comment_added':
+          if (data?.taskId) {
+            queryClient.invalidateQueries({ queryKey: ['task', data.taskId] });
+          }
+          queryClient.invalidateQueries({ queryKey: ['activity'] });
+          break;
+
+        case 'activity_logged':
+        case 'nudge_received':
+          queryClient.invalidateQueries({ queryKey: ['activity'] });
+          break;
+
+        case 'config_updated':
+        case 'project_archived':
+        case 'project_deleted':
+          queryClient.invalidateQueries({ queryKey: ['companies'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          break;
+
+        default:
+          // For any other event, invalidate dashboard as a safe fallback
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       }
     };
 
-    if (!onboardingChecked) {
-      checkOnboarding();
-    }
-  }, [companies, onboardingChecked]);
+    wsClient.addMessageHandler(handleMessage);
+
+    return () => {
+      wsClient.removeMessageHandler(handleMessage);
+    };
+  }, [queryClient]);
 
   // Redirect to first company if no slug provided
   useEffect(() => {
-    if (!companySlug && companies && companies.length > 0 && !showOnboarding) {
+    if (!companySlug && companies && companies.length > 0) {
       const sorted = [...companies].sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       navigate(`/${slugify(sorted[0].name)}`, { replace: true });
     }
-  }, [companySlug, companies, navigate, showOnboarding]);
+  }, [companySlug, companies, navigate]);
 
-  const handleOnboardingComplete = async (companyData: { name: string; goal: string }) => {
-    try {
-      // Create the company
-      const newCompany = await api.createCompany(companyData);
-
-      // Mark onboarding as completed
-      await api.markOnboardingCompleted();
-
-      // Refresh companies list
-      await queryClient.invalidateQueries({ queryKey: ['companies'] });
-
-      // Close onboarding (will auto-navigate to new company)
-      setShowOnboarding(false);
-
-      // Navigate to the new company
-      if (newCompany && newCompany.name) {
-        navigate(`/${slugify(newCompany.name)}`, { replace: true });
-      }
-    } catch (error) {
-      console.error('Failed to create company:', error);
-      throw error; // Re-throw to let onboarding component handle it
-    }
-  };
-
-  const handleOnboardingSkip = async () => {
-    try {
-      // Mark onboarding as skipped
-      await api.markOnboardingSkipped();
-      setShowOnboarding(false);
-    } catch (error) {
-      console.error('Failed to skip onboarding:', error);
-      setShowOnboarding(false);
-    }
-  };
-
-  if (isLoading || !onboardingChecked) {
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-zinc-950">
         <div className="flex flex-col items-center gap-3">
@@ -131,15 +132,6 @@ function CompanyRoutes() {
         <div className="rounded-lg border border-red-900/50 bg-red-950/20 px-6 py-4 text-red-400">
           Failed to connect to API server. Is it running on port 3100?
         </div>
-      </div>
-    );
-  }
-
-  // Show onboarding if no companies and onboarding not completed
-  if (showOnboarding) {
-    return (
-      <div className="h-screen bg-zinc-950">
-        <Onboarding onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
       </div>
     );
   }
@@ -196,7 +188,6 @@ function CompanyRoutes() {
         <Route path="logs-view" element={<Logs />} />
         <Route path="roadmap" element={<Roadmap />} />
         <Route path="settings" element={<Settings companyId={selectedCompany.id} />} />
-        <Route path="pricing" element={<Pricing />} />
         <Route path="tasks/:taskId" element={<TaskDetail />} />
         <Route path="logs/:agentName" element={<AgentLog />} />
         <Route path="*" element={<Navigate to={`/${slugify(selectedCompany.name)}`} replace />} />

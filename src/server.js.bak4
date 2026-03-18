@@ -9,10 +9,6 @@ import fs from "node:fs";
 import { WebSocketServer } from "ws";
 import * as projectConfig from "./project-config.js";
 import crypto from "node:crypto";
-import * as usageTracking from "./usage-tracking.js";
-import os from "node:os";
-import partnershipRoutes from "./partnerships/api-routes.js";
-import * as promoCodes from "./promo-codes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -83,8 +79,6 @@ export function createServer(port = 3100) {
     next();
   });
 
-  // Mount partnership routes
-  app.use(partnershipRoutes);
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", version: "0.1.0" });

@@ -2,6 +2,12 @@ import Database from "better-sqlite3";
 import { DB_PATH, ensureDirs } from "./config.js";
 
 let _db;
+let globalBroadcast = null;
+
+// Allow server to register broadcast function
+export function setBroadcastFunction(broadcastFn) {
+  globalBroadcast = broadcastFn;
+}
 
 export function getDb() {
   if (_db) return _db;
@@ -46,40 +52,6 @@ function migrate(db) {
     }
   } catch {}
 
-
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS accounts (
-      id TEXT PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      tier TEXT NOT NULL DEFAULT 'free',
-      tier_limits TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email);
-  `);
-
-  // Add Paddle subscription columns to accounts
-  try {
-    const acctCols = db.prepare("PRAGMA table_info(accounts)").all();
-    if (acctCols.length > 0 && !acctCols.find(c => c.name === "subscription_id")) {
-      db.exec("ALTER TABLE accounts ADD COLUMN subscription_id TEXT");
-    }
-    if (acctCols.length > 0 && !acctCols.find(c => c.name === "subscription_status")) {
-      db.exec("ALTER TABLE accounts ADD COLUMN subscription_status TEXT DEFAULT 'none'");
-    }
-    if (acctCols.length > 0 && !acctCols.find(c => c.name === "paddle_customer_id")) {
-      db.exec("ALTER TABLE accounts ADD COLUMN paddle_customer_id TEXT");
-    }
-    if (acctCols.length > 0 && !acctCols.find(c => c.name === "monthly_agent_hours_included")) {
-      db.exec("ALTER TABLE accounts ADD COLUMN monthly_agent_hours_included REAL");
-    }
-    if (acctCols.length > 0 && !acctCols.find(c => c.name === "monthly_api_spend_included")) {
-      db.exec("ALTER TABLE accounts ADD COLUMN monthly_api_spend_included REAL");
-    }
-  } catch {}
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS companies (
@@ -377,6 +349,12 @@ export function updateAgentStatus(id, status, extra = {}) {
   if (extra.pid !== undefined) { sets.push("pid = ?"); vals.push(extra.pid); }
   vals.push(id);
   db.prepare(`UPDATE agents SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
+
+  // Get agent info for broadcast
+  const agent = getAgent(id);
+  if (agent && globalBroadcast) {
+    globalBroadcast('agent_status_changed', { agentId: id, status, companyId: agent.company_id });
+  }
 }
 
 export function createTask({ id, companyId, parentId, title, description, priority, assigneeId, createdById }) {
@@ -400,10 +378,22 @@ export function getTasksByAssignee(assigneeId, status) {
 export function updateTaskStatus(id, status, result) {
   const db = getDb();
   db.prepare("UPDATE tasks SET status = ?, result = ?, updated_at = datetime('now') WHERE id = ?").run(status, result, id);
+
+  // Get task info for broadcast
+  const task = getTask(id);
+  if (task && globalBroadcast) {
+    globalBroadcast('task_updated', { taskId: id, status, companyId: task.company_id });
+  }
 }
 
 export function assignTask(taskId, agentId) {
   getDb().prepare("UPDATE tasks SET assignee_id = ?, status = 'in_progress', updated_at = datetime('now') WHERE id = ?").run(agentId, taskId);
+
+  // Get task info for broadcast
+  const task = getTask(taskId);
+  if (task && globalBroadcast) {
+    globalBroadcast('task_updated', { taskId, status: 'in_progress', assigneeId: agentId, companyId: task.company_id });
+  }
 }
 
 export function logActivity({ companyId, agentId, taskId, action, detail }) {
@@ -450,6 +440,11 @@ export function logCost({ companyId, agentName, taskId, inputTokens, outputToken
     `INSERT INTO cost_log (company_id, agent_name, task_id, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, total_tokens, cost_usd, duration_ms, num_turns, model)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(companyId, agentName, taskId || null, inputTokens || 0, outputTokens || 0, cacheReadTokens || 0, cacheWriteTokens || 0, totalTokens || 0, costUsd || 0, durationMs || 0, numTurns || 0, model || null);
+
+  // Broadcast cost update
+  if (globalBroadcast) {
+    globalBroadcast('cost_updated', { companyId, agentName, costUsd, totalTokens });
+  }
 }
 
 export function getCostsByCompany(companyId) {
@@ -823,6 +818,80 @@ export function getIncidentsByAgent(agentId, limit = 20) {
   ).all(agentId, limit);
 }
 
+export function getIncidentTimeline(companyId, limit = 50) {
+  // Get incidents with enriched data including time-to-recovery
+  const incidents = getDb().prepare(`
+    SELECT
+      i.*,
+      a.name as agent_name,
+      a.role as agent_role,
+      CASE
+        WHEN i.recovery_action IS NOT NULL THEN
+          COALESCE(
+            (SELECT (julianday(created_at) - julianday(i.created_at)) * 24 * 60
+             FROM activity_log
+             WHERE company_id = i.company_id
+               AND agent_id = i.agent_id
+               AND action IN ('task_assigned', 'agent_started')
+               AND created_at > i.created_at
+             ORDER BY created_at ASC
+             LIMIT 1),
+            0
+          )
+        ELSE NULL
+      END as recovery_time_minutes
+    FROM incidents i
+    LEFT JOIN agents a ON i.agent_id = a.id
+    WHERE i.company_id = ?
+    ORDER BY i.created_at DESC
+    LIMIT ?
+  `).all(companyId, limit);
+
+  return incidents;
+}
+
+export function getIncidentMetrics(companyId) {
+  const db = getDb();
+
+  // Total incidents by type
+  const byType = db.prepare(`
+    SELECT incident_type, COUNT(*) as count
+    FROM incidents
+    WHERE company_id = ?
+    GROUP BY incident_type
+  `).all(companyId);
+
+  // Incidents with successful recovery
+  const withRecovery = db.prepare(`
+    SELECT COUNT(*) as count
+    FROM incidents
+    WHERE company_id = ? AND recovery_action IS NOT NULL
+  `).get(companyId);
+
+  // Average time to recovery (in minutes)
+  const avgRecovery = db.prepare(`
+    SELECT AVG(recovery_time) as avg_minutes
+    FROM (
+      SELECT
+        (julianday(al.created_at) - julianday(i.created_at)) * 24 * 60 as recovery_time
+      FROM incidents i
+      JOIN activity_log al ON al.company_id = i.company_id AND al.agent_id = i.agent_id
+      WHERE i.company_id = ?
+        AND i.recovery_action IS NOT NULL
+        AND al.action IN ('task_assigned', 'agent_started')
+        AND al.created_at > i.created_at
+        AND al.created_at < datetime(i.created_at, '+1 hour')
+    )
+  `).get(companyId);
+
+  return {
+    by_type: byType,
+    total_incidents: byType.reduce((sum, t) => sum + t.count, 0),
+    with_recovery: withRecovery?.count || 0,
+    avg_recovery_minutes: avgRecovery?.avg_minutes || 0,
+  };
+}
+
 // ── Retry logs (for API failure tracking) ───────────────────────────────────
 
 export function logRetry({ taskId, agentName, attempt, errorType, errorMessage }) {
@@ -1134,3 +1203,6 @@ export function getAccountUsageHistory(accountId, startDate, endDate) {
     ORDER BY date DESC
   `).all(accountId, startDate, endDate);
 }
+
+// Alias for orchestrator compatibility
+export const trackEvent = logAnalyticsEvent;

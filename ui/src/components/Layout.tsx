@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Company } from '../api';
+import WebSocketStatus from './WebSocketStatus';
 
 interface LayoutProps {
   companies: Company[];
@@ -148,7 +149,8 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, co
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-zinc-800/60 px-4 py-3">
+      <div className="border-t border-zinc-800/60 px-4 py-3 space-y-2">
+        <WebSocketStatus />
         <p className="truncate text-[11px] text-zinc-600" title={selectedCompany.goal}>
           Goal: {selectedCompany.goal}
         </p>
@@ -180,7 +182,7 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, co
           <Hexagon className="h-5 w-5 text-amber-500" strokeWidth={1.5} />
           <span className="text-sm font-semibold text-zinc-100">{selectedCompany.name}</span>
         </div>
-        <div className="w-9" /> {/* Spacer for centering */}
+        <WebSocketStatus />
       </div>
 
       {/* Mobile sidebar overlay */}

@@ -9,9 +9,6 @@ import fs from "node:fs";
 import { WebSocketServer } from "ws";
 import * as projectConfig from "./project-config.js";
 import crypto from "node:crypto";
-import * as usageTracking from "./usage-tracking.js";
-import os from "node:os";
-import partnershipRoutes from "./partnerships/api-routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -67,6 +64,9 @@ export function createServer(port = 3100) {
     });
   }
 
+  // Register broadcast function with db module for real-time updates
+  db.setBroadcastFunction(broadcast);
+
   app.locals.broadcast = broadcast;
   app.use(express.json());
   const uiDist = path.join(__dirname, "../ui/dist");
@@ -79,8 +79,6 @@ export function createServer(port = 3100) {
     next();
   });
 
-  // Mount partnership routes
-  app.use(partnershipRoutes);
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", version: "0.1.0" });
@@ -278,6 +276,18 @@ export function createServer(port = 3100) {
     res.json(incidents);
   });
 
+  app.get("/api/companies/:id/incident-timeline", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+    const limit = parseInt(req.query.limit || "100", 10);
+    const timeline = db.getIncidentTimeline(company.id, limit);
+    const metrics = db.getIncidentMetrics(company.id);
+    res.json({
+      timeline,
+      metrics,
+    });
+  });
+
   app.get("/api/agents/:id/incidents", (req, res) => {
     const limit = parseInt(req.query.limit || "20", 10);
     const incidents = db.getIncidentsByAgent(req.params.id, limit);
@@ -395,6 +405,108 @@ export function createServer(port = 3100) {
         recent: retries.slice(0, 20),
       },
     });
+  });
+
+  // Circuit breaker status
+  app.get("/api/circuit-breaker/status", async (req, res) => {
+    try {
+      const { circuitBreaker } = await import("./circuit-breaker.js");
+      const status = circuitBreaker.getStatus();
+
+      res.json({
+        state: status.state,
+        consecutive_failures: status.consecutiveFailures,
+        paused_until: status.pausedUntil,
+        can_attempt: status.canAttempt,
+        paused_seconds_remaining: status.pausedUntil ? Math.max(0, Math.floor((status.pausedUntil - Date.now()) / 1000)) : 0,
+      });
+    } catch (err) {
+      console.error("[circuit-breaker] Error fetching status:", err);
+      res.status(500).json({ error: "Failed to fetch circuit breaker status" });
+    }
+  });
+
+  // Reset circuit breaker
+  app.post("/api/circuit-breaker/reset", async (req, res) => {
+    try {
+      const { circuitBreaker } = await import("./circuit-breaker.js");
+      circuitBreaker.reset();
+
+      db.logActivity({
+        companyId: req.body.companyId || null,
+        action: "circuit_breaker_reset",
+        detail: "Circuit breaker manually reset by user",
+      });
+
+      req.app.locals.broadcast('circuit_breaker_reset', { timestamp: new Date().toISOString() });
+
+      res.json({ success: true, message: "Circuit breaker reset to CLOSED state" });
+    } catch (err) {
+      console.error("[circuit-breaker] Error resetting:", err);
+      res.status(500).json({ error: "Failed to reset circuit breaker" });
+    }
+  });
+
+  // Manual agent restart
+  app.post("/api/agents/:id/restart", async (req, res) => {
+    try {
+      const agent = db.getAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+      // Kill existing process if running
+      if (agent.pid) {
+        try {
+          process.kill(agent.pid, "SIGTERM");
+          console.log(`[restart] Killed agent ${agent.name} (PID ${agent.pid})`);
+        } catch (err) {
+          console.log(`[restart] Agent ${agent.name} process already dead`);
+        }
+      }
+
+      // Reset agent status
+      db.updateAgentStatus(agent.id, "idle");
+
+      // Clear any in-progress tasks
+      const currentTask = db.getDb().prepare(
+        "SELECT * FROM tasks WHERE assignee_id = ? AND status = 'in_progress'"
+      ).get(agent.id);
+
+      if (currentTask) {
+        db.updateTaskStatus(currentTask.id, "todo");
+        db.assignTask(currentTask.id, null);
+      }
+
+      // Log restart
+      db.logActivity({
+        companyId: agent.company_id,
+        agentId: agent.id,
+        action: "manual_restart",
+        detail: `Agent ${agent.name} manually restarted by user`,
+      });
+
+      db.logIncident({
+        companyId: agent.company_id,
+        agentId: agent.id,
+        taskId: currentTask?.id || null,
+        incidentType: "manual_restart",
+        description: `Agent ${agent.name} manually restarted by user`,
+        recoveryAction: "Manual restart initiated",
+      });
+
+      req.app.locals.broadcast('agent_restarted', { agentId: agent.id, agentName: agent.name });
+
+      // Trigger resume to pick up work again
+      triggerResume(agent.company_id);
+
+      res.json({
+        success: true,
+        message: `Agent ${agent.name} restarted successfully`,
+        agent: { ...agent, status: "idle", pid: null }
+      });
+    } catch (err) {
+      console.error("[restart] Error restarting agent:", err);
+      res.status(500).json({ error: "Failed to restart agent" });
+    }
   });
 
 
@@ -663,181 +775,87 @@ export function createServer(port = 3100) {
       res.status(500).json({ error: 'Failed to fetch analytics data' });
     }
 
-  // ── Usage-based billing API ──────────────────────────────────────────────
 
-  app.get("/api/accounts/:accountId/usage", (req, res) => {
-    try {
-      const accountId = req.params.accountId;
-      const account = db.getAccount(accountId);
-      
-      if (!account) {
-        return res.status(404).json({ error: "Account not found" });
       }
 
-      const overages = usageTracking.getOverages(accountId);
-
-      if (!overages) {
-        return res.status(500).json({ error: "Failed to calculate usage" });
-      }
-
-      res.json({
-        account_id: accountId,
-        tier: account.tier,
-        agent_hours: overages.agent_hours,
-        api_spend: overages.api_spend,
-        estimated_bill: overages.estimated_bill,
-        total_overage_charge: overages.total_overage_charge,
-      });
+      const validation = promoCodes.validatePromoCode(code);
+      res.json(validation);
     } catch (err) {
-      console.error("[usage] Error fetching usage:", err);
-      res.status(500).json({ error: "Failed to fetch usage data" });
+      console.error("[promo] Error validating code:", err);
+      res.status(500).json({ error: "Failed to validate promo code" });
     }
   });
 
-  app.get("/api/accounts/:accountId/usage/export", (req, res) => {
+  app.post("/api/promo/apply", (req, res) => {
     try {
-      const accountId = req.params.accountId;
-      const { startDate, endDate } = req.query;
-      
-      if (!startDate || !endDate) {
-        return res.status(400).json({ error: "startDate and endDate required (YYYY-MM-DD format)" });
-      }
+      const { accountId, code, plan } = req.body || {};
 
-      const account = db.getAccount(accountId);
-      if (!account) {
-        return res.status(404).json({ error: "Account not found" });
-      }
-
-      const csv = usageTracking.generateUsageExportCSV(accountId, startDate, endDate);
-
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="usage-${accountId}-${startDate}-to-${endDate}.csv"`);
-      res.send(csv);
-    } catch (err) {
-      console.error("[usage] Error exporting usage:", err);
-      res.status(500).json({ error: "Failed to export usage data" });
-    }
-  });
-
-  app.post("/api/accounts/:accountId/quotas", (req, res) => {
-    try {
-      const accountId = req.params.accountId;
-      const { monthlyAgentHours, monthlyApiSpend } = req.body || {};
-
-      const account = db.getAccount(accountId);
-      if (!account) {
-        return res.status(404).json({ error: "Account not found" });
-      }
-
-      db.setAccountQuotas(accountId, {
-        monthlyAgentHours,
-        monthlyApiSpend,
-      });
-
-      res.json({ success: true });
-    } catch (err) {
-      console.error("[usage] Error setting quotas:", err);
-      res.status(500).json({ error: "Failed to set quotas" });
-    }
-  });
-  });
-
-
-  // ── Paddle Payment Endpoints ────────────────────────────────────────
-
-  // Get pricing tiers
-  app.get("/api/pricing/tiers", (req, res) => {
-    res.json(TIER_LIMITS);
-  });
-
-  // Create checkout link for a tier
-  app.post("/api/paddle/checkout", requireAuth, async (req, res) => {
-    const { tier } = req.body || {};
-
-    if (!["pro", "team", "enterprise"].includes(tier)) {
-      return res.status(400).json({ error: "Invalid tier. Must be 'pro', 'team', or 'enterprise'." });
-    }
-
-    const accountId = req.user.id;
-
-    try {
-      const checkoutUrl = await createCheckoutLink(accountId, tier);
-      res.json({ success: true, checkoutUrl });
-    } catch (error) {
-      console.error("[paddle] Checkout error:", error);
-      res.status(500).json({ error: "Failed to create checkout link" });
-    }
-  });
-
-  // Handle Paddle webhooks
-  app.post("/api/paddle/webhook", express.raw({ type: "application/json" }), (req, res) => {
-    try {
-      const signature = req.headers["paddle-signature"];
-      const payload = JSON.parse(req.body.toString());
-
-      const result = handleWebhook(payload, signature);
-
-      // Update account tier based on webhook event
-      if (result.action === "activate" || result.action === "update") {
-        db.updateAccountTier(result.accountId, result.tier, result.subscriptionId, result.status);
-
-        if (result.action === "activate") {
-          db.createSubscription({
-            accountId: result.accountId,
-            paddleSubscriptionId: result.subscriptionId,
-            paddleCustomerId: payload.data.customer_id,
-            tier: result.tier,
-            status: result.status,
-            trialEndsAt: result.trialEndsAt,
-          });
-        }
-      } else if (result.action === "downgrade") {
-        db.updateAccountTier(result.accountId, "free", null, "canceled");
-        db.updateSubscriptionStatus(result.subscriptionId, "canceled", new Date().toISOString());
-      } else if (result.action === "trial_started") {
-        db.updateAccountTier(result.accountId, result.tier, result.subscriptionId, "trialing");
-        db.createSubscription({
-          accountId: result.accountId,
-          paddleSubscriptionId: result.subscriptionId,
-          paddleCustomerId: payload.data.customer_id,
-          tier: result.tier,
-          status: "trialing",
-          trialEndsAt: result.trialEndsAt,
+      if (!accountId || !code || !plan) {
+        return res.status(400).json({
+          error: "accountId, code, and plan required"
         });
       }
 
-      res.json({ success: true, result });
-    } catch (error) {
-      console.error("[paddle] Webhook error:", error);
-      res.status(400).json({ error: error.message });
+      const result = promoCodes.applyPromoCode(accountId, code, plan);
+
+      if (result.success) {
+        // Track analytics event
+        db.logAnalyticsEvent({
+          event: 'promo_code_applied',
+          properties: {
+            code,
+            plan,
+            discount: result.discount,
+          },
+          userId: accountId,
+        });
+      }
+
+      res.json(result);
+    } catch (err) {
+      console.error("[promo] Error applying code:", err);
+      res.status(500).json({ error: "Failed to apply promo code" });
     }
   });
 
-  // Check tier limits
-  app.get("/api/tier/check", requireAuth, (req, res) => {
-    const { action } = req.query;
-    const account = db.getAccount(req.user.id);
+  app.get("/api/promo/stats/:code", (req, res) => {
+    try {
+      const { code } = req.params;
+      const stats = promoCodes.getPromoCodeStats(code);
 
-    if (!account) {
-      return res.status(404).json({ error: "Account not found" });
+      if (!stats) {
+        return res.status(404).json({ error: "Promo code not found" });
+      }
+
+      res.json(stats);
+    } catch (err) {
+      console.error("[promo] Error fetching stats:", err);
+      res.status(500).json({ error: "Failed to fetch promo stats" });
     }
-
-    // Count current resources
-    const companies = db.listCompanies().filter(c => c.account_id === req.user.id);
-    let currentCount = 0;
-
-    if (action === "create_project") {
-      currentCount = companies.length;
-    } else if (action === "create_agent") {
-      currentCount = companies.reduce((sum, c) => {
-        const agents = db.getAgentsByCompany(c.id);
-        return sum + agents.length;
-      }, 0);
-    }
-
-    const check = checkTierLimit(account.tier, action, currentCount);
-    res.json(check);
   });
+
+  app.get("/api/promo/analytics", (req, res) => {
+    try {
+      const analytics = promoCodes.getPromoAnalytics();
+      res.json(analytics);
+    } catch (err) {
+      console.error("[promo] Error fetching analytics:", err);
+      res.status(500).json({ error: "Failed to fetch promo analytics" });
+    }
+  });
+
+  app.get("/api/accounts/:accountId/promos", (req, res) => {
+    try {
+      const { accountId } = req.params;
+      const redemptions = db.getUserPromoRedemptions(accountId);
+      res.json(redemptions);
+    } catch (err) {
+      console.error("[promo] Error fetching user promos:", err);
+      res.status(500).json({ error: "Failed to fetch user promo codes" });
+    }
+  });
+  });
+
 
   if (fs.existsSync(uiDist)) {
     app.use(express.static(uiDist, { index: false }));

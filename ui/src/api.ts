@@ -549,27 +549,51 @@ export function setupWebSocket(queryClient: QueryClient) {
   wsClient.connect();
 
   // Handle WebSocket messages and invalidate queries
-  wsClient.addMessageHandler((event, _data) => {
+  wsClient.addMessageHandler((event, data) => {
     if (!queryClientInstance) return;
 
-    console.log('[ws] Received event:', event);
+    console.log('[ws] Received event:', event, data);
 
     // Invalidate relevant queries based on event type
     switch (event) {
       case 'comment_added':
       case 'nudge_received':
+        // Invalidate activity and dashboard
+        queryClientInstance.invalidateQueries({ queryKey: ['activity'] });
+        queryClientInstance.invalidateQueries({ queryKey: ['dashboard'] });
+        break;
+
       case 'activity_logged':
+        // Just invalidate activity feed
+        queryClientInstance.invalidateQueries({ queryKey: ['activity'] });
+        break;
+
       case 'task_updated':
-      case 'agent_status_changed':
-        // Invalidate all dashboard-related queries
+        // Invalidate tasks and dashboard metrics
+        queryClientInstance.invalidateQueries({ queryKey: ['tasks'] });
         queryClientInstance.invalidateQueries({ queryKey: ['dashboard'] });
         queryClientInstance.invalidateQueries({ queryKey: ['activity'] });
-        queryClientInstance.invalidateQueries({ queryKey: ['tasks'] });
+        break;
+
+      case 'agent_status_changed':
+        // Invalidate agents and dashboard metrics
         queryClientInstance.invalidateQueries({ queryKey: ['agents'] });
+        queryClientInstance.invalidateQueries({ queryKey: ['dashboard'] });
+        queryClientInstance.invalidateQueries({ queryKey: ['agent-health'] });
         break;
 
       case 'cost_updated':
+        // Invalidate costs and dashboard (affects metrics)
         queryClientInstance.invalidateQueries({ queryKey: ['costs'] });
+        queryClientInstance.invalidateQueries({ queryKey: ['dashboard'] });
+        break;
+
+      case 'config_updated':
+      case 'project_archived':
+      case 'project_deleted':
+        // Major changes - invalidate everything
+        queryClientInstance.invalidateQueries({ queryKey: ['dashboard'] });
+        queryClientInstance.invalidateQueries({ queryKey: ['companies'] });
         break;
 
       default:

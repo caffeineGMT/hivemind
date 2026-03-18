@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import ReactFlow, { Controls, Background, Node, Edge, Position } from 'reactflow';
-import 'reactflow/dist/style.css';
+import { useNavigate } from 'react-router-dom';
 import { api, Task } from '../api';
 import { format, parseISO } from 'date-fns';
 import { CheckSquare, Square, Trash2, Download, Upload, Network, List, Calendar, Filter } from 'lucide-react';
 import TaskRow from '../components/TaskRow';
+import TaskQueueGraph from '../components/TaskQueueGraph';
 
 const STATUS_FILTERS = ['all', 'backlog', 'todo', 'in_progress', 'done', 'blocked'] as const;
 const PRIORITY_FILTERS = ['all', 'urgent', 'high', 'medium', 'low'] as const;
@@ -25,6 +25,7 @@ function formatLabel(s: string) {
 
 export default function Tasks({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Load filters from localStorage on mount
   const [filters, setFilters] = useState<Filters>(() => {
