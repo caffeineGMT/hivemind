@@ -21,7 +21,7 @@ interface DeploymentStatusProps {
 export function DeploymentStatus({ companyId }: DeploymentStatusProps) {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [rolling Back, setRollingBack] = useState(false);
+  const [rollingBack, setRollingBack] = useState(false);
   const [rollbackReason, setRollbackReason] = useState('');
   const [showRollbackDialog, setShowRollbackDialog] = useState(false);
 

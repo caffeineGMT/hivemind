@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { SignIn, SignUp, useAuth, useUser } from '@clerk/react';
 import { api, setAuthToken, Company } from './api';
 import Layout from './components/Layout';
+import Onboarding from './components/Onboarding';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
@@ -15,6 +16,8 @@ import Finance from './pages/Finance';
 import Analytics from './pages/Analytics';
 import Billing from './pages/Billing';
 import Costs from './pages/Costs';
+import Pricing from './pages/Pricing';
+import Logs from './pages/Logs';
 import { trackPageView } from './tracking';
 
 function SignInPage() {
@@ -146,6 +149,8 @@ function AppRoutes() {
         <Route path="/analytics" element={<Analytics companyId={selectedCompany.id} />} />
         <Route path="/billing" element={<Billing companyId={selectedCompany.id} />} />
         <Route path="/costs" element={<Costs companyId={selectedCompany.id} />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/logs-view" element={<Logs />} />
         <Route path="/tasks/:taskId" element={<TaskDetail />} />
         <Route path="/logs/:agentName" element={<AgentLog />} />
         <Route path="*" element={<Navigate to="/app" replace />} />
