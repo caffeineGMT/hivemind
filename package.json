@@ -10,6 +10,7 @@
     "start": "node bin/hivemind.js"
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0"
+    "better-sqlite3": "^11.0.0",
+    "express": "^4.21.0"
   }
 }

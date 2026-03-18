@@ -15,6 +15,7 @@ const HELP = `
     hivemind status [company-id]        Show company status and progress
     hivemind nudge [company-id] [msg]   Nudge the CEO to reassess
     hivemind resume [company-id]        Resume monitoring a running company
+    hivemind dashboard [--port 3100]     Launch the web dashboard
     hivemind list                       List all companies
     hivemind logs <agent-name>          View an agent's output log
 
@@ -99,6 +100,16 @@ export async function run(args) {
           console.log(`    ${c.id.slice(0, 8)} | ${c.status.padEnd(10)} | ${c.name}`);
         }
         console.log("");
+        break;
+      }
+
+      case "dashboard":
+      case "ui":
+      case "web": {
+        const portIdx = rest.indexOf("--port");
+        const port = portIdx !== -1 ? parseInt(rest[portIdx + 1], 10) : 3100;
+        const { startServer } = await import("./server.js");
+        startServer(port);
         break;
       }
 
