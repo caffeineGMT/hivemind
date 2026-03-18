@@ -304,12 +304,12 @@ function dispatchEngineers(company, designSpecs) {
   const todoTasks = tasks.filter(t =>
     !t.title.startsWith("[PROJECT]") && (t.status === "backlog" || t.status === "todo")
   ).sort((a, b) => {
-    // Prioritize: high > medium > low, and todo > backlog
-    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    // Prioritize: urgent > high > medium > low, and todo > backlog
+    const priorityOrder = { urgent: -1, high: 0, medium: 1, low: 2 };
     const statusOrder = { todo: 0, backlog: 1 };
-    const pd = (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1);
+    const pd = (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1);
     if (pd !== 0) return pd;
-    return (statusOrder[a.status] || 1) - (statusOrder[b.status] || 1);
+    return (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1);
   });
 
   // Count actually running agents
@@ -318,7 +318,37 @@ function dispatchEngineers(company, designSpecs) {
     if (!handle.done) runningCount++;
   }
 
-  const available = MAX_CONCURRENT_AGENTS - runningCount;
+  let available = MAX_CONCURRENT_AGENTS - runningCount;
+
+  // PREEMPTION: urgent tasks kill lowest-priority running engineers to take their slot
+  const urgentTasks = todoTasks.filter(t => t.priority === "urgent");
+  if (urgentTasks.length > 0 && available <= 0) {
+    const preemptCount = Math.min(urgentTasks.length, runningCount);
+    const candidates = [];
+    for (const [agentId, handle] of runningAgents) {
+      if (handle.done || handle.companyId !== company.id) continue;
+      const task = db.getDb().prepare("SELECT * FROM tasks WHERE id = ?").get(handle.taskId);
+      if (task) candidates.push({ agentId, handle, task });
+    }
+    const po = { low: 0, medium: 1, high: 2, urgent: 999 };
+    candidates.sort((a, b) => (po[a.task.priority] ?? 1) - (po[b.task.priority] ?? 1));
+
+    for (let i = 0; i < preemptCount && i < candidates.length; i++) {
+      const { agentId, handle, task } = candidates[i];
+      if (task.priority === "urgent") break;
+      log(company.id, "PREEMPT", `Killing ${handle.agentName} ("${task.title}" [${task.priority}]) for urgent user request`);
+      try { if (handle.proc) handle.proc.kill("SIGTERM"); } catch {}
+      try { if (handle.pid) process.kill(handle.pid, "SIGTERM"); } catch {}
+      db.updateTaskStatus(task.id, "todo");
+      db.logActivity({ companyId: company.id, agentId, taskId: task.id, action: "task_preempted", detail: "Preempted for urgent user request" });
+      handle.done = true;
+      const agent = db.getAgent(agentId);
+      if (agent) db.updateAgentStatus(agentId, "idle");
+      runningAgents.delete(agentId);
+      available++;
+    }
+  }
+
   if (available <= 0) {
     log(company.id, "DISPATCH", `All ${MAX_CONCURRENT_AGENTS} agent slots occupied.`);
     return 0;
@@ -529,6 +559,45 @@ function checkRunningAgents(company) {
         model: handle.usage.model,
       });
       log(company.id, "CFO", `${handle.agentName}: ${handle.usage.totalTokens} tokens, $${handle.usage.costUsd.toFixed(4)}, ${handle.usage.numTurns} turns`);
+
+      // Track API calls (each turn is an API call)
+      if (handle.usage.numTurns) {
+        db.logUsage({
+          companyId: company.id,
+          metric: "api_calls",
+          value: handle.usage.numTurns,
+          agentId,
+          metadata: { agent_name: handle.agentName, task_id: handle.taskId }
+        });
+      }
+    }
+
+    // Calculate and log agent hours
+    const startTime = agentStartTimes.get(agentId);
+    if (startTime) {
+      const durationMs = Date.now() - startTime;
+      const hours = durationMs / (1000 * 60 * 60);
+      db.logUsage({
+        companyId: company.id,
+        metric: "agent_hours",
+        value: hours,
+        agentId,
+        metadata: { agent_name: handle.agentName, task_id: handle.taskId }
+      });
+      agentStartTimes.delete(agentId);
+      log(company.id, "CFO", `${handle.agentName}: ${hours.toFixed(2)} hours tracked`);
+
+      // Report to Stripe if configured
+      const companyRecord = db.getCompany(company.id);
+      if (companyRecord && companyRecord.stripe_customer_id) {
+        reportUsageToStripe({
+          customerId: companyRecord.stripe_customer_id,
+          metric: "agent_hours",
+          value: hours,
+        }).catch(err => {
+          log(company.id, "CFO", `Stripe reporting failed: ${err.message}`);
+        });
+      }
     }
 
     const task = db.getDb().prepare("SELECT title FROM tasks WHERE id = ?").get(handle.taskId);
@@ -841,24 +910,61 @@ export async function nudge(companyIdPrefix, message) {
   cleanupStaleAgents(company);
   checkRunningAgents(company);
 
-  // Also pick up any unread comments and include them in the nudge
+  // Collect all unread comments + the nudge message
   const unread = db.getUnreadComments(company.id);
-  let fullMessage = message || "";
+  const allMessages = [];
+  if (message && !message.includes("Process unread comments")) {
+    allMessages.push(message);
+  }
   if (unread.length > 0) {
     const commentIds = unread.map(c => c.id);
     db.markCommentsRead(commentIds);
-    const commentSummary = unread.map(c => {
-      const taskRef = c.task_id ? ` (on task ${c.task_id.slice(0, 8)})` : " (general)";
-      return `- "${c.message}"${taskRef}`;
-    }).join("\n");
-    fullMessage = `${fullMessage}\n\nUnread user comments:\n${commentSummary}`.trim();
-    log(company.id, "NUDGE", `Processing ${unread.length} unread comment(s) alongside nudge`);
+    for (const c of unread) {
+      const msg = c.message.replace(/^\[NUDGE\] /, "");
+      allMessages.push(msg);
+    }
+    log(company.id, "NUDGE", `Processing ${unread.length} unread comment(s)`);
   }
 
+  if (allMessages.length === 0) {
+    // Nothing to process — just dispatch any pending tasks
+    dispatchEngineers(company, undefined);
+    return;
+  }
+
+  // STEP 1: Create URGENT tasks directly from user messages — dispatched IMMEDIATELY
+  // No CEO planning delay. User said it, engineer does it NOW.
+  for (const msg of allMessages) {
+    const taskId = uid();
+    const title = msg.slice(0, 100);
+    db.createTask({
+      id: taskId,
+      companyId: company.id,
+      title: `[URGENT] ${title}`,
+      description: `URGENT — User request (do this immediately):\n\n${msg}\n\nThis came directly from the user. Drop everything and handle this NOW. Be specific, make the change, test it, commit and deploy.`,
+      priority: "urgent",
+      createdById: "user",
+    });
+    db.updateTaskStatus(taskId, "todo");
+    db.logActivity({
+      companyId: company.id,
+      action: "urgent_task_created",
+      taskId,
+      detail: `User: ${title}`,
+    });
+    log(company.id, "URGENT", `Created urgent task: ${title}`);
+  }
+
+  // STEP 2: Dispatch immediately — preemption will kick in if needed
+  dispatchEngineers(company, undefined);
+
+  // STEP 3: Also run CEO assessment in background for strategic follow-up
+  // (non-blocking — the urgent task is already dispatched above)
+  const fullMessage = allMessages.join("\n\n");
   setAgentRunning(company.id, "ceo");
   const agents = db.getAgentsByCompany(company.id);
   const tasks = db.getTasksByCompany(company.id);
-  const prompt = prompts.heartbeatPrompt(company, agents, tasks, fullMessage || null);
+  const prompt = prompts.heartbeatPrompt(company, agents, tasks, fullMessage);
 
   try {
     const { output: raw, usage: nudgeUsage } = await claude.claudeSessionSync("ceo-nudge", prompt, {
@@ -889,7 +995,6 @@ export async function nudge(companyIdPrefix, message) {
               priority: "high",
               createdById: "ceo",
             });
-            // Mark as todo (not backlog) so it gets dispatched immediately
             db.updateTaskStatus(taskId, "todo");
           }
         }
@@ -900,5 +1005,6 @@ export async function nudge(companyIdPrefix, message) {
   }
 
   setAgentIdle(company.id, "ceo");
+  // Dispatch again after CEO creates follow-up tasks
   dispatchEngineers(company, undefined);
 }

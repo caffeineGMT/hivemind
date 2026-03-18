@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { DollarSign, Zap, Clock, BarChart3 } from 'lucide-react';
+import { DollarSign, Zap, Clock, BarChart3, TrendingUp, AlertCircle } from 'lucide-react';
 import { api, CostSummaryEntry } from '../api';
 
 function formatTokens(n: number): string {
@@ -25,13 +25,19 @@ function formatCost(usd: number): string {
 }
 
 export default function Finance({ companyId }: { companyId: string }) {
-  const { data, isLoading } = useQuery({
+  const { data: costData, isLoading: costLoading } = useQuery({
     queryKey: ['costs', companyId],
     queryFn: () => api.getCosts(companyId),
     refetchInterval: 5000,
   });
 
-  if (isLoading || !data) {
+  const { data: billingData, isLoading: billingLoading } = useQuery({
+    queryKey: ['billing', companyId],
+    queryFn: () => api.getBilling(companyId),
+    refetchInterval: 10000,
+  });
+
+  if (costLoading || !costData) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-amber-500" />
@@ -39,7 +45,7 @@ export default function Finance({ companyId }: { companyId: string }) {
     );
   }
 
-  const { summary, totals, recent } = data;
+  const { summary, totals, recent } = costData;
 
   return (
     <div className="animate-fade-in space-y-6">

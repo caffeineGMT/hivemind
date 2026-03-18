@@ -19,6 +19,7 @@ const statusStyles: Record<string, string> = {
 };
 
 const priorityStyles: Record<string, string> = {
+  urgent: 'bg-rose-950/60 text-rose-300 border-rose-700/70 animate-pulse',
   high: 'bg-red-950/40 text-red-400 border-red-900/50',
   medium: 'bg-amber-950/40 text-amber-400 border-amber-900/50',
   low: 'bg-zinc-800 text-zinc-400 border-zinc-700',

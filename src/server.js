@@ -240,6 +240,38 @@ export function createServer(port = 3100) {
     res.json({ summary, totals, recent: recent.slice(0, 50) });
   });
 
+  // Usage tracking
+  app.get("/api/companies/:id/usage", (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const currentMonth = db.getCurrentMonthUsage(company.id);
+    const history = db.getUsageHistory(company.id, 50);
+
+    res.json({
+      current_month: currentMonth,
+      history,
+    });
+  });
+
+  // Usage + billing summary (with plan limits and overages)
+  app.get("/api/companies/:id/billing", async (req, res) => {
+    const company = findCompany(req.params.id);
+    if (!company) return res.status(404).json({ error: "Not found" });
+
+    const usage = db.getCurrentMonthUsage(company.id);
+    const planTier = company.plan_tier || "STARTER";
+
+    // Import calculateOverages from stripe module
+    const { calculateOverages } = await import("./stripe.js");
+    const billing = calculateOverages(usage, planTier);
+
+    res.json({
+      ...billing,
+      stripe_customer_id: company.stripe_customer_id || null,
+    });
+  });
+
   // Analytics endpoints
   app.get("/api/analytics/events", (req, res) => {
     const companyId = req.query.companyId;

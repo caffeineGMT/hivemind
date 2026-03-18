@@ -25,7 +25,7 @@ export interface Task {
   title: string;
   description: string;
   status: 'backlog' | 'todo' | 'in_progress' | 'done' | 'blocked';
-  priority: 'high' | 'medium' | 'low';
+  priority: 'urgent' | 'high' | 'medium' | 'low';
   assignee_id: string | null;
   parent_id: string | null;
   result: string | null;
@@ -137,6 +137,71 @@ export interface CostData {
   recent: CostEntry[];
 }
 
+export interface SubscriptionStatus {
+  tier: 'free' | 'starter' | 'pro' | 'enterprise';
+  status: 'active' | 'inactive' | 'past_due' | 'canceled';
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  currentPeriodEnd: string | null;
+  limits: {
+    companies: number;
+    agents: number;
+  } | null;
+  allowed: boolean;
+  reason: string | null;
+}
+
+export interface CheckoutSession {
+  sessionId: string;
+  url: string;
+}
+
+export interface PortalSession {
+  url: string;
+}
+
+export interface UsageData {
+  current_month: {
+    agent_hours: number;
+    api_calls: number;
+    period_start: string;
+    period_end: string;
+  };
+  history: {
+    id: number;
+    company_id: string;
+    metric: string;
+    value: number;
+    timestamp: string;
+    agent_id: string | null;
+    metadata: string | null;
+  }[];
+}
+
+export interface BillingData {
+  plan: string;
+  base_price: number;
+  included: {
+    agent_hours: number;
+    api_calls: number;
+  };
+  usage: {
+    agent_hours: number;
+    api_calls: number;
+  };
+  overages: {
+    agent_hours: number;
+    api_calls: number;
+  };
+  overage_costs: {
+    agent_hours: number;
+    api_calls: number;
+    total: number;
+  };
+  total_cost: number;
+  stripe_customer_id: string | null;
+}
+
 // ── Fetch helpers ──────────────────────────────────────────────────
 
 // Try live API first, fall back to static JSON snapshots (for Vercel deployment)
@@ -222,4 +287,39 @@ export const api = {
     });
     return res.json();
   },
+
+  // Stripe / Billing APIs
+  getSubscription: (companyId: string) =>
+    fetchJson<SubscriptionStatus>(`/api/stripe/subscription/${companyId}`),
+
+  createCheckout: async (data: {
+    tier: string;
+    companyId: string;
+    email: string;
+    successUrl?: string;
+    cancelUrl?: string;
+  }) => {
+    const res = await fetch('/api/stripe/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return res.json() as Promise<CheckoutSession>;
+  },
+
+  createPortal: async (companyId: string, returnUrl?: string) => {
+    const res = await fetch('/api/stripe/portal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId, returnUrl }),
+    });
+    return res.json() as Promise<PortalSession>;
+  },
+
+  // Usage metering
+  getUsage: (companyId: string) =>
+    fetchJson<UsageData>(`/api/companies/${companyId}/usage`),
+
+  getBilling: (companyId: string) =>
+    fetchJson<BillingData>(`/api/companies/${companyId}/billing`),
 };

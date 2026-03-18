@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { api, Company } from './api';
@@ -11,9 +11,13 @@ import Activity from './pages/Activity';
 import AgentLog from './pages/AgentLog';
 import TaskDetail from './pages/TaskDetail';
 import Finance from './pages/Finance';
+import Analytics from './pages/Analytics';
+import Billing from './pages/Billing';
+import { trackPageView } from './tracking';
 
 function AppRoutes() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const location = useLocation();
 
   const { data: companies, isLoading, error } = useQuery({
     queryKey: ['companies'],
@@ -29,6 +33,11 @@ function AppRoutes() {
       setSelectedCompanyId(sorted[0].id);
     }
   }, [companies, selectedCompanyId]);
+
+  // Track page views
+  useEffect(() => {
+    trackPageView(location.pathname, selectedCompanyId || undefined);
+  }, [location.pathname, selectedCompanyId]);
 
   if (isLoading) {
     return (
@@ -75,6 +84,8 @@ function AppRoutes() {
         <Route path="/agents" element={<Agents companyId={selectedCompany.id} />} />
         <Route path="/activity" element={<Activity companyId={selectedCompany.id} />} />
         <Route path="/finance" element={<Finance companyId={selectedCompany.id} />} />
+        <Route path="/analytics" element={<Analytics companyId={selectedCompany.id} />} />
+        <Route path="/billing" element={<Billing />} />
         <Route path="/tasks/:taskId" element={<TaskDetail />} />
         <Route path="/logs/:agentName" element={<AgentLog />} />
         <Route path="*" element={<Navigate to="/app" replace />} />
