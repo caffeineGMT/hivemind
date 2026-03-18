@@ -1,7 +1,8 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { api, Company } from './api';
+import { SignIn, SignUp, SignedIn, SignedOut, RedirectToSignIn, useAuth } from '@clerk/react';
+import { api, setAuthToken, Company } from './api';
 import Layout from './components/Layout';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
@@ -13,11 +14,50 @@ import TaskDetail from './pages/TaskDetail';
 import Finance from './pages/Finance';
 import Analytics from './pages/Analytics';
 import Billing from './pages/Billing';
+import Costs from './pages/Costs';
 import { trackPageView } from './tracking';
+
+function SignInPage() {
+  return (
+    <div className="flex h-screen items-center justify-center bg-zinc-950">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-bold text-amber-500">Hivemind Engine</h1>
+          <p className="mt-2 text-zinc-400">Sign in to manage your AI companies</p>
+        </div>
+        <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" />
+      </div>
+    </div>
+  );
+}
+
+function SignUpPage() {
+  return (
+    <div className="flex h-screen items-center justify-center bg-zinc-950">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-bold text-amber-500">Hivemind Engine</h1>
+          <p className="mt-2 text-zinc-400">Create your account to get started</p>
+        </div>
+        <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" />
+      </div>
+    </div>
+  );
+}
 
 function AppRoutes() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const location = useLocation();
+  const { getToken } = useAuth();
+
+  // Set auth token for API calls
+  useEffect(() => {
+    const setupAuth = async () => {
+      const token = await getToken();
+      setAuthToken(token);
+    };
+    setupAuth();
+  }, [getToken]);
 
   const { data: companies, isLoading, error } = useQuery({
     queryKey: ['companies'],
@@ -86,6 +126,7 @@ function AppRoutes() {
         <Route path="/finance" element={<Finance companyId={selectedCompany.id} />} />
         <Route path="/analytics" element={<Analytics companyId={selectedCompany.id} />} />
         <Route path="/billing" element={<Billing companyId={selectedCompany.id} />} />
+        <Route path="/costs" element={<Costs companyId={selectedCompany.id} />} />
         <Route path="/tasks/:taskId" element={<TaskDetail />} />
         <Route path="/logs/:agentName" element={<AgentLog />} />
         <Route path="*" element={<Navigate to="/app" replace />} />
@@ -98,7 +139,18 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
-      <Route path="/app/*" element={<AppRoutes />} />
+      <Route path="/sign-in/*" element={<SignInPage />} />
+      <Route path="/sign-up/*" element={<SignUpPage />} />
+      <Route path="/app/*" element={
+        <>
+          <SignedIn>
+            <AppRoutes />
+          </SignedIn>
+          <SignedOut>
+            <RedirectToSignIn />
+          </SignedOut>
+        </>
+      } />
     </Routes>
   );
 }

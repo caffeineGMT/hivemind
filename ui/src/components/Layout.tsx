@@ -6,6 +6,7 @@ import {
   Activity,
   DollarSign,
   TrendingUp,
+  Receipt,
   ChevronDown,
   Hexagon,
   Menu,
@@ -28,6 +29,7 @@ const navItems = [
   { to: '/app/activity', icon: Activity, label: 'Activity' },
   { to: '/app/finance', icon: DollarSign, label: 'Finance' },
   { to: '/app/analytics', icon: TrendingUp, label: 'Analytics' },
+  { to: '/app/costs', icon: Receipt, label: 'Costs' },
 ];
 
 function statusColor(status: string) {
