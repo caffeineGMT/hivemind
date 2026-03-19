@@ -1,28 +1,38 @@
 import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { api, Company } from './api';
 import { wsClient } from './websocket';
 import Layout from './components/Layout';
-import { ErrorBoundary } from './components/ErrorFallback';
-import Dashboard from './pages/Dashboard';
-import Tasks from './pages/Tasks';
-import Agents from './pages/Agents';
-import Activity from './pages/Activity';
-import AgentLog from './pages/AgentLog';
-import TaskDetail from './pages/TaskDetail';
-import Finance from './pages/Finance';
-import Analytics from './pages/Analytics';
-import Costs from './pages/Costs';
-import Logs from './pages/Logs';
-import AgentHealth from './pages/AgentHealth';
-import HealthMonitor from './pages/HealthMonitor';
-import Companies from './pages/Companies';
-import CrossProjectAnalytics from './pages/CrossProjectAnalytics';
-import Settings from './pages/Settings';
-import Roadmap from './pages/Roadmap';
-import AgentPerformance from './pages/AgentPerformance';
-import TraceView from './pages/TraceView';
+import { ErrorBoundary } from './components/ErrorBoundary';
+
+// Lazy-loaded page components for code splitting (Task 3)
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Tasks = lazy(() => import('./pages/Tasks'));
+const Agents = lazy(() => import('./pages/Agents'));
+const Activity = lazy(() => import('./pages/Activity'));
+const AgentLog = lazy(() => import('./pages/AgentLog'));
+const TaskDetail = lazy(() => import('./pages/TaskDetail'));
+const Finance = lazy(() => import('./pages/Finance'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Costs = lazy(() => import('./pages/Costs'));
+const Logs = lazy(() => import('./pages/Logs'));
+const AgentHealth = lazy(() => import('./pages/AgentHealth'));
+const HealthMonitor = lazy(() => import('./pages/HealthMonitor'));
+const Companies = lazy(() => import('./pages/Companies'));
+const CrossProjectAnalytics = lazy(() => import('./pages/CrossProjectAnalytics'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Roadmap = lazy(() => import('./pages/Roadmap'));
+const AgentPerformance = lazy(() => import('./pages/AgentPerformance'));
+const TraceView = lazy(() => import('./pages/TraceView'));
+
+function PageLoader() {
+  return (
+    <div className="flex h-64 items-center justify-center">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-amber-500" />
+    </div>
+  );
+}
 
 // Helper to create URL-safe slugs from company names
 function slugify(name: string): string {
@@ -50,61 +60,48 @@ function CompanyRoutes() {
 
   // WebSocket connection and real-time updates
   useEffect(() => {
-    // Connect WebSocket on mount
     wsClient.connect();
 
-    // Handle incoming WebSocket events
     const handleMessage = (event: string, data: any) => {
-      console.log('[ws] Event received:', event, data);
-
-      // Invalidate relevant queries based on event type
       switch (event) {
         case 'agent_status_changed':
           queryClient.invalidateQueries({ queryKey: ['agents'] });
           queryClient.invalidateQueries({ queryKey: ['dashboard'] });
           queryClient.invalidateQueries({ queryKey: ['agent-health'] });
           break;
-
         case 'task_updated':
         case 'task_created':
         case 'task_assigned':
           queryClient.invalidateQueries({ queryKey: ['tasks'] });
           queryClient.invalidateQueries({ queryKey: ['dashboard'] });
           break;
-
         case 'cost_logged':
           queryClient.invalidateQueries({ queryKey: ['costs'] });
           queryClient.invalidateQueries({ queryKey: ['dashboard'] });
           break;
-
         case 'comment_added':
           if (data?.taskId) {
             queryClient.invalidateQueries({ queryKey: ['task', data.taskId] });
           }
           queryClient.invalidateQueries({ queryKey: ['activity'] });
           break;
-
         case 'activity_logged':
         case 'nudge_received':
           queryClient.invalidateQueries({ queryKey: ['activity'] });
           break;
-
         case 'config_updated':
         case 'project_archived':
         case 'project_deleted':
           queryClient.invalidateQueries({ queryKey: ['companies'] });
           queryClient.invalidateQueries({ queryKey: ['dashboard'] });
           break;
-
         case 'circuit_breaker_reset':
         case 'agent_restarted':
           queryClient.invalidateQueries({ queryKey: ['circuit-breaker'] });
           queryClient.invalidateQueries({ queryKey: ['agent-health'] });
           queryClient.invalidateQueries({ queryKey: ['incident-timeline'] });
           break;
-
         default:
-          // For any other event, invalidate dashboard as a safe fallback
           queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       }
     };
@@ -160,7 +157,6 @@ function CompanyRoutes() {
     );
   }
 
-  // Find company by URL slug
   const selectedCompany = companySlug
     ? findCompanyBySlug(companies, companySlug) || companies[0]
     : companies[0];
@@ -179,40 +175,38 @@ function CompanyRoutes() {
       onSelectCompany={handleSelectCompany}
       companySlug={slugify(selectedCompany.name)}
     >
-      <ErrorBoundary>
+      <Suspense fallback={<PageLoader />}>
         <Routes>
-          <Route path="/" element={<ErrorBoundary><Dashboard companyId={selectedCompany.id} /></ErrorBoundary>} />
-          <Route path="companies" element={<ErrorBoundary><Companies /></ErrorBoundary>} />
-          <Route path="tasks" element={<ErrorBoundary><Tasks companyId={selectedCompany.id} /></ErrorBoundary>} />
-          <Route path="agents" element={<ErrorBoundary><Agents companyId={selectedCompany.id} /></ErrorBoundary>} />
-          <Route path="agent-health" element={<ErrorBoundary><AgentHealth companyId={selectedCompany.id} /></ErrorBoundary>} />
-          <Route path="health-monitor" element={<ErrorBoundary><HealthMonitor companyId={selectedCompany.id} /></ErrorBoundary>} />
-          <Route path="activity" element={<ErrorBoundary><Activity companyId={selectedCompany.id} /></ErrorBoundary>} />
-          <Route path="finance" element={<ErrorBoundary><Finance companyId={selectedCompany.id} /></ErrorBoundary>} />
-          <Route path="analytics" element={<ErrorBoundary><Analytics companyId={selectedCompany.id} /></ErrorBoundary>} />
-          <Route path="cross-project-analytics" element={<ErrorBoundary><CrossProjectAnalytics /></ErrorBoundary>} />
-          <Route path="costs" element={<ErrorBoundary><Costs companyId={selectedCompany.id} /></ErrorBoundary>} />
-          <Route path="agent-performance" element={<ErrorBoundary><AgentPerformance companyId={selectedCompany.id} /></ErrorBoundary>} />
-          <Route path="logs-view" element={<ErrorBoundary><Logs /></ErrorBoundary>} />
-          <Route path="trace/:traceId" element={<ErrorBoundary><TraceView /></ErrorBoundary>} />
-          <Route path="roadmap" element={<ErrorBoundary><Roadmap /></ErrorBoundary>} />
-          <Route path="settings" element={<ErrorBoundary><Settings companyId={selectedCompany.id} /></ErrorBoundary>} />
-          <Route path="tasks/:taskId" element={<ErrorBoundary><TaskDetail /></ErrorBoundary>} />
-          <Route path="logs/:agentName" element={<ErrorBoundary><AgentLog /></ErrorBoundary>} />
+          <Route path="/" element={<ErrorBoundary level="route"><Dashboard companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="companies" element={<ErrorBoundary level="route"><Companies /></ErrorBoundary>} />
+          <Route path="tasks" element={<ErrorBoundary level="route"><Tasks companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="agents" element={<ErrorBoundary level="route"><Agents companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="agent-health" element={<ErrorBoundary level="route"><AgentHealth companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="health-monitor" element={<ErrorBoundary level="route"><HealthMonitor companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="activity" element={<ErrorBoundary level="route"><Activity companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="finance" element={<ErrorBoundary level="route"><Finance companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="analytics" element={<ErrorBoundary level="route"><Analytics companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="cross-project-analytics" element={<ErrorBoundary level="route"><CrossProjectAnalytics /></ErrorBoundary>} />
+          <Route path="costs" element={<ErrorBoundary level="route"><Costs companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="agent-performance" element={<ErrorBoundary level="route"><AgentPerformance companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="logs-view" element={<ErrorBoundary level="route"><Logs /></ErrorBoundary>} />
+          <Route path="trace/:traceId" element={<ErrorBoundary level="route"><TraceView /></ErrorBoundary>} />
+          <Route path="roadmap" element={<ErrorBoundary level="route"><Roadmap /></ErrorBoundary>} />
+          <Route path="settings" element={<ErrorBoundary level="route"><Settings companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="tasks/:taskId" element={<ErrorBoundary level="route"><TaskDetail /></ErrorBoundary>} />
+          <Route path="logs/:agentName" element={<ErrorBoundary level="route"><AgentLog /></ErrorBoundary>} />
           <Route path="*" element={<Navigate to={`/${slugify(selectedCompany.name)}`} replace />} />
         </Routes>
-      </ErrorBoundary>
+      </Suspense>
     </Layout>
   );
 }
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <Routes>
-        <Route path="/" element={<CompanyRoutes />} />
-        <Route path="/:companySlug/*" element={<CompanyRoutes />} />
-      </Routes>
-    </ErrorBoundary>
+    <Routes>
+      <Route path="/" element={<CompanyRoutes />} />
+      <Route path="/:companySlug/*" element={<CompanyRoutes />} />
+    </Routes>
   );
 }

@@ -21,6 +21,7 @@ import {
 import { useState, useRef, useEffect } from 'react';
 import { Company } from '../api';
 import WebSocketStatus from './WebSocketStatus';
+import ConnectionBanner from './ConnectionBanner';
 import MobileBottomNav from './MobileBottomNav';
 import { useSidebarSwipe } from '../hooks/useSidebarSwipe';
 
@@ -216,6 +217,7 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, co
 
       {/* Main content */}
       <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
+        <ConnectionBanner />
         <div className="mx-auto max-w-6xl p-4 pb-20 md:p-6 md:pb-6">
           {children}
         </div>
