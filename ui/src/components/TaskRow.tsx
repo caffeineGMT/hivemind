@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { CircleDot, Circle, Clock, CheckCircle2, Ban, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSwipeable } from 'react-swipeable';
@@ -66,9 +67,9 @@ export default function TaskRow({ task }: { task: Task }) {
           <p className="mt-0.5 line-clamp-2 text-xs text-zinc-500 sm:truncate sm:line-clamp-1">{sanitize(task.description)}</p>
         )}
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
-          {task.assignee_name && (
+          {task.assignee_name && task.assignee_id && (
             <Link
-              to={`/logs/${task.assignee_name}`}
+              to={`../agents/${task.assignee_id}`}
               onClick={(e) => e.stopPropagation()}
               aria-label={`View live output for agent ${task.assignee_name}`}
               title="Click to view agent's live output"
@@ -88,9 +89,9 @@ export default function TaskRow({ task }: { task: Task }) {
         </div>
       </div>
       <div className="hidden shrink-0 items-center gap-2 sm:flex">
-        {task.assignee_name && (
+        {task.assignee_name && task.assignee_id && (
           <Link
-            to={`/logs/${task.assignee_name}`}
+            to={`../agents/${task.assignee_id}`}
             onClick={(e) => e.stopPropagation()}
             aria-label={`View live output for agent ${task.assignee_name}`}
             title="Click to view agent's live output"

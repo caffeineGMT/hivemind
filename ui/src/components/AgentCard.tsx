@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { User, Crown, Monitor, Code2, Palette, DollarSign, Terminal } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSwipeable } from 'react-swipeable';
@@ -33,7 +34,7 @@ function timeAgo(dateStr: string | null): string {
   return `${hrs}h ago`;
 }
 
-export default function AgentCard({ agent }: { agent: Agent }) {
+function AgentCardComponent({ agent }: { agent: Agent }) {
   const { createRipple, rippleElements } = useTouchRipple();
 
   const swipeHandlers = useSwipeable({
@@ -92,3 +93,25 @@ export default function AgentCard({ agent }: { agent: Agent }) {
     </article>
   );
 }
+
+// Custom comparison function to prevent unnecessary re-renders
+// Only re-render if displayed agent properties have changed
+function areAgentPropsEqual(
+  prevProps: { agent: Agent },
+  nextProps: { agent: Agent }
+): boolean {
+  const prev = prevProps.agent;
+  const next = nextProps.agent;
+
+  return (
+    prev.id === next.id &&
+    prev.status === next.status &&
+    prev.last_heartbeat === next.last_heartbeat &&
+    prev.pid === next.pid &&
+    prev.name === next.name &&
+    prev.title === next.title &&
+    prev.role === next.role
+  );
+}
+
+export default memo(AgentCardComponent, areAgentPropsEqual);

@@ -139,6 +139,7 @@ export function claudeSession(agentId, prompt, opts = {}) {
   let stderr = "";
   let lastResult = null;
   let buffer = "";
+  let apiCallSequence = 0;
 
   proc.stdout.on("data", d => {
     const chunk = d.toString();
@@ -165,6 +166,44 @@ export function claudeSession(agentId, prompt, opts = {}) {
         // Also track turn increments from assistant messages
         if (evt.type === "assistant" && evt.message) {
           handle.currentTurn++;
+
+          // Log API call details to structured logs
+          apiCallSequence++;
+          const apiCallLog = {
+            agentId,
+            timestamp: new Date().toISOString(),
+            type: "api_call",
+            sequence: apiCallSequence,
+            turn: handle.currentTurn,
+            model: evt.message.model || opts.model || "unknown",
+            stopReason: evt.message.stop_reason,
+            usage: evt.message.usage ? {
+              inputTokens: evt.message.usage.input_tokens || 0,
+              outputTokens: evt.message.usage.output_tokens || 0,
+              cacheReadTokens: evt.message.usage.cache_read_input_tokens || 0,
+              cacheWriteTokens: evt.message.usage.cache_creation_input_tokens || 0,
+            } : null,
+            content: evt.message.content || [],
+          };
+
+          // Pass to handle for collection
+          if (!handle.apiCalls) handle.apiCalls = [];
+          handle.apiCalls.push(apiCallLog);
+        }
+
+        // Track errors
+        if (evt.type === "error" || (evt.type === "result" && evt.error)) {
+          const errorLog = {
+            agentId,
+            timestamp: new Date().toISOString(),
+            type: "error",
+            message: evt.error?.message || evt.message || "Unknown error",
+            code: evt.error?.code,
+            stack: evt.error?.stack,
+          };
+
+          if (!handle.errors) handle.errors = [];
+          handle.errors.push(errorLog);
         }
       } catch {}
     }
@@ -190,6 +229,8 @@ export function claudeSession(agentId, prompt, opts = {}) {
     usage: null,
     proc,
     currentTurn: 0, // Track turn number for checkpoint saving
+    apiCalls: [],   // Structured API call logs
+    errors: [],     // Structured error logs
   };
 
   let timer;

@@ -17,55 +17,55 @@
         - img [ref=e18]
       - navigation [ref=e20]:
         - link "Dashboard" [ref=e21] [cursor=pointer]:
-          - /url: /taxbridge
+          - /url: /projects/taxbridge
           - img [ref=e22]
           - text: Dashboard
         - link "Companies" [ref=e27] [cursor=pointer]:
-          - /url: /taxbridge/companies
+          - /url: /projects/taxbridge/companies
           - img [ref=e28]
           - text: Companies
         - link "Tasks" [ref=e32] [cursor=pointer]:
-          - /url: /taxbridge/tasks
+          - /url: /projects/taxbridge/tasks
           - img [ref=e33]
           - text: Tasks
         - link "Agents" [ref=e36] [cursor=pointer]:
-          - /url: /taxbridge/agents
+          - /url: /projects/taxbridge/agents
           - img [ref=e37]
           - text: Agents
         - link "Health Monitor" [ref=e42] [cursor=pointer]:
-          - /url: /taxbridge/health-monitor
+          - /url: /projects/taxbridge/health-monitor
           - img [ref=e43]
           - text: Health Monitor
         - link "Activity" [ref=e45] [cursor=pointer]:
-          - /url: /taxbridge/activity
+          - /url: /projects/taxbridge/activity
           - img [ref=e46]
           - text: Activity
         - link "Finance" [ref=e48] [cursor=pointer]:
-          - /url: /taxbridge/finance
+          - /url: /projects/taxbridge/finance
           - img [ref=e49]
           - text: Finance
         - link "Analytics" [ref=e51] [cursor=pointer]:
-          - /url: /taxbridge/analytics
+          - /url: /projects/taxbridge/analytics
           - img [ref=e52]
           - text: Analytics
         - link "Cross-Project" [ref=e55] [cursor=pointer]:
-          - /url: /taxbridge/cross-project-analytics
+          - /url: /projects/taxbridge/cross-project-analytics
           - img [ref=e56]
           - text: Cross-Project
         - link "Costs" [ref=e58] [cursor=pointer]:
-          - /url: /taxbridge/costs
+          - /url: /projects/taxbridge/costs
           - img [ref=e59]
           - text: Costs
         - link "Agent Performance" [ref=e61] [cursor=pointer]:
-          - /url: /taxbridge/agent-performance
+          - /url: /projects/taxbridge/agent-performance
           - img [ref=e62]
           - text: Agent Performance
         - link "Roadmap" [ref=e65] [cursor=pointer]:
-          - /url: /taxbridge/roadmap
+          - /url: /projects/taxbridge/roadmap
           - img [ref=e66]
           - text: Roadmap
         - link "Settings" [ref=e68] [cursor=pointer]:
-          - /url: /taxbridge/settings
+          - /url: /projects/taxbridge/settings
           - img [ref=e69]
           - text: Settings
       - generic [ref=e72]:

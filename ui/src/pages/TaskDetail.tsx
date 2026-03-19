@@ -61,10 +61,11 @@ export default function TaskDetail() {
         {/* Assignee */}
         <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4">
           <h3 className="mb-2 text-sm font-semibold text-zinc-300">Assigned To</h3>
-          {task.assignee_name ? (
+          {task.assignee_name && task.assignee_id ? (
             <Link
-              to={`../logs/${task.assignee_name}`}
+              to={`../agents/${task.assignee_id}`}
               className="inline-flex items-center gap-2 rounded-lg border border-blue-900/30 bg-blue-950/20 px-3 py-2 text-sm font-medium text-blue-400 transition hover:border-blue-800/50 hover:bg-blue-950/40"
+              aria-label={`View live output for agent ${task.assignee_name}`}
             >
               <User className="h-4 w-4" />
               <div className="flex flex-col items-start">

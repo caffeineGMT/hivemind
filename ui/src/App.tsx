@@ -14,6 +14,7 @@ const Tasks = lazy(() => import('./pages/Tasks'));
 const Agents = lazy(() => import('./pages/Agents'));
 const Activity = lazy(() => import('./pages/Activity'));
 const AgentLog = lazy(() => import('./pages/AgentLog'));
+const AgentDetail = lazy(() => import('./pages/AgentDetail'));
 const TaskDetail = lazy(() => import('./pages/TaskDetail'));
 const Finance = lazy(() => import('./pages/Finance'));
 const Analytics = lazy(() => import('./pages/Analytics'));
@@ -196,8 +197,9 @@ function CompanyRoutes() {
           <Route path="roadmap" element={<ErrorBoundary level="route"><Roadmap /></ErrorBoundary>} />
           <Route path="settings" element={<ErrorBoundary level="route"><Settings companyId={selectedCompany.id} /></ErrorBoundary>} />
           <Route path="tasks/:taskId" element={<ErrorBoundary level="route"><TaskDetail /></ErrorBoundary>} />
+          <Route path="agents/:agentId" element={<ErrorBoundary level="route"><AgentDetail companyId={selectedCompany.id} /></ErrorBoundary>} />
           <Route path="logs/:agentName" element={<ErrorBoundary level="route"><AgentLog /></ErrorBoundary>} />
-          <Route path="*" element={<Navigate to={`/projects/${slugify(selectedCompany.name)}`} replace />} />
+          <Route path="*" element={<Navigate to={`/${slugify(selectedCompany.name)}`} replace />} />
         </Routes>
       </Suspense>
     </Layout>
@@ -221,9 +223,8 @@ export default function App() {
       />
       <InstallPromptBanner />
       <Routes>
-        <Route path="/" element={<Navigate to="/projects" replace />} />
-        <Route path="/projects" element={<CompanyRoutes />} />
-        <Route path="/projects/:companySlug/*" element={<CompanyRoutes />} />
+        <Route path="/" element={<CompanyRoutes />} />
+        <Route path="/:companySlug/*" element={<CompanyRoutes />} />
       </Routes>
     </>
   );

@@ -3,11 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api, Task } from '../api';
 import { format, parseISO } from 'date-fns';
-import { CheckSquare, Square, Trash2, Download, Upload, Network, List, Calendar, Filter, GitBranch } from 'lucide-react';
+import { CheckSquare, Square, Trash2, Download, Upload, Network, List, Calendar, Filter, GitBranch, RefreshCw, UserPlus, Ban } from 'lucide-react';
 import TaskRow from '../components/TaskRow';
 import TaskQueueGraph from '../components/TaskQueueGraph';
 import TaskQueueVisualization from '../components/TaskQueueVisualization';
 import ConfirmationModal from '../components/ConfirmationModal';
+import { toast } from 'sonner';
 
 const STATUS_FILTERS = ['all', 'backlog', 'todo', 'in_progress', 'done', 'blocked'] as const;
 const PRIORITY_FILTERS = ['all', 'urgent', 'high', 'medium', 'low'] as const;
@@ -41,6 +42,8 @@ export default function Tasks({ companyId }: { companyId: string }) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showFilters, setShowFilters] = useState(false);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [selectedAgentForReassign, setSelectedAgentForReassign] = useState<string>('');
 
   // Persist filters to localStorage
   useEffect(() => {
@@ -58,19 +61,32 @@ export default function Tasks({ companyId }: { companyId: string }) {
     queryFn: () => api.getAgents(companyId),
   });
 
-  // Bulk update mutation
-  const bulkUpdateMutation = useMutation({
-    mutationFn: async ({ taskIds, updates }: { taskIds: string[]; updates: any }) => {
-      const res = await fetch('/api/tasks/bulk', {
-        method: 'PATCH',
+  // Bulk operations mutation
+  const bulkOperationMutation = useMutation({
+    mutationFn: async ({ taskIds, action, value }: { taskIds: string[]; action: string; value?: string }) => {
+      const res = await fetch('/api/bulk/tasks', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskIds, updates }),
+        body: JSON.stringify({ taskIds, action, value }),
       });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Bulk operation failed');
+      }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', companyId] });
       setSelectedTasks(new Set());
+      if (data.succeeded > 0) {
+        toast.success(`Successfully updated ${data.succeeded} task${data.succeeded > 1 ? 's' : ''}`);
+      }
+      if (data.failed > 0) {
+        toast.error(`Failed to update ${data.failed} task${data.failed > 1 ? 's' : ''}`);
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Bulk operation failed');
     },
   });
 
@@ -114,7 +130,32 @@ export default function Tasks({ companyId }: { companyId: string }) {
   // Bulk action handlers
   const handleBulkStatusChange = async (newStatus: string) => {
     const taskIds = Array.from(selectedTasks);
-    await bulkUpdateMutation.mutateAsync({ taskIds, updates: { status: newStatus } });
+    await bulkOperationMutation.mutateAsync({ taskIds, action: 'status', value: newStatus });
+  };
+
+  const handleBulkRetry = async () => {
+    const taskIds = Array.from(selectedTasks);
+    await bulkOperationMutation.mutateAsync({ taskIds, action: 'retry' });
+  };
+
+  const handleBulkCancel = async () => {
+    const taskIds = Array.from(selectedTasks);
+    await bulkOperationMutation.mutateAsync({ taskIds, action: 'cancel' });
+  };
+
+  const handleBulkReassign = async () => {
+    if (!selectedAgentForReassign) {
+      toast.error('Please select an agent');
+      return;
+    }
+    const taskIds = Array.from(selectedTasks);
+    await bulkOperationMutation.mutateAsync({
+      taskIds,
+      action: 'assign',
+      value: selectedAgentForReassign
+    });
+    setShowReassignModal(false);
+    setSelectedAgentForReassign('');
   };
 
   const handleBulkDelete = async () => {
@@ -123,7 +164,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
 
   const confirmBulkDelete = async () => {
     const taskIds = Array.from(selectedTasks);
-    await Promise.all(taskIds.map((id) => deleteMutation.mutateAsync(id)));
+    await bulkOperationMutation.mutateAsync({ taskIds, action: 'delete' });
     setShowBulkDeleteModal(false);
   };
 
