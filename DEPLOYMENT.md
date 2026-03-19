@@ -15,14 +15,21 @@ git push origin main   # (4) Push to GitHub (staging)
 
 ## Environments
 
-### GitHub (Staging)
-- **Purpose**: Staging environment for all code changes
-- **URL**: https://github.com/caffeineGMT/hivemind.git
-- **Deployment**: Automatic on every push to `main`
+### GitHub Pages (Staging Preview)
+- **Purpose**: Live preview environment for testing changes
+- **URL**: https://caffeinegmt.github.io/hivemind/
+- **Deployment**: Automatic via GitHub Actions on every push to `main`
+- **Build**: Vite static export with `/hivemind/` base path
+- **Workflow**: `.github/workflows/deploy-staging.yml`
 - **Requirements**:
   - Build must pass with **zero errors**
   - All TypeScript/ESLint errors must be resolved
   - No build warnings should be suppressed
+
+### GitHub (Repository)
+- **Purpose**: Version control and CI/CD
+- **URL**: https://github.com/caffeineGMT/hivemind.git
+- **Branch**: `main` (or `master`)
 
 ### Vercel (Production)
 - **Purpose**: Production environment

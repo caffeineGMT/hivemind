@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, Download, Copy, ChevronsDown, Filter, X, Calendar, AlertTriangle, ChevronDown, ChevronRight, BarChart3, FileJson, FileSpreadsheet, Archive } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api, FailurePatternData, FailurePatternEntry } from '../api';
+import { sanitize } from '../hooks/useSanitize';
 
 interface LogEntry {
   id: number;
@@ -152,7 +153,7 @@ function PatternRow({ pattern, isExpanded, onToggle }: { pattern: FailurePattern
           {sev.label}
         </span>
         <span className="text-xs text-zinc-300 flex-1 truncate font-mono">
-          {pattern.representative_message}
+          {sanitize(pattern.representative_message)}
         </span>
         <span className="text-xs text-zinc-500 shrink-0">{pattern.count}x</span>
         <span className="text-[10px] text-zinc-600 shrink-0">
@@ -385,9 +386,11 @@ export default function Logs() {
   };
 
   const highlightMatch = (text: string, query: string) => {
-    if (!query.trim()) return text;
+    if (!text) return '';
+    if (!query.trim()) return sanitize(text);
 
-    const parts = text.split(new RegExp(`(${query})`, 'gi'));
+    const safeText = sanitize(text);
+    const parts = safeText.split(new RegExp(`(${query})`, 'gi'));
     return parts.map((part, i) =>
       part.toLowerCase() === query.toLowerCase()
         ? <mark key={i} className="bg-yellow-500/30 text-yellow-200">{part}</mark>
