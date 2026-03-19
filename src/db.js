@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import { DB_PATH, ensureDirs } from "./config.js";
 
+import logger from "./logger.js";
 let _db;
 let globalBroadcast = null;
 
@@ -27,7 +28,7 @@ function migrate(db) {
       db.exec("ALTER TABLE comments ADD COLUMN read INTEGER NOT NULL DEFAULT 0");
     }
   } catch (err) {
-    console.error("[DB Migration] Failed to add 'read' column to comments:", err.message);
+    logger.error("[DB Migration] Failed to add 'read' column to comments:", err.message);
   }
 
   // Add 'sprint' column to companies if missing
@@ -37,7 +38,7 @@ function migrate(db) {
       db.exec("ALTER TABLE companies ADD COLUMN sprint INTEGER NOT NULL DEFAULT 0");
     }
   } catch (err) {
-    console.error("[DB Migration] Failed to add 'sprint' column to companies:", err.message);
+    logger.error("[DB Migration] Failed to add 'sprint' column to companies:", err.message);
   }
 
   // Add 'deployment_url' column to companies if missing
@@ -47,7 +48,7 @@ function migrate(db) {
       db.exec("ALTER TABLE companies ADD COLUMN deployment_url TEXT");
     }
   } catch (err) {
-    console.error("[DB Migration] Failed to add 'deployment_url' column to companies:", err.message);
+    logger.error("[DB Migration] Failed to add 'deployment_url' column to companies:", err.message);
   }
 
   // Add trace enhancement columns if missing
@@ -71,7 +72,7 @@ function migrate(db) {
       }
     }
   } catch (err) {
-    console.error("[DB Migration] Failed to add trace enhancement columns:", err.message);
+    logger.error("[DB Migration] Failed to add trace enhancement columns:", err.message);
   }
 
   // Add trace_id column to logs if missing
@@ -82,7 +83,7 @@ function migrate(db) {
       db.exec("CREATE INDEX IF NOT EXISTS idx_logs_trace_id ON logs(trace_id)");
     }
   } catch (err) {
-    console.error("[DB Migration] Failed to add 'trace_id' column to logs:", err.message);
+    logger.error("[DB Migration] Failed to add 'trace_id' column to logs:", err.message);
   }
 
   // Add 'depends_on' column to tasks if missing
@@ -92,7 +93,7 @@ function migrate(db) {
       db.exec("ALTER TABLE tasks ADD COLUMN depends_on TEXT");
     }
   } catch (err) {
-    console.error("[DB Migration] Failed to add 'depends_on' column to tasks:", err.message);
+    logger.error("[DB Migration] Failed to add 'depends_on' column to tasks:", err.message);
   }
 
   // Add 'pattern_id' column to activity_log for failure pattern grouping
@@ -103,7 +104,7 @@ function migrate(db) {
       db.exec("CREATE INDEX IF NOT EXISTS idx_activity_log_pattern ON activity_log(pattern_id)");
     }
   } catch (err) {
-    console.error("[DB Migration] Failed to add 'pattern_id' column to activity_log:", err.message);
+    logger.error("[DB Migration] Failed to add 'pattern_id' column to activity_log:", err.message);
   }
 
 
@@ -125,7 +126,7 @@ function migrate(db) {
       }
     }
   } catch (err) {
-    console.error("[DB Migration] Failed to add agent resource pooling columns:", err.message);
+    logger.error("[DB Migration] Failed to add agent resource pooling columns:", err.message);
   }
 
   // Add task requirements column if missing
@@ -135,7 +136,7 @@ function migrate(db) {
       db.exec("ALTER TABLE tasks ADD COLUMN required_capabilities TEXT");
     }
   } catch (err) {
-    console.error("[DB Migration] Failed to add 'required_capabilities' column to tasks:", err.message);
+    logger.error("[DB Migration] Failed to add 'required_capabilities' column to tasks:", err.message);
   }
   db.exec(`
     CREATE TABLE IF NOT EXISTS companies (
@@ -1175,7 +1176,7 @@ export function logStructured({timestamp, level, source, company_id, agent_id, t
     );
   } catch (err) {
     // Silently ignore errors to prevent logging from breaking the app
-    console.error('Failed to write structured log:', err.message);
+    logger.error('Failed to write structured log:', err.message);
   }
 }
 
