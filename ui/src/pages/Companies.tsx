@@ -3,11 +3,13 @@ import { useState } from 'react';
 import { Plus, Building2, Trash2, Edit2, Play, CheckCircle2, Calendar, ExternalLink } from 'lucide-react';
 import { api, Company } from '../api';
 import TaskProgressBar from '../components/TaskProgressBar';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 export default function Companies() {
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [deletingCompany, setDeletingCompany] = useState<Company | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     goal: '',
@@ -41,6 +43,7 @@ export default function Companies() {
     mutationFn: (id: string) => api.deleteCompany(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
+      setDeletingCompany(null);
     },
   });
 
@@ -72,8 +75,12 @@ export default function Companies() {
   };
 
   const handleDelete = (company: Company) => {
-    if (confirm(`Delete "${company.name}"? This will remove all agents, tasks, and data for this company. This action cannot be undone.`)) {
-      deleteMutation.mutate(company.id);
+    setDeletingCompany(company);
+  };
+
+  const confirmDelete = () => {
+    if (deletingCompany) {
+      deleteMutation.mutate(deletingCompany.id);
     }
   };
 
@@ -273,6 +280,21 @@ export default function Companies() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={!!deletingCompany}
+        onClose={() => setDeletingCompany(null)}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeletingCompany(null)}
+        title="Delete Company?"
+        message={`This will permanently delete "${deletingCompany?.name}" and all associated agents, tasks, and data. This action cannot be undone.`}
+        confirmLabel="Delete Company"
+        variant="danger"
+        requireTyping={true}
+        confirmText={deletingCompany?.name || ''}
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 }

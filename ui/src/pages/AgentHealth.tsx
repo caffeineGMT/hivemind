@@ -36,6 +36,7 @@ import {
   Area,
   AreaChart,
 } from 'recharts';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface MetricCardProps {
   title: string;
@@ -175,7 +176,7 @@ function formatRecoveryTime(seconds: number | null): string {
 
 function AgentHealthRow({ agent }: { agent: AgentHealthMetric }) {
   const queryClient = useQueryClient();
-  const [confirmReset, setConfirmReset] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
 
   const restartMutation = useMutation({
     mutationFn: () => api.restartAgent(agent.agent_id),
@@ -188,7 +189,7 @@ function AgentHealthRow({ agent }: { agent: AgentHealthMetric }) {
     mutationFn: () => api.resetAgent(agent.agent_id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agent-health'] });
-      setConfirmReset(false);
+      setShowResetModal(false);
     },
   });
 
@@ -276,31 +277,25 @@ function AgentHealthRow({ agent }: { agent: AgentHealthMetric }) {
               <PlayCircle className="h-4 w-4" />
             )}
           </button>
-          {confirmReset ? (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => resetMutation.mutate()}
-                disabled={resetMutation.isPending}
-                className="rounded-lg border border-red-900/30 bg-red-950/20 px-3 py-2 text-xs text-red-400 transition hover:bg-red-900/30 disabled:opacity-50"
-              >
-                Confirm
-              </button>
-              <button
-                onClick={() => setConfirmReset(false)}
-                className="rounded-lg border border-zinc-800/60 bg-zinc-900/50 px-3 py-2 text-xs text-zinc-400 transition hover:bg-zinc-800/60"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmReset(true)}
-              className="rounded-lg border border-red-900/30 bg-red-950/20 p-2 text-red-400 transition hover:bg-red-900/30"
-              title="Hard reset (force kill)"
-            >
-              <Power className="h-4 w-4" />
-            </button>
-          )}
+          <button
+            onClick={() => setShowResetModal(true)}
+            className="rounded-lg border border-red-900/30 bg-red-950/20 p-2 text-red-400 transition hover:bg-red-900/30"
+            title="Hard reset (force kill)"
+          >
+            <Power className="h-4 w-4" />
+          </button>
+
+          <ConfirmationModal
+            isOpen={showResetModal}
+            onClose={() => setShowResetModal(false)}
+            onConfirm={() => resetMutation.mutate()}
+            onCancel={() => setShowResetModal(false)}
+            title="Hard Reset Agent?"
+            message={`This will force kill and restart "${agent.agent_name}". Use this only if the agent is stuck or unresponsive. Make sure the underlying issue is fixed first.`}
+            confirmLabel="Force Reset"
+            variant="danger"
+            isLoading={resetMutation.isPending}
+          />
         </div>
       </div>
     </div>
@@ -346,6 +341,7 @@ function IncidentRow({ incident }: { incident: Incident }) {
 
 export default function AgentHealth({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
+  const [showResetCircuitModal, setShowResetCircuitModal] = useState(false);
 
   const { data: healthData, isLoading } = useQuery({
     queryKey: ['agent-health', companyId],
@@ -375,6 +371,7 @@ export default function AgentHealth({ companyId }: { companyId: string }) {
     mutationFn: () => api.resetCircuitBreaker(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['circuit-breaker'] });
+      setShowResetCircuitModal(false);
     },
   });
 
@@ -442,9 +439,8 @@ export default function AgentHealth({ companyId }: { companyId: string }) {
               </div>
               {circuitStatus.state !== 'CLOSED' && (
                 <button
-                  onClick={() => resetCircuitMutation.mutate()}
-                  disabled={resetCircuitMutation.isPending}
-                  className="rounded-lg border border-emerald-900/30 bg-emerald-950/20 px-4 py-2 text-sm text-emerald-400 transition hover:bg-emerald-900/30 disabled:opacity-50"
+                  onClick={() => setShowResetCircuitModal(true)}
+                  className="rounded-lg border border-emerald-900/30 bg-emerald-950/20 px-4 py-2 text-sm text-emerald-400 transition hover:bg-emerald-900/30"
                 >
                   <div className="flex items-center gap-2">
                     <RotateCcw className="h-4 w-4" />
@@ -912,6 +908,19 @@ export default function AgentHealth({ companyId }: { companyId: string }) {
           </div>
         </div>
       </div>
+
+      {/* Circuit Breaker Reset Confirmation */}
+      <ConfirmationModal
+        isOpen={showResetCircuitModal}
+        onClose={() => setShowResetCircuitModal(false)}
+        onConfirm={() => resetCircuitMutation.mutate()}
+        onCancel={() => setShowResetCircuitModal(false)}
+        title="Reset Circuit Breaker?"
+        message="This will clear the failure count and allow API calls to resume. Make sure the underlying issue is fixed first, or the circuit will break again."
+        confirmLabel="Reset Circuit Breaker"
+        variant="warning"
+        isLoading={resetCircuitMutation.isPending}
+      />
     </div>
   );
 }

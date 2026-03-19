@@ -7,6 +7,7 @@ import { CheckSquare, Square, Trash2, Download, Upload, Network, List, Calendar,
 import TaskRow from '../components/TaskRow';
 import TaskQueueGraph from '../components/TaskQueueGraph';
 import TaskQueueVisualization from '../components/TaskQueueVisualization';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 const STATUS_FILTERS = ['all', 'backlog', 'todo', 'in_progress', 'done', 'blocked'] as const;
 const PRIORITY_FILTERS = ['all', 'urgent', 'high', 'medium', 'low'] as const;
@@ -39,6 +40,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showFilters, setShowFilters] = useState(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
 
   // Persist filters to localStorage
   useEffect(() => {
@@ -116,9 +118,13 @@ export default function Tasks({ companyId }: { companyId: string }) {
   };
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Delete ${selectedTasks.size} tasks? This cannot be undone.`)) return;
+    setShowBulkDeleteModal(true);
+  };
+
+  const confirmBulkDelete = async () => {
     const taskIds = Array.from(selectedTasks);
     await Promise.all(taskIds.map((id) => deleteMutation.mutateAsync(id)));
+    setShowBulkDeleteModal(false);
   };
 
   const handleSelectAll = () => {
@@ -458,6 +464,21 @@ export default function Tasks({ companyId }: { companyId: string }) {
           onTaskClick={(task) => navigate(`tasks/${task.id}`)}
         />
       )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showBulkDeleteModal}
+        onClose={() => setShowBulkDeleteModal(false)}
+        onConfirm={confirmBulkDelete}
+        onCancel={() => setShowBulkDeleteModal(false)}
+        title="Delete Multiple Tasks?"
+        message={`This will permanently delete ${selectedTasks.size} task${selectedTasks.size > 1 ? 's' : ''}. This action cannot be undone.`}
+        confirmLabel="Delete Tasks"
+        variant="danger"
+        requireTyping={true}
+        confirmText="DELETE"
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 }
