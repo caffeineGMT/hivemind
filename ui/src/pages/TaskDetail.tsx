@@ -119,6 +119,45 @@ export default function TaskDetail() {
         </p>
       </div>
 
+      {/* Error state for blocked tasks */}
+      {task.status === 'blocked' && (
+        <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 shrink-0 text-red-400 mt-0.5" aria-hidden="true" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-red-400">Task Blocked</h3>
+              <p className="mt-1 text-sm text-red-300/80">
+                This task is currently blocked and cannot proceed. Common reasons include:
+              </p>
+              <ul className="mt-2 ml-4 space-y-1 text-xs text-red-300/70 list-disc">
+                <li>Dependency on another task that hasn't completed</li>
+                <li>Agent encountered an unrecoverable error</li>
+                <li>External resource unavailable</li>
+                <li>Manual intervention required</li>
+              </ul>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => retryMutation.mutate()}
+                  disabled={retryMutation.isPending}
+                  className="flex items-center gap-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw className={`h-3 w-3 ${retryMutation.isPending ? 'animate-spin' : ''}`} aria-hidden="true" />
+                  Retry task
+                </button>
+                {task.assignee_name && (
+                  <Link
+                    to={`../logs/${task.assignee_name}`}
+                    className="flex items-center gap-1.5 rounded-md bg-zinc-800/60 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/60 px-3 py-1.5 text-xs font-medium transition"
+                  >
+                    View agent logs
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Result */}
       {task.result && (
         <div className="rounded-xl border border-emerald-900/30 bg-emerald-950/10 p-4">
