@@ -2,6 +2,9 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { CLAUDE, LOGS_DIR, ensureDirs } from "./config.js";
+import { circuitBreaker } from "./circuit-breaker.js";
+import * as db from "./db.js";
+import { executeWithRetry, classifyError, getRetryPolicy } from "./retry-manager.js";
 
 // Build env that replicates what the Meta wrapper sets up
 function buildClaudeEnv() {
@@ -138,10 +141,17 @@ export function claudeSession(agentId, prompt, opts = {}) {
       if (formatted) {
         logStream.write(formatted + "\n");
       }
-      // Capture the final result event
+      // Capture the final result event and track turns
       try {
         const evt = JSON.parse(line);
-        if (evt.type === "result") lastResult = evt;
+        if (evt.type === "result") {
+          lastResult = evt;
+          handle.currentTurn = evt.num_turns || 0;
+        }
+        // Also track turn increments from assistant messages
+        if (evt.type === "assistant" && evt.message) {
+          handle.currentTurn++;
+        }
       } catch {}
     }
   });
@@ -165,6 +175,7 @@ export function claudeSession(agentId, prompt, opts = {}) {
     result: null,
     usage: null,
     proc,
+    currentTurn: 0, // Track turn number for checkpoint saving
   };
 
   let timer;
@@ -209,23 +220,56 @@ export function claudeSession(agentId, prompt, opts = {}) {
 }
 
 /**
- * Run a full Claude session synchronously — waits for completion.
+ * Run a full Claude session synchronously with advanced retry logic
+ * Uses retry-manager for smart backoff, failure classification, and recovery
  */
 export async function claudeSessionSync(agentId, prompt, opts = {}) {
-  const handle = claudeSession(agentId, prompt, opts);
-  return new Promise((resolve, reject) => {
-    const check = setInterval(() => {
-      if (handle.done) {
-        clearInterval(check);
-        if (handle.exitCode !== 0 && !handle.stdout.trim()) {
-          reject(new Error(`Agent ${agentId} exited ${handle.exitCode}: ${handle.stderr.slice(0, 500)}`));
-        } else {
-          resolve({ output: handle.stdout.trim(), usage: handle.usage });
-        }
+  const { taskId, companyId } = opts;
+
+  // Use the enhanced retry manager
+  return executeWithRetry(
+    async () => {
+      // Execute Claude session
+      const handle = claudeSession(agentId, prompt, opts);
+
+      // Wait for completion
+      const result = await new Promise((resolve, reject) => {
+        const check = setInterval(() => {
+          if (handle.done) {
+            clearInterval(check);
+            if (handle.exitCode !== 0 && !handle.stdout.trim()) {
+              reject(new Error(`Agent ${agentId} exited ${handle.exitCode}: ${handle.stderr.slice(0, 500)}`));
+            } else {
+              resolve({ output: handle.stdout.trim(), usage: handle.usage });
+            }
+          }
+        }, 500);
+      });
+
+      return result;
+    },
+    {
+      taskId,
+      agentId,
+      companyId,
+      maxAttempts: 5, // Will be adjusted per error type by retry manager
+
+      // Callback on each retry attempt
+      onRetry: async (attempt, error, delay) => {
+        const { type: errorType } = classifyError(error);
+        const policy = getRetryPolicy(errorType);
+        console.log(`[RETRY] Agent ${agentId} will retry in ${delay}ms (attempt ${attempt}/${policy.maxAttempts}, error: ${errorType})`);
+      },
+
+      // Callback on final failure
+      onFailure: async (error, attempts) => {
+        const { type: errorType } = classifyError(error);
+        console.error(`[RETRY] Agent ${agentId} exhausted all retries after ${attempts} attempts. Error type: ${errorType}`);
       }
-    }, 500);
-  });
+    }
+  );
 }
+
 
 // Legacy aliases
 export async function claudeThink(prompt, opts = {}) {

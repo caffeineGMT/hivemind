@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hivemind-config
+  namespace: hivemind
+data:
+  # Application Configuration
+  NODE_ENV: "production"
+  HIVEMIND_HOME: "/app/data"
+
+  # Agent Configuration
+  HIVEMIND_MAX_AGENTS: "2"
+  HIVEMIND_HEARTBEAT_SEC: "60"
+  HIVEMIND_HEALTH_CHECK_SEC: "30"
+  HIVEMIND_CHECKPOINT_TURNS: "5"
+
+  # Database Configuration (using SQLite with persistent volume)
+  # For PostgreSQL, set DB_URL in secrets
+  # DB_URL: "set-in-secrets"

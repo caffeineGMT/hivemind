@@ -2,12 +2,22 @@ import crypto from "node:crypto";
 import * as db from "./db.js";
 import * as claude from "./claude.js";
 import * as prompts from "./prompts.js";
-import { HEARTBEAT_INTERVAL_SEC, MAX_CONCURRENT_AGENTS, LOGS_DIR } from "./config.js";
+import { HEARTBEAT_INTERVAL_SEC, MAX_CONCURRENT_AGENTS, LOGS_DIR, CHECKPOINT_EVERY_N_TURNS, DEFAULT_MODEL } from "./config.js";
+// Stripe usage reporting removed — not needed for monitoring dashboard
+import { startHealthMonitoring, stopHealthMonitoring } from "./health-monitoring.js";
+import { startSelfHealing, stopSelfHealing } from "./self-healing.js";
+import { log as structuredLog } from "./logger.js";
+import * as projectConfig from "./project-config.js";
+import * as tracer from "./tracer.js";
+import * as dependencies from "./orchestrator/dependencies.js";
 
 function uid() { return crypto.randomUUID(); }
 
 // Track running agent handles (in-memory, keyed by agent id)
 const runningAgents = new Map();
+
+// Track agent start times for calculating hours
+const agentStartTimes = new Map();
 
 // ── Helper to mark agent status in DB ────────────────────────────────────
 
@@ -34,8 +44,10 @@ async function runCeoPlanning(company) {
 
   const { output: raw, usage: ceoUsage } = await claude.claudeSessionSync("ceo", prompt, {
     cwd: company.workspace,
+    companyId: company.id,
     timeout: 300000,
     maxTurns: 20,
+    model: DEFAULT_MODEL,
   });
   const plan = claude.parseJsonResponse(raw);
 
@@ -106,8 +118,10 @@ async function runCtoRefinement(company) {
     try {
       const { output: raw, usage: ctoUsage } = await claude.claudeSessionSync("cto", prompt, {
         cwd: company.workspace,
+        companyId: company.id,
         timeout: 300000,
         maxTurns: 20,
+        model: DEFAULT_MODEL,
       });
       const refined = claude.parseJsonResponse(raw);
 
@@ -167,6 +181,7 @@ async function runDesignerPhase(company) {
       cwd: company.workspace,
       timeout: 300000,
       maxTurns: 20,
+      model: DEFAULT_MODEL,
     });
     const specs = claude.parseJsonResponse(raw);
 
@@ -205,6 +220,90 @@ async function runDesignerPhase(company) {
   }
 }
 
+// ── Phase 2.75: CMO — Marketing Strategy ────────────────────────────────
+
+async function runCmoPhase(company) {
+  const allTasks = db.getTasksByCompany(company.id);
+  const work = allTasks.filter(t => !t.title.startsWith("[PROJECT]"));
+
+  if (work.length === 0) return null;
+
+  log(company.id, "CMO", "Analyzing market, identifying target users, building go-to-market strategy...");
+  setAgentRunning(company.id, "cmo");
+  db.logActivity({ companyId: company.id, agentId: "cmo", action: "cmo_started", detail: "Building marketing strategy" });
+
+  try {
+    const prompt = prompts.cmoPrompt(company, work);
+    const { output: raw, usage: cmoUsage } = await claude.claudeSessionSync("cmo", prompt, {
+      cwd: company.workspace,
+      timeout: 300000,
+      maxTurns: 20,
+      model: DEFAULT_MODEL,
+    });
+    const strategy = claude.parseJsonResponse(raw);
+
+    setAgentIdle(company.id, "cmo");
+
+    if (cmoUsage) {
+      db.logCost({ companyId: company.id, agentName: "cmo", inputTokens: cmoUsage.inputTokens, outputTokens: cmoUsage.outputTokens, cacheReadTokens: cmoUsage.cacheReadTokens, cacheWriteTokens: cmoUsage.cacheWriteTokens, totalTokens: cmoUsage.totalTokens, costUsd: cmoUsage.costUsd, durationMs: cmoUsage.durationMs, numTurns: cmoUsage.numTurns, model: cmoUsage.model });
+      log(company.id, "CFO", `CMO: ${cmoUsage.totalTokens} tokens, $${cmoUsage.costUsd.toFixed(4)}`);
+    }
+
+    if (!strategy) {
+      log(company.id, "CMO", "Could not generate marketing strategy, proceeding without.");
+      return null;
+    }
+
+    log(company.id, "CMO", `Value prop: ${strategy.value_proposition}`);
+    if (strategy.target_users) {
+      log(company.id, "CMO", `Identified ${strategy.target_users.length} target segments`);
+      for (const seg of strategy.target_users) {
+        log(company.id, "CMO", `  → ${seg.segment}: ${seg.messaging}`);
+      }
+    }
+
+    // Create a Marketing project with tasks
+    if (strategy.marketing_tasks && strategy.marketing_tasks.length > 0) {
+      const projectId = uid();
+      db.createTask({
+        id: projectId,
+        companyId: company.id,
+        title: "[PROJECT] Marketing & Growth",
+        description: `Go-to-market strategy. Value prop: ${strategy.value_proposition}. Launch plan: ${strategy.launch_plan?.slice(0, 300) || "See CMO strategy"}`,
+        priority: "high",
+        createdById: "cmo",
+      });
+
+      for (const mt of strategy.marketing_tasks) {
+        db.createTask({
+          id: uid(),
+          companyId: company.id,
+          parentId: projectId,
+          title: mt.title,
+          description: `${mt.description}\n\nChannel: ${mt.channel}\nTarget users: ${strategy.target_users?.map(u => u.segment).join(", ")}`,
+          priority: mt.priority || "medium",
+          createdById: "cmo",
+        });
+      }
+
+      log(company.id, "CMO", `Created ${strategy.marketing_tasks.length} marketing tasks`);
+    }
+
+    db.logActivity({
+      companyId: company.id,
+      agentId: "cmo",
+      action: "marketing_strategy_created",
+      detail: strategy.value_proposition || "Marketing strategy complete",
+    });
+
+    return strategy;
+  } catch (err) {
+    setAgentIdle(company.id, "cmo");
+    log(company.id, "CMO", `Marketing phase error: ${err.message}`);
+    return null;
+  }
+}
+
 // ── Store design specs ───────────────────────────────────────────────────
 
 let _designSpecs = null;
@@ -213,20 +312,73 @@ let _designSpecs = null;
 
 function dispatchEngineers(company, designSpecs) {
   if (designSpecs !== undefined) _designSpecs = designSpecs;
+
+  // Get project-specific configuration
+  const config = projectConfig.getProjectConfig(company.id);
+
+  // Check budget constraints
+  if (projectConfig.hasExceededBudget(company.id)) {
+    log(company.id, "DISPATCH", `Budget limit exceeded ($${config.max_budget_usd}). Pausing dispatch.`);
+    return 0;
+  }
+
+  if (projectConfig.isApproachingBudgetLimit(company.id)) {
+    const budgetStatus = projectConfig.getBudgetStatus(company.id);
+    log(company.id, "DISPATCH", `⚠️  Budget alert: ${(budgetStatus.usageRatio * 100).toFixed(1)}% used ($${budgetStatus.spent.toFixed(2)} / $${budgetStatus.limit})`);
+  }
+
   const tasks = db.getTasksByCompany(company.id);
   const todoTasks = tasks.filter(t =>
     !t.title.startsWith("[PROJECT]") && (t.status === "backlog" || t.status === "todo")
-  );
+  ).sort((a, b) => {
+    // Prioritize: urgent > high > medium > low, and todo > backlog
+    const priorityOrder = { urgent: -1, high: 0, medium: 1, low: 2 };
+    const statusOrder = { todo: 0, backlog: 1 };
+    const pd = (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1);
+    if (pd !== 0) return pd;
+    return (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1);
+  });
 
-  // Count actually running agents
+  // Count actually running agents for THIS PROJECT ONLY
   let runningCount = 0;
   for (const [, handle] of runningAgents) {
-    if (!handle.done) runningCount++;
+    if (!handle.done && handle.companyId === company.id) runningCount++;
   }
 
-  const available = MAX_CONCURRENT_AGENTS - runningCount;
+  // Use project-specific max concurrent agents
+  let available = config.max_concurrent_agents - runningCount;
+
+  // PREEMPTION: urgent tasks kill lowest-priority running engineers to take their slot
+  const urgentTasks = todoTasks.filter(t => t.priority === "urgent");
+  if (urgentTasks.length > 0 && available <= 0) {
+    const preemptCount = Math.min(urgentTasks.length, runningCount);
+    const candidates = [];
+    for (const [agentId, handle] of runningAgents) {
+      if (handle.done || handle.companyId !== company.id) continue;
+      const task = db.getDb().prepare("SELECT * FROM tasks WHERE id = ?").get(handle.taskId);
+      if (task) candidates.push({ agentId, handle, task });
+    }
+    const po = { low: 0, medium: 1, high: 2, urgent: 999 };
+    candidates.sort((a, b) => (po[a.task.priority] ?? 1) - (po[b.task.priority] ?? 1));
+
+    for (let i = 0; i < preemptCount && i < candidates.length; i++) {
+      const { agentId, handle, task } = candidates[i];
+      if (task.priority === "urgent") break;
+      log(company.id, "PREEMPT", `Killing ${handle.agentName} ("${task.title}" [${task.priority}]) for urgent user request`);
+      try { if (handle.proc) handle.proc.kill("SIGTERM"); } catch {}
+      try { if (handle.pid) process.kill(handle.pid, "SIGTERM"); } catch {}
+      db.updateTaskStatus(task.id, "todo");
+      db.logActivity({ companyId: company.id, agentId, taskId: task.id, action: "task_preempted", detail: "Preempted for urgent user request" });
+      handle.done = true;
+      const agent = db.getAgent(agentId);
+      if (agent) db.updateAgentStatus(agentId, "idle");
+      runningAgents.delete(agentId);
+      available++;
+    }
+  }
+
   if (available <= 0) {
-    log(company.id, "DISPATCH", `All ${MAX_CONCURRENT_AGENTS} agent slots occupied.`);
+    log(company.id, "DISPATCH", `All ${config.max_concurrent_agents} agent slots occupied for this project.`);
     return 0;
   }
 
@@ -285,20 +437,77 @@ function dispatchEngineers(company, designSpecs) {
     }
 
     const prompt = prompts.engineerPrompt(company, task, projectContext);
+
+    // Start trace for this task
+    tracer.startTrace(task.id, "task_execution", {
+      company_id: company.id,
+      agent_id: agent.id,
+      agent_name: agentName,
+      task_title: task.title,
+      task_priority: task.priority
+    });
+    tracer.createSpan(task.id, "agent_start", {
+      agent_name: agentName,
+      task_id: task.id
+    });
+
     // Each engineer is a full Claude session with all capabilities
     const handle = claude.claudeSession(agentName, prompt, {
       cwd: company.workspace,
+      taskId: task.id,
+      companyId: company.id,
       maxTurns: 50,
+      model: DEFAULT_MODEL,
     });
 
-    const agentHandle = { ...handle, taskId: task.id, agentName, companyId: company.id };
+    // Create agent_run record for lifecycle tracking
+    const agentRunId = db.createAgentRun({ agentId: agent.id, taskId: task.id });
+
+    // Create task_execution record for state tracking
+    const taskExecutionId = db.createTaskExecution({ taskId: task.id, companyId: company.id });
+
+    const agentHandle = { ...handle, taskId: task.id, agentName, companyId: company.id, agentRunId, taskExecutionId };
     runningAgents.set(agent.id, agentHandle);
 
-    // Watch for completion — immediately update DB and dispatch next tasks
+    // Track agent start time for usage metering
+    agentStartTimes.set(agent.id, Date.now());
+
+    // Watch for completion AND save checkpoints every N turns
+    let lastCheckpointTurn = 0;
     const watchInterval = setInterval(() => {
+      // Save checkpoint if we've progressed N turns since last checkpoint
+      const checkpointInterval = config.checkpoint_every_n_turns || CHECKPOINT_EVERY_N_TURNS;
+      if (handle.currentTurn && handle.currentTurn - lastCheckpointTurn >= checkpointInterval) {
+        try {
+          db.saveCheckpoint({
+            agentId: agent.id,
+            taskId: task.id,
+            turnNumber: handle.currentTurn,
+            stateData: {
+              progress: handle.stdout.slice(-1000), // Last 1KB of output
+              timestamp: Date.now(),
+            },
+          });
+          lastCheckpointTurn = handle.currentTurn;
+          log(company.id, "CHECKPOINT", `Saved checkpoint for ${agentName} at turn ${handle.currentTurn}`);
+        } catch (err) {
+          log(company.id, "CHECKPOINT", `Failed to save checkpoint: ${err.message}`);
+        }
+      }
+
       if (agentHandle.done || handle.done) {
         clearInterval(watchInterval);
+        // Log trace completion
+        tracer.logTrace(task.id, "agent_complete", {
+          agent_name: agentName,
+          status: "done"
+        });
+        tracer.endTrace(task.id, { status: "completed" });
         agentHandle.done = true;
+        // Clean up checkpoints after successful completion
+        try {
+          db.deleteCheckpoints(agent.id, task.id);
+        } catch {}
         const freshCompany = db.getCompany(company.id);
         if (freshCompany) {
           const completed = checkRunningAgents(freshCompany);
@@ -308,6 +517,11 @@ function dispatchEngineers(company, designSpecs) {
         }
       }
     }, 5000);
+
+    tracer.logTrace(task.id, "task_assigned", {
+      agent_id: agent.id,
+      status: "in_progress"
+    });
 
     db.updateTaskStatus(task.id, "in_progress");
     db.assignTask(task.id, agent.id);
@@ -348,6 +562,9 @@ export function cleanupStaleAgents(company) {
     log(company.id, "CLEANUP", `Agent ${agent.name} (pid ${agent.pid || "none"}) is no longer running, cleaning up`);
     db.updateAgentStatus(agent.id, "idle");
 
+    // Get agent handle to access agent_run and task_execution IDs
+    const handle = runningAgents.get(agent.id);
+
     // Find the in-progress task for this agent
     const task = db.getDb().prepare("SELECT * FROM tasks WHERE assignee_id = ? AND status = 'in_progress'").get(agent.id);
     if (task) {
@@ -375,6 +592,25 @@ export function cleanupStaleAgents(company) {
         action: "task_completed",
         detail: `Cleanup: ${task.title.slice(0, 150)}`,
       });
+
+      // Update agent_run if we have the ID
+      if (handle?.agentRunId) {
+        db.endAgentRun(handle.agentRunId, {
+          status: 'completed',
+          tokensUsed: 0,
+          cost: 0,
+          errorMessage: 'Completed via cleanup (process terminated)',
+        });
+      }
+
+      // Update task_execution if we have the ID
+      if (handle?.taskExecutionId) {
+        db.updateTaskExecution(handle.taskExecutionId, {
+          status: 'completed',
+          completedAt: new Date().toISOString(),
+        });
+      }
+
       log(company.id, "CLEANUP", `Marked task done: ${task.title}`);
     }
 
@@ -384,6 +620,34 @@ export function cleanupStaleAgents(company) {
   }
 
   return cleaned;
+}
+
+// ── Purge idle engineer records ──────────────────────────────────────────
+// Keep DB lean: delete engineer agents that are idle and have no in-progress tasks.
+// C-suite agents (ceo, cto, designer, cfo, cmo) are always kept.
+export function purgeIdleEngineers(company) {
+  const agents = db.getAgentsByCompany(company.id);
+  let purged = 0;
+  for (const agent of agents) {
+    if (agent.role !== "engineer") continue;
+    if (agent.status === "running") continue;
+    // Check if agent has any in-progress tasks
+    const activeTask = db.getDb().prepare(
+      "SELECT id FROM tasks WHERE assignee_id = ? AND status = 'in_progress'"
+    ).get(agent.id);
+    if (activeTask) continue;
+    // Clear FK references before deleting
+    db.getDb().prepare("UPDATE tasks SET assignee_id = NULL WHERE assignee_id = ?").run(agent.id);
+    db.getDb().prepare("DELETE FROM checkpoints WHERE agent_id = ?").run(agent.id);
+    db.getDb().prepare("DELETE FROM incidents WHERE agent_id = ?").run(agent.id);
+    db.getDb().prepare("DELETE FROM activity_log WHERE agent_id = ?").run(agent.id);
+    db.getDb().prepare("DELETE FROM agents WHERE id = ?").run(agent.id);
+    purged++;
+  }
+  if (purged > 0) {
+    log(company.id, "PURGE", `Removed ${purged} idle engineer record(s) to keep DB lean.`);
+  }
+  return purged;
 }
 
 // ── Check running agents ─────────────────────────────────────────────────
@@ -415,6 +679,26 @@ function checkRunningAgents(company) {
       detail: summary.slice(0, 200),
     });
 
+    // Update agent_run record with completion status
+    if (handle.agentRunId) {
+      const tokensUsed = handle.usage?.totalTokens || 0;
+      const cost = handle.usage?.costUsd || 0;
+      db.endAgentRun(handle.agentRunId, {
+        status: handle.exitCode === 0 ? 'completed' : 'error',
+        tokensUsed,
+        cost,
+        errorMessage: handle.exitCode !== 0 ? handle.stderr?.slice(0, 500) : null,
+      });
+    }
+
+    // Update task_execution record with completion
+    if (handle.taskExecutionId) {
+      db.updateTaskExecution(handle.taskExecutionId, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      });
+    }
+
     // Log cost data from this session
     if (handle.usage) {
       db.logCost({
@@ -432,10 +716,71 @@ function checkRunningAgents(company) {
         model: handle.usage.model,
       });
       log(company.id, "CFO", `${handle.agentName}: ${handle.usage.totalTokens} tokens, $${handle.usage.costUsd.toFixed(4)}, ${handle.usage.numTurns} turns`);
+
+      // Record metrics for real-time tracking
+      db.recordMetric({
+        metricName: 'token_usage',
+        value: handle.usage.totalTokens,
+        agentId,
+        companyId: company.id,
+      });
+
+      db.recordMetric({
+        metricName: 'agent_cost',
+        value: handle.usage.costUsd,
+        agentId,
+        companyId: company.id,
+      });
+
+      // Track API calls (each turn is an API call)
+      if (handle.usage.numTurns) {
+        db.logUsage({
+          companyId: company.id,
+          metric: "api_calls",
+          value: handle.usage.numTurns,
+          agentId,
+          metadata: { agent_name: handle.agentName, task_id: handle.taskId }
+        });
+
+        db.recordMetric({
+          metricName: 'api_calls',
+          value: handle.usage.numTurns,
+          agentId,
+          companyId: company.id,
+        });
+      }
+    }
+
+    // Calculate and log agent hours
+    const startTime = agentStartTimes.get(agentId);
+    if (startTime) {
+      const durationMs = Date.now() - startTime;
+      const hours = durationMs / (1000 * 60 * 60);
+      db.logUsage({
+        companyId: company.id,
+        metric: "agent_hours",
+        value: hours,
+        agentId,
+        metadata: { agent_name: handle.agentName, task_id: handle.taskId }
+      });
+      agentStartTimes.delete(agentId);
+      log(company.id, "CFO", `${handle.agentName}: ${hours.toFixed(2)} hours tracked`);
+
     }
 
     const task = db.getDb().prepare("SELECT title FROM tasks WHERE id = ?").get(handle.taskId);
     log(company.id, handle.agentName.toUpperCase(), `Completed: ${task?.title || handle.taskId}`);
+
+    // Track first_task_completed event
+    const allTasks = db.getTasksByCompany(company.id);
+    const completedTasks = allTasks.filter(t => t.status === "done" && !t.title.startsWith("[PROJECT]"));
+    if (completedTasks.length === 1) {
+      db.trackEvent({
+        companyId: company.id,
+        eventType: "first_task_completed",
+        eventData: { taskTitle: task?.title, taskId: handle.taskId },
+      });
+    }
 
     runningAgents.delete(agentId);
     completed++;
@@ -449,6 +794,14 @@ function checkRunningAgents(company) {
 function log(companyId, source, message) {
   const ts = new Date().toLocaleTimeString();
   console.log(`  [${ts}] [${source}] ${message}`);
+
+  // Also log to structured logging system
+  structuredLog({
+    level: 'info',
+    source,
+    companyId,
+    action: message
+  });
 }
 
 function printProgress(company) {
@@ -488,6 +841,14 @@ export async function startCompany(goal, opts = {}) {
   db.createAgent({ id: uid(), companyId, name: "cto", role: "cto", title: "CTO" });
   db.createAgent({ id: uid(), companyId, name: "designer", role: "designer", title: "Lead Designer" });
   db.createAgent({ id: uid(), companyId, name: "cfo", role: "cfo", title: "CFO" });
+  db.createAgent({ id: uid(), companyId, name: "cmo", role: "cmo", title: "CMO" });
+
+  // Track company_created event
+  db.trackEvent({
+    companyId,
+    eventType: "company_created",
+    eventData: { name, goal },
+  });
 
   // Phase 1: CEO — full session, can read files, explore workspace
   const plan = await runCeoPlanning(db.getCompany(companyId));
@@ -502,11 +863,15 @@ export async function startCompany(goal, opts = {}) {
   // Phase 2.5: Designer — full session, can create design files, review code
   const designSpecs = await runDesignerPhase(db.getCompany(companyId));
 
+  // Phase 2.75: CMO — marketing strategy, target users, go-to-market tasks
+  await runCmoPhase(db.getCompany(companyId));
+
   // Phase 3: Engineers — full sessions, each one has all Claude capabilities
   dispatchEngineers(db.getCompany(companyId), designSpecs);
 
   // Phase 4: Monitor loop
-  console.log(`\n  Heartbeat every ${HEARTBEAT_INTERVAL_SEC}s. Press Ctrl+C to stop monitoring.`);
+  const config = projectConfig.getProjectConfig(companyId);
+  console.log(`\n  Heartbeat every ${config.heartbeat_interval_sec}s. Press Ctrl+C to stop monitoring.`);
   console.log(`  (Every agent is a standalone Claude session with full tool access.)\n`);
 
   await runHeartbeatLoop(companyId);
@@ -516,12 +881,41 @@ export async function startCompany(goal, opts = {}) {
 
 async function runHeartbeatLoop(companyId) {
   let processingComments = false;
+  let sprintPlanning = false;
+  let lastCleanupDate = new Date().toDateString();
 
   return new Promise((resolve) => {
+    // Start health monitoring loop (separate from heartbeat)
+    const company = db.getCompany(companyId);
+    const config = projectConfig.getProjectConfig(companyId);
+
+    const healthMonitor = config.health_check_enabled ? startHealthMonitoring(company, runningAgents, () => {
+      // Callback when agent crashes - trigger dispatcher
+      const freshCompany = db.getCompany(companyId);
+      if (freshCompany) {
+        dispatchEngineers(freshCompany, undefined);
+      }
+    }) : null;
+
+    // Start self-healing rule engine
+    const selfHealingEngine = startSelfHealing({
+      company,
+      runningAgents,
+      restartCallback: () => {
+        // Callback when self-healing triggers restart - trigger dispatcher
+        const freshCompany = db.getCompany(companyId);
+        if (freshCompany) {
+          dispatchEngineers(freshCompany, undefined);
+        }
+      }
+    });
+
     const heartbeat = setInterval(async () => {
       const company = db.getCompany(companyId);
       if (!company || company.status !== "active") {
         clearInterval(heartbeat);
+        stopHealthMonitoring(healthMonitor);
+        stopSelfHealing();
         resolve();
         return;
       }
@@ -529,10 +923,26 @@ async function runHeartbeatLoop(companyId) {
       // Clean up agents whose PIDs died (e.g. after orchestrator restart)
       const cleanedUp = cleanupStaleAgents(company);
 
-      const completedNow = checkRunningAgents(company);
-      if (completedNow > 0 || cleanedUp > 0) {
-        dispatchEngineers(company, undefined);
+      // Purge idle engineer DB records to keep agent count sane
+      purgeIdleEngineers(company);
+
+      // Clean up old logs once per day (at midnight)
+      const today = new Date().toDateString();
+      if (today !== lastCleanupDate) {
+        try {
+          const deleted = db.cleanOldLogs(30);
+          if (deleted > 0) {
+            log(companyId, "CLEANUP", `Deleted ${deleted} log entries older than 30 days`);
+          }
+          lastCleanupDate = today;
+        } catch (err) {
+          log(companyId, "CLEANUP", `Log cleanup error: ${err.message}`);
+        }
       }
+
+      const completedNow = checkRunningAgents(company);
+      // Always try to dispatch — picks up any backlog/todo tasks with available slots
+      dispatchEngineers(company, undefined);
 
       // Check for unread user comments/nudges and feed to CEO
       if (!processingComments) {
@@ -549,7 +959,6 @@ async function runHeartbeatLoop(companyId) {
 
           log(companyId, "HEARTBEAT", `Processing ${unread.length} unread comment(s)...`);
 
-          // Fire CEO reassessment with the comments
           nudge(companyId, `User feedback received:\n${commentSummary}\n\nPlease review and take action on this feedback.`)
             .then(() => {
               log(companyId, "HEARTBEAT", "CEO processed user feedback.");
@@ -567,23 +976,44 @@ async function runHeartbeatLoop(companyId) {
       const work = allTasks.filter(t => !t.title.startsWith("[PROJECT]"));
       const done = work.filter(t => t.status === "done");
 
-      if (done.length === work.length && work.length > 0) {
-        console.log("\n  ✓ ALL TASKS COMPLETED. Company goal achieved!");
-        db.getDb().prepare("UPDATE companies SET status = 'completed' WHERE id = ?").run(companyId);
-        db.logActivity({ companyId, action: "company_completed", detail: "All tasks done" });
-        clearInterval(heartbeat);
-        resolve();
+      if (done.length === work.length && work.length > 0 && !sprintPlanning) {
+        // Sprint complete — start next sprint instead of stopping
+        sprintPlanning = true;
+        const sprintNum = (company.sprint || 0) + 1;
+        db.getDb().prepare("UPDATE companies SET sprint = ? WHERE id = ?").run(sprintNum, companyId);
+        db.logActivity({ companyId, action: "sprint_completed", detail: `Sprint ${sprintNum - 1} complete. All ${work.length} tasks done. Starting next sprint.` });
+
+        log(companyId, "SPRINT", `Sprint ${sprintNum - 1} COMPLETE (${work.length} tasks done). Starting sprint ${sprintNum}...`);
+        log(companyId, "SPRINT", "24/7 mode: CEO reassessing → CTO refining → CMO marketing → Engineers building");
+
+        try {
+          // CEO plans next sprint based on what's been built
+          const plan = await runCeoPlanning(db.getCompany(companyId));
+          if (plan) {
+            await runCtoRefinement(db.getCompany(companyId));
+            const designSpecs = await runDesignerPhase(db.getCompany(companyId));
+            await runCmoPhase(db.getCompany(companyId));
+            dispatchEngineers(db.getCompany(companyId), designSpecs);
+          } else {
+            log(companyId, "SPRINT", "CEO planning returned no new tasks. Nudging for next steps...");
+            await nudge(companyId, "All current tasks are done. What's the next set of features, improvements, or marketing actions to push toward $1M revenue? Create new tasks.");
+          }
+        } catch (err) {
+          log(companyId, "SPRINT", `Sprint planning error: ${err.message}. Will retry next heartbeat.`);
+        }
+        sprintPlanning = false;
         return;
       }
 
       printProgress(company);
-    }, HEARTBEAT_INTERVAL_SEC * 1000);
+    }, config.heartbeat_interval_sec * 1000);
 
     process.on("SIGINT", () => {
       console.log(`\n  Stopping monitor. Agents continue as background processes.`);
       console.log(`  Resume:  node bin/hivemind.js resume ${companyId.slice(0, 8)}`);
       console.log(`  Status:  node bin/hivemind.js status`);
       clearInterval(heartbeat);
+      if (healthMonitor) stopHealthMonitoring(healthMonitor);
       resolve();
       setTimeout(() => process.exit(0), 100);
     });
@@ -700,18 +1130,71 @@ export async function nudge(companyIdPrefix, message) {
   }
 
   console.log(`\n  Nudging ${company.name}...`);
+  cleanupStaleAgents(company);
   checkRunningAgents(company);
 
+  // Collect all unread comments + the nudge message
+  const unread = db.getUnreadComments(company.id);
+  const allMessages = [];
+  if (message && !message.includes("Process unread comments")) {
+    allMessages.push(message);
+  }
+  if (unread.length > 0) {
+    const commentIds = unread.map(c => c.id);
+    db.markCommentsRead(commentIds);
+    for (const c of unread) {
+      const msg = c.message.replace(/^\[NUDGE\] /, "");
+      allMessages.push(msg);
+    }
+    log(company.id, "NUDGE", `Processing ${unread.length} unread comment(s)`);
+  }
+
+  if (allMessages.length === 0) {
+    // Nothing to process — just dispatch any pending tasks
+    dispatchEngineers(company, undefined);
+    return;
+  }
+
+  // STEP 1: Create URGENT tasks directly from user messages — dispatched IMMEDIATELY
+  // No CEO planning delay. User said it, engineer does it NOW.
+  for (const msg of allMessages) {
+    const taskId = uid();
+    const title = msg.slice(0, 100);
+    db.createTask({
+      id: taskId,
+      companyId: company.id,
+      title: `[URGENT] ${title}`,
+      description: `URGENT — User request (do this immediately):\n\n${msg}\n\nThis came directly from the user. Drop everything and handle this NOW. Be specific, make the change, test it, commit and deploy.`,
+      priority: "urgent",
+      createdById: "user",
+    });
+    db.updateTaskStatus(taskId, "todo");
+    db.logActivity({
+      companyId: company.id,
+      action: "urgent_task_created",
+      taskId,
+      detail: `User: ${title}`,
+    });
+    log(company.id, "URGENT", `Created urgent task: ${title}`);
+  }
+
+  // STEP 2: Dispatch immediately — preemption will kick in if needed
+  dispatchEngineers(company, undefined);
+
+  // STEP 3: Also run CEO assessment in background for strategic follow-up
+  // (non-blocking — the urgent task is already dispatched above)
+  const fullMessage = allMessages.join("\n\n");
   setAgentRunning(company.id, "ceo");
   const agents = db.getAgentsByCompany(company.id);
   const tasks = db.getTasksByCompany(company.id);
-  const prompt = prompts.heartbeatPrompt(company, agents, tasks, message || null);
+  const prompt = prompts.heartbeatPrompt(company, agents, tasks, fullMessage);
 
   try {
     const { output: raw, usage: nudgeUsage } = await claude.claudeSessionSync("ceo-nudge", prompt, {
       cwd: company.workspace,
       timeout: 120000,
       maxTurns: 20,
+      model: DEFAULT_MODEL,
     });
     const assessment = claude.parseJsonResponse(raw);
 
@@ -727,14 +1210,16 @@ export async function nudge(companyIdPrefix, message) {
         for (const action of assessment.actions) {
           log(company.id, "CEO", `→ ${action.type}: ${action.detail}`);
           if (action.type === "create_task") {
+            const taskId = uid();
             db.createTask({
-              id: uid(),
+              id: taskId,
               companyId: company.id,
               title: action.detail.slice(0, 100),
               description: action.detail,
               priority: "high",
               createdById: "ceo",
             });
+            db.updateTaskStatus(taskId, "todo");
           }
         }
       }
@@ -744,5 +1229,6 @@ export async function nudge(companyIdPrefix, message) {
   }
 
   setAgentIdle(company.id, "ceo");
+  // Dispatch again after CEO creates follow-up tasks
   dispatchEngineers(company, undefined);
 }

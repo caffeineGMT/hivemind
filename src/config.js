@@ -7,8 +7,11 @@ export const HIVEMIND_HOME = process.env.HIVEMIND_HOME || path.join(os.homedir()
 export const DB_PATH = path.join(HIVEMIND_HOME, "hivemind.db");
 export const LOGS_DIR = path.join(HIVEMIND_HOME, "logs");
 export const TMUX_SESSION_PREFIX = "hive";
-export const HEARTBEAT_INTERVAL_SEC = parseInt(process.env.HIVEMIND_HEARTBEAT_SEC || "15", 10);
-export const MAX_CONCURRENT_AGENTS = parseInt(process.env.HIVEMIND_MAX_AGENTS || "5", 10);
+export const HEARTBEAT_INTERVAL_SEC = parseInt(process.env.HIVEMIND_HEARTBEAT_SEC || "60", 10);
+export const MAX_CONCURRENT_AGENTS = parseInt(process.env.HIVEMIND_MAX_AGENTS || "2", 10);
+export const HEALTH_CHECK_INTERVAL_SEC = parseInt(process.env.HIVEMIND_HEALTH_CHECK_SEC || "30", 10);
+export const CHECKPOINT_EVERY_N_TURNS = parseInt(process.env.HIVEMIND_CHECKPOINT_TURNS || "5", 10);
+export const SLACK_WEBHOOK_URL = process.env.HIVEMIND_SLACK_WEBHOOK || null;
 
 // Resolve claude command — use native binary to bypass sandbox-exec
 function resolveClaudeCmd() {

@@ -7,10 +7,27 @@
     "hivemind": "./bin/hivemind.js"
   },
   "scripts": {
-    "start": "node bin/hivemind.js"
+    "start": "node bin/hivemind.js",
+    "seed:beta": "node scripts/seed-beta-users.js",
+    "campaign:preview": "node scripts/early-bird-campaign.js",
+    "campaign:test": "node scripts/early-bird-campaign.js --test-email=guomaitao@gmail.com",
+    "campaign:send": "node scripts/early-bird-campaign.js --send",
+    "campaign:followup:preview": "node scripts/early-bird-followup.js",
+    "campaign:followup:test": "node scripts/early-bird-followup.js --test-email=guomaitao@gmail.com",
+    "campaign:followup:send": "node scripts/early-bird-followup.js --send",
+    "usage:init": "node scripts/init-usage-billing.js",
+    "usage:check": "node scripts/daily-usage-check.js",
+    "usage:paddle-report": "node scripts/monthly-paddle-report.js"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "better-sqlite3": "^11.10.0",
-    "express": "^4.21.0"
+    "cookie-parser": "^1.4.7",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^8.0.3",
+    "pg": "^8.20.0",
+    "winston": "^3.19.0",
+    "ws": "^8.19.0"
   }
 }

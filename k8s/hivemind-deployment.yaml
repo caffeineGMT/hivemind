@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hivemind-app
+  namespace: hivemind
+  labels:
+    app: hivemind-engine
+    component: app
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: hivemind-engine
+      component: app
+  template:
+    metadata:
+      labels:
+        app: hivemind-engine
+        component: app
+    spec:
+      containers:
+      - name: hivemind
+        image: hivemind-engine:latest  # Replace with your image registry
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3100
+          name: http
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: hivemind-config
+              key: NODE_ENV
+        - name: HIVEMIND_HOME
+          valueFrom:
+            configMapKeyRef:
+              name: hivemind-config
+              key: HIVEMIND_HOME
+        - name: HIVEMIND_MAX_AGENTS
+          valueFrom:
+            configMapKeyRef:
+              name: hivemind-config
+              key: HIVEMIND_MAX_AGENTS
+        - name: HIVEMIND_HEARTBEAT_SEC
+          valueFrom:
+            configMapKeyRef:
+              name: hivemind-config
+              key: HIVEMIND_HEARTBEAT_SEC
+        - name: HIVEMIND_HEALTH_CHECK_SEC
+          valueFrom:
+            configMapKeyRef:
+              name: hivemind-config
+              key: HIVEMIND_HEALTH_CHECK_SEC
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: hivemind-secrets
+              key: anthropic-api-key
+        - name: HIVEMIND_LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: hivemind-secrets
+              key: license-key
+        # Uncomment to use PostgreSQL instead of SQLite
+        # - name: DB_URL
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: hivemind-secrets
+        #       key: postgres-connection-string
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+        - name: logs
+          mountPath: /app/data/logs
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3100
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3100
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: hivemind-data-pvc
+      - name: logs
+        persistentVolumeClaim:
+          claimName: hivemind-logs-pvc
