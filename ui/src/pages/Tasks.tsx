@@ -205,18 +205,19 @@ export default function Tasks({ companyId }: { companyId: string }) {
         <div className="flex gap-2">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-medium transition min-h-[44px] ${
               showFilters
                 ? 'bg-amber-500/20 text-amber-400'
                 : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
             }`}
           >
             <Filter className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Filters</span>
             Filters
           </button>
           <button
             onClick={() => setViewMode('list')}
-            className={`rounded-lg p-2 transition ${
+            className={`rounded-lg p-2.5 transition min-h-[44px] min-w-[44px] flex items-center justify-center ${
               viewMode === 'list' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
@@ -224,7 +225,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
           </button>
           <button
             onClick={() => setViewMode('graph')}
-            className={`rounded-lg p-2 transition ${
+            className={`rounded-lg p-2.5 transition min-h-[44px] min-w-[44px] flex items-center justify-center ${
               viewMode === 'graph'
                 ? 'bg-zinc-800 text-zinc-100'
                 : 'text-zinc-500 hover:text-zinc-300'
@@ -234,7 +235,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
           </button>
           <button
             onClick={() => setViewMode('timeline')}
-            className={`rounded-lg p-2 transition ${
+            className={`rounded-lg p-2.5 transition min-h-[44px] min-w-[44px] flex items-center justify-center ${
               viewMode === 'timeline'
                 ? 'bg-zinc-800 text-zinc-100'
                 : 'text-zinc-500 hover:text-zinc-300'
@@ -245,7 +246,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
           </button>
           <button
             onClick={() => setViewMode('d3-advanced')}
-            className={`rounded-lg p-2 transition ${
+            className={`rounded-lg p-2.5 transition min-h-[44px] min-w-[44px] flex items-center justify-center ${
               viewMode === 'd3-advanced'
                 ? 'bg-amber-500 text-white'
                 : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
@@ -315,7 +316,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
                 onChange={(e) =>
                   setFilters({ ...filters, dateRange: { ...filters.dateRange, start: e.target.value } })
                 }
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-200"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-2.5 text-xs text-zinc-200 min-h-[44px]"
               />
               <input
                 type="date"
@@ -323,7 +324,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
                 onChange={(e) =>
                   setFilters({ ...filters, dateRange: { ...filters.dateRange, end: e.target.value } })
                 }
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-200"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-2.5 text-xs text-zinc-200 min-h-[44px]"
               />
             </div>
           </div>
@@ -337,28 +338,28 @@ export default function Tasks({ companyId }: { companyId: string }) {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => handleBulkStatusChange('todo')}
-              className="rounded-lg bg-blue-500/20 px-3 py-1 text-xs font-medium text-blue-400 hover:bg-blue-500/30"
+              className="rounded-lg bg-blue-500/20 px-3 py-2.5 text-xs font-medium min-h-[44px] text-blue-400 hover:bg-blue-500/30"
               aria-label="Mark selected tasks as todo"
             >
               Mark Todo
             </button>
             <button
               onClick={() => handleBulkStatusChange('in_progress')}
-              className="rounded-lg bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-400 hover:bg-amber-500/30"
+              className="rounded-lg bg-amber-500/20 px-3 py-2.5 text-xs font-medium min-h-[44px] text-amber-400 hover:bg-amber-500/30"
               aria-label="Mark selected tasks as in progress"
             >
               Mark In Progress
             </button>
             <button
               onClick={() => handleBulkStatusChange('done')}
-              className="rounded-lg bg-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-400 hover:bg-emerald-500/30"
+              className="rounded-lg bg-emerald-500/20 px-3 py-2.5 text-xs font-medium min-h-[44px] text-emerald-400 hover:bg-emerald-500/30"
               aria-label="Mark selected tasks as done"
             >
               Mark Done
             </button>
             <button
               onClick={handleBulkRetry}
-              className="rounded-lg bg-purple-500/20 px-3 py-1 text-xs font-medium text-purple-400 hover:bg-purple-500/30"
+              className="rounded-lg bg-purple-500/20 px-3 py-2.5 text-xs font-medium min-h-[44px] text-purple-400 hover:bg-purple-500/30"
               aria-label="Retry selected tasks"
             >
               <RefreshCw className="inline h-3 w-3 mr-1" />
@@ -366,7 +367,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
             </button>
             <button
               onClick={handleBulkCancel}
-              className="rounded-lg bg-orange-500/20 px-3 py-1 text-xs font-medium text-orange-400 hover:bg-orange-500/30"
+              className="rounded-lg bg-orange-500/20 px-3 py-2.5 text-xs font-medium min-h-[44px] text-orange-400 hover:bg-orange-500/30"
               aria-label="Cancel selected tasks"
             >
               <Ban className="inline h-3 w-3 mr-1" />
@@ -374,7 +375,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
             </button>
             <button
               onClick={() => setShowReassignModal(true)}
-              className="rounded-lg bg-cyan-500/20 px-3 py-1 text-xs font-medium text-cyan-400 hover:bg-cyan-500/30"
+              className="rounded-lg bg-cyan-500/20 px-3 py-2.5 text-xs font-medium min-h-[44px] text-cyan-400 hover:bg-cyan-500/30"
               aria-label="Reassign selected tasks"
             >
               <UserPlus className="inline h-3 w-3 mr-1" />
@@ -382,7 +383,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
             </button>
             <button
               onClick={handleBulkDelete}
-              className="rounded-lg bg-red-500/20 px-3 py-1 text-xs font-medium text-red-400 hover:bg-red-500/30"
+              className="rounded-lg bg-red-500/20 px-3 py-2.5 text-xs font-medium min-h-[44px] text-red-400 hover:bg-red-500/30"
               aria-label="Delete selected tasks"
             >
               <Trash2 className="inline h-3 w-3 mr-1" />
@@ -390,7 +391,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
             </button>
             <button
               onClick={() => setSelectedTasks(new Set())}
-              className="rounded-lg bg-zinc-700 px-3 py-1 text-xs font-medium text-zinc-300 hover:bg-zinc-600"
+              className="rounded-lg bg-zinc-700 px-3 py-2.5 text-xs font-medium min-h-[44px] text-zinc-300 hover:bg-zinc-600"
               aria-label="Clear selection"
             >
               Clear
@@ -406,13 +407,13 @@ export default function Tasks({ companyId }: { companyId: string }) {
           <div className="flex items-center gap-2 px-2">
             <button
               onClick={handleSelectAll}
-              className="text-zinc-500 hover:text-zinc-300"
+              className="text-zinc-500 hover:text-zinc-300 min-h-[44px] min-w-[44px] flex items-center justify-center"
               aria-label="Select all"
             >
               {selectedTasks.size === filteredTasks.length && filteredTasks.length > 0 ? (
-                <CheckSquare className="h-4 w-4" />
+                <CheckSquare className="h-5 w-5" />
               ) : (
-                <Square className="h-4 w-4" />
+                <Square className="h-5 w-5" />
               )}
             </button>
             <span className="text-xs text-zinc-500">Select all</span>
@@ -436,7 +437,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
                   {selectedTasks.has(task.id) ? (
                     <CheckSquare className="h-4 w-4 text-amber-400" />
                   ) : (
-                    <Square className="h-4 w-4" />
+                    <Square className="h-5 w-5" />
                   )}
                 </button>
                 <div className="flex-1">
