@@ -461,7 +461,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
       {viewMode === 'd3-advanced' && (
         <TaskQueueVisualization
           tasks={filteredTasks}
-          onTaskClick={(task) => navigate(`tasks/${task.id}`)}
+          onTaskClick={(task) => navigate(`${task.id}`)}
         />
       )}
 

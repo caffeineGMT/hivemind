@@ -1,19 +1,20 @@
 import { useSwipeable } from 'react-swipeable';
-import { useNavigate, useLocation } from 'react-router-dom';
-
-const routes = [
-  '/',
-  '/tasks',
-  '/agents',
-  '/activity',
-  '/finance',
-  '/analytics',
-  '/costs',
-];
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 
 export function useSwipeNavigation() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { companySlug } = useParams<{ companySlug: string }>();
+
+  const routes = [
+    `/${companySlug}`,
+    `/${companySlug}/tasks`,
+    `/${companySlug}/agents`,
+    `/${companySlug}/activity`,
+    `/${companySlug}/finance`,
+    `/${companySlug}/analytics`,
+    `/${companySlug}/costs`,
+  ];
 
   const currentIndex = routes.indexOf(location.pathname);
 
