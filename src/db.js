@@ -26,7 +26,9 @@ function migrate(db) {
     if (cols.length > 0 && !cols.find(c => c.name === "read")) {
       db.exec("ALTER TABLE comments ADD COLUMN read INTEGER NOT NULL DEFAULT 0");
     }
-  } catch {}
+  } catch (err) {
+    console.error("[DB Migration] Failed to add 'read' column to comments:", err.message);
+  }
 
   // Add 'sprint' column to companies if missing
   try {
@@ -34,7 +36,9 @@ function migrate(db) {
     if (cols.length > 0 && !cols.find(c => c.name === "sprint")) {
       db.exec("ALTER TABLE companies ADD COLUMN sprint INTEGER NOT NULL DEFAULT 0");
     }
-  } catch {}
+  } catch (err) {
+    console.error("[DB Migration] Failed to add 'sprint' column to companies:", err.message);
+  }
 
   // Add 'deployment_url' column to companies if missing
   try {
@@ -42,7 +46,9 @@ function migrate(db) {
     if (cols.length > 0 && !cols.find(c => c.name === "deployment_url")) {
       db.exec("ALTER TABLE companies ADD COLUMN deployment_url TEXT");
     }
-  } catch {}
+  } catch (err) {
+    console.error("[DB Migration] Failed to add 'deployment_url' column to companies:", err.message);
+  }
 
   // Add trace enhancement columns if missing
   try {
@@ -64,7 +70,9 @@ function migrate(db) {
         db.exec("ALTER TABLE traces ADD COLUMN task_id TEXT");
       }
     }
-  } catch {}
+  } catch (err) {
+    console.error("[DB Migration] Failed to add trace enhancement columns:", err.message);
+  }
 
   // Add trace_id column to logs if missing
   try {
@@ -73,7 +81,9 @@ function migrate(db) {
       db.exec("ALTER TABLE logs ADD COLUMN trace_id TEXT");
       db.exec("CREATE INDEX IF NOT EXISTS idx_logs_trace_id ON logs(trace_id)");
     }
-  } catch {}
+  } catch (err) {
+    console.error("[DB Migration] Failed to add 'trace_id' column to logs:", err.message);
+  }
 
   // Add 'depends_on' column to tasks if missing
   try {
@@ -81,7 +91,9 @@ function migrate(db) {
     if (cols.length > 0 && !cols.find(c => c.name === "depends_on")) {
       db.exec("ALTER TABLE tasks ADD COLUMN depends_on TEXT");
     }
-  } catch {}
+  } catch (err) {
+    console.error("[DB Migration] Failed to add 'depends_on' column to tasks:", err.message);
+  }
 
   // Add 'pattern_id' column to activity_log for failure pattern grouping
   try {
@@ -90,7 +102,9 @@ function migrate(db) {
       db.exec("ALTER TABLE activity_log ADD COLUMN pattern_id TEXT");
       db.exec("CREATE INDEX IF NOT EXISTS idx_activity_log_pattern ON activity_log(pattern_id)");
     }
-  } catch {}
+  } catch (err) {
+    console.error("[DB Migration] Failed to add 'pattern_id' column to activity_log:", err.message);
+  }
 
 
   // Add agent resource pooling columns if missing
@@ -110,7 +124,9 @@ function migrate(db) {
         db.exec("ALTER TABLE agents ADD COLUMN max_load INTEGER DEFAULT 1");
       }
     }
-  } catch {}
+  } catch (err) {
+    console.error("[DB Migration] Failed to add agent resource pooling columns:", err.message);
+  }
 
   // Add task requirements column if missing
   try {
@@ -118,7 +134,9 @@ function migrate(db) {
     if (cols.length > 0 && !cols.find(c => c.name === "required_capabilities")) {
       db.exec("ALTER TABLE tasks ADD COLUMN required_capabilities TEXT");
     }
-  } catch {}
+  } catch (err) {
+    console.error("[DB Migration] Failed to add 'required_capabilities' column to tasks:", err.message);
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY,

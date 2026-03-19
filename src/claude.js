@@ -12,17 +12,30 @@ function buildClaudeEnv() {
   // Allow spawning claude from within a claude session
   delete env.CLAUDECODE;
   delete env.CLAUDE_CODE_ENTRY_POINT;
-  // Meta-specific env vars needed for auth
-  if (process.platform === "darwin") {
+
+  // Meta-specific env vars needed for auth (configurable via environment)
+  // Only apply if explicitly configured OR on darwin platform
+  const isMetaEnv = process.env.ANTHROPIC_BASE_URL || process.env.HTTP_PROXY || process.platform === "darwin";
+
+  if (isMetaEnv && process.platform === "darwin") {
+    // These can be overridden via environment variables
     env.ANTHROPIC_BASE_URL = env.ANTHROPIC_BASE_URL || "http://plugboard.x2p.facebook.net";
-    env.CPE_RUST_X2P_SUPPORTS_VPNLESS = "1";
-    env.X2P_SUPPORTS_VPNLESS = "1";
+    env.CPE_RUST_X2P_SUPPORTS_VPNLESS = env.CPE_RUST_X2P_SUPPORTS_VPNLESS || "1";
+    env.X2P_SUPPORTS_VPNLESS = env.X2P_SUPPORTS_VPNLESS || "1";
     env.HTTP_PROXY = env.HTTP_PROXY || "http://localhost:10054";
     env.HTTPS_PROXY = env.HTTPS_PROXY || "http://localhost:10054";
-    env.X2P_AGENT_PROXY_ADDRESS = "localhost:10054";
-    const cat = "eyJ2ZXJpZmllciI6ICJtZXRhbWF0ZV9wbGF0Zm9ybS5wbHVnYm9hcmQiLCAidG9rZW5UaW1lb3V0U2Vjb25kcyI6IDMwMCwgImlzTG93Qm94IjogdHJ1ZX0=";
-    env.ANTHROPIC_CUSTOM_HEADERS = `x-x2pagentd-inject-cat: ${cat}`;
+    env.X2P_AGENT_PROXY_ADDRESS = env.X2P_AGENT_PROXY_ADDRESS || "localhost:10054";
+
+    // Only inject CAT token if explicitly provided via env var
+    if (env.ANTHROPIC_META_CAT_TOKEN) {
+      env.ANTHROPIC_CUSTOM_HEADERS = `x-x2pagentd-inject-cat: ${env.ANTHROPIC_META_CAT_TOKEN}`;
+    } else if (!env.ANTHROPIC_CUSTOM_HEADERS) {
+      // Fallback to default Meta token (only on darwin)
+      const cat = "eyJ2ZXJpZmllciI6ICJtZXRhbWF0ZV9wbGF0Zm9ybS5wbHVnYm9hcmQiLCAidG9rZW5UaW1lb3V0U2Vjb25kcyI6IDMwMCwgImlzTG93Qm94IjogdHJ1ZX0=";
+      env.ANTHROPIC_CUSTOM_HEADERS = `x-x2pagentd-inject-cat: ${cat}`;
+    }
   }
+
   env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
   env.DISABLE_AUTOUPDATER = "1";
   for (const key of Object.keys(env)) {

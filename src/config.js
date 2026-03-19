@@ -3,6 +3,42 @@ import os from "node:os";
 import fs from "node:fs";
 import { existsSync } from "node:fs";
 
+// ============================================================================
+// Environment Validation - Fail fast with clear errors
+// ============================================================================
+function validateEnvironment() {
+  const errors = [];
+
+  // Critical: API key is required for Claude to work
+  if (!process.env.ANTHROPIC_API_KEY) {
+    errors.push("ANTHROPIC_API_KEY is required. Get your key from https://console.anthropic.com/");
+  }
+
+  // Validate numeric configs
+  const numericVars = [
+    { name: 'HIVEMIND_HEARTBEAT_SEC', value: process.env.HIVEMIND_HEARTBEAT_SEC },
+    { name: 'HIVEMIND_MAX_AGENTS', value: process.env.HIVEMIND_MAX_AGENTS },
+    { name: 'HIVEMIND_HEALTH_CHECK_SEC', value: process.env.HIVEMIND_HEALTH_CHECK_SEC },
+    { name: 'HIVEMIND_CHECKPOINT_TURNS', value: process.env.HIVEMIND_CHECKPOINT_TURNS }
+  ];
+
+  for (const { name, value } of numericVars) {
+    if (value && isNaN(parseInt(value, 10))) {
+      errors.push(`${name} must be a number, got: ${value}`);
+    }
+  }
+
+  if (errors.length > 0) {
+    console.error("\n❌ Environment Configuration Errors:\n");
+    errors.forEach(err => console.error(`   • ${err}`));
+    console.error("\n💡 Copy .env.example to .env and configure required variables.\n");
+    process.exit(1);
+  }
+}
+
+// Run validation immediately on module load
+validateEnvironment();
+
 export const HIVEMIND_HOME = process.env.HIVEMIND_HOME || path.join(os.homedir(), ".hivemind");
 export const DB_PATH = path.join(HIVEMIND_HOME, "hivemind.db");
 export const LOGS_DIR = path.join(HIVEMIND_HOME, "logs");
@@ -19,18 +55,21 @@ function resolveClaudeCmd() {
   if (process.env.HIVEMIND_CLAUDE_CMD) return { cmd: process.env.HIVEMIND_CLAUDE_CMD, args: [] };
 
   // Meta internal: native binary (bypasses sandbox-exec wrapper)
-  const nativeBin = "/usr/local/bin/claude_code/native/claude";
+  // Can be configured via HIVEMIND_CLAUDE_NATIVE_BIN env var
+  const nativeBin = process.env.HIVEMIND_CLAUDE_NATIVE_BIN || "/usr/local/bin/claude_code/native/claude";
   if (existsSync(nativeBin)) {
     return { cmd: nativeBin, args: [] };
   }
 
   // Fallback: node + cli.js
-  const metaNode = "/usr/local/bin/claude_code/node";
-  const metaCli = "/usr/local/bin/claude_code/node_modules/@anthropic-ai/claude-code/cli.js";
+  // Can be configured via HIVEMIND_CLAUDE_NODE and HIVEMIND_CLAUDE_CLI env vars
+  const metaNode = process.env.HIVEMIND_CLAUDE_NODE || "/usr/local/bin/claude_code/node";
+  const metaCli = process.env.HIVEMIND_CLAUDE_CLI || "/usr/local/bin/claude_code/node_modules/@anthropic-ai/claude-code/cli.js";
   if (existsSync(metaNode) && existsSync(metaCli)) {
     return { cmd: metaNode, args: [metaCli] };
   }
 
+  // Final fallback: global 'claude' command
   return { cmd: "claude", args: [] };
 }
 

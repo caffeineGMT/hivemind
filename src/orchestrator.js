@@ -647,6 +647,10 @@ export function purgeIdleEngineers(company) {
     db.getDb().prepare("DELETE FROM checkpoints WHERE agent_id = ?").run(agent.id);
     db.getDb().prepare("DELETE FROM incidents WHERE agent_id = ?").run(agent.id);
     db.getDb().prepare("DELETE FROM activity_log WHERE agent_id = ?").run(agent.id);
+    db.getDb().prepare("DELETE FROM agent_runs WHERE agent_id = ?").run(agent.id);
+    db.getDb().prepare("DELETE FROM usage_logs WHERE agent_id = ?").run(agent.id);
+    db.getDb().prepare("DELETE FROM logs WHERE agent_id = ?").run(agent.id);
+    db.getDb().prepare("DELETE FROM comments WHERE agent_id = ?").run(agent.id);
     db.getDb().prepare("DELETE FROM agents WHERE id = ?").run(agent.id);
     purged++;
   }
