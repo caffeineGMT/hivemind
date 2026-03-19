@@ -1,21 +1,45 @@
-import { useParams, Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
-import { ArrowLeft, Send, MessageSquare, User, Bot } from 'lucide-react';
+import { ArrowLeft, Send, MessageSquare, User, Bot, AlertCircle, RefreshCw } from 'lucide-react';
 import { api } from '../api';
 import { StatusBadge } from '../components/StatusBadge';
+import { InlineError } from '../components/ErrorMessage';
+import { toast } from 'sonner';
 
 export default function TaskDetail() {
   const { taskId } = useParams<{ taskId: string }>();
   const [comment, setComment] = useState('');
   const [sending, setSending] = useState(false);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data, isLoading } = useQuery({
     queryKey: ['taskDetail', taskId],
     queryFn: () => api.getTaskDetail(taskId!),
     refetchInterval: 3000,
     enabled: !!taskId,
+  });
+
+  // Retry task mutation (change status from blocked to todo)
+  const retryMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'todo' }),
+      });
+      if (!res.ok) throw new Error('Failed to retry task');
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success('Task status updated to TODO');
+      queryClient.invalidateQueries({ queryKey: ['taskDetail', taskId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onError: (error) => {
+      toast.error(`Failed to retry task: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    },
   });
 
   const handleComment = async () => {
