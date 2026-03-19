@@ -35,19 +35,19 @@ interface LayoutProps {
 
 function getNavItems(companySlug: string) {
   return [
-    { to: `/${companySlug}`, icon: LayoutDashboard, label: 'Dashboard' },
-    { to: `/${companySlug}/companies`, icon: Building2, label: 'Companies' },
-    { to: `/${companySlug}/tasks`, icon: ListTodo, label: 'Tasks' },
-    { to: `/${companySlug}/agents`, icon: Users, label: 'Agents' },
-    { to: `/${companySlug}/health-monitor`, icon: Shield, label: 'Health Monitor' },
-    { to: `/${companySlug}/activity`, icon: Activity, label: 'Activity' },
-    { to: `/${companySlug}/finance`, icon: DollarSign, label: 'Finance' },
-    { to: `/${companySlug}/analytics`, icon: TrendingUp, label: 'Analytics' },
-    { to: `/${companySlug}/cross-project-analytics`, icon: BarChart3, label: 'Cross-Project' },
-    { to: `/${companySlug}/costs`, icon: DollarSign, label: 'Costs' },
-    { to: `/${companySlug}/agent-performance`, icon: Gauge, label: 'Agent Performance' },
-    { to: `/${companySlug}/roadmap`, icon: Map, label: 'Roadmap' },
-    { to: `/${companySlug}/settings`, icon: SettingsIcon, label: 'Settings' },
+    { to: `/projects/${companySlug}`, icon: LayoutDashboard, label: 'Dashboard' },
+    { to: `/projects/${companySlug}/companies`, icon: Building2, label: 'Companies' },
+    { to: `/projects/${companySlug}/tasks`, icon: ListTodo, label: 'Tasks' },
+    { to: `/projects/${companySlug}/agents`, icon: Users, label: 'Agents' },
+    { to: `/projects/${companySlug}/health-monitor`, icon: Shield, label: 'Health Monitor' },
+    { to: `/projects/${companySlug}/activity`, icon: Activity, label: 'Activity' },
+    { to: `/projects/${companySlug}/finance`, icon: DollarSign, label: 'Finance' },
+    { to: `/projects/${companySlug}/analytics`, icon: TrendingUp, label: 'Analytics' },
+    { to: `/projects/${companySlug}/cross-project-analytics`, icon: BarChart3, label: 'Cross-Project' },
+    { to: `/projects/${companySlug}/costs`, icon: DollarSign, label: 'Costs' },
+    { to: `/projects/${companySlug}/agent-performance`, icon: Gauge, label: 'Agent Performance' },
+    { to: `/projects/${companySlug}/roadmap`, icon: Map, label: 'Roadmap' },
+    { to: `/projects/${companySlug}/settings`, icon: SettingsIcon, label: 'Settings' },
   ];
 }
 
@@ -149,7 +149,7 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, co
           <NavLink
             key={to}
             to={to}
-            end={to === `/${companySlug}`}
+            end={to === `/projects/${companySlug}`}
             onClick={closeSidebar}
             className={({ isActive }) =>
               `flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition ${

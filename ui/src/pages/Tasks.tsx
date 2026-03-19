@@ -146,7 +146,7 @@ export default function Tasks({ companyId }: { companyId: string }) {
   };
 
   const handleTaskClick = (taskId: string) => {
-    navigate(`tasks/${taskId}`);
+    navigate(`${taskId}`);
   };
 
   if (isLoading || !tasks) {

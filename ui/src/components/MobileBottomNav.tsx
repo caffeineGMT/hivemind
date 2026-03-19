@@ -12,10 +12,10 @@ interface MobileBottomNavProps {
 
 export default function MobileBottomNav({ companySlug }: MobileBottomNavProps) {
   const navItems = [
-    { to: `/${companySlug}`, icon: LayoutDashboard, label: 'Dashboard' },
-    { to: `/${companySlug}/tasks`, icon: ListTodo, label: 'Tasks' },
-    { to: `/${companySlug}/agents`, icon: Users, label: 'Agents' },
-    { to: `/${companySlug}/settings`, icon: SettingsIcon, label: 'Settings' },
+    { to: `/projects/${companySlug}`, icon: LayoutDashboard, label: 'Dashboard' },
+    { to: `/projects/${companySlug}/tasks`, icon: ListTodo, label: 'Tasks' },
+    { to: `/projects/${companySlug}/agents`, icon: Users, label: 'Agents' },
+    { to: `/projects/${companySlug}/settings`, icon: SettingsIcon, label: 'Settings' },
   ];
 
   return (
@@ -24,7 +24,7 @@ export default function MobileBottomNav({ companySlug }: MobileBottomNavProps) {
         <NavLink
           key={to}
           to={to}
-          end={to === `/${companySlug}`}
+          end={to === `/projects/${companySlug}`}
           className={({ isActive }) =>
             `flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition min-h-[56px] justify-center active:bg-zinc-800/30 ${
               isActive ? 'text-amber-400' : 'text-zinc-500'

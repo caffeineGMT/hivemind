@@ -34,7 +34,7 @@ export default function TaskRow({ task }: { task: Task }) {
 
   const handleClick = (e: React.MouseEvent) => {
     if (!swipeAction) {
-      navigate(`tasks/${task.id}`);
+      navigate(`${task.id}`);
     }
   };
 
