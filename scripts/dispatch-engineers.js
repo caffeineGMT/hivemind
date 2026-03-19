@@ -67,8 +67,7 @@ const updateTask = db.prepare(`
 
 const updateAgent = db.prepare(`
   UPDATE agents
-  SET status = 'running',
-      updated_at = datetime('now')
+  SET status = 'running'
   WHERE id = ?
 `);
 
