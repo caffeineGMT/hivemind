@@ -1,7 +1,8 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { api, Company } from './api';
+import { wsClient } from './websocket';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
@@ -10,24 +11,119 @@ import Activity from './pages/Activity';
 import AgentLog from './pages/AgentLog';
 import TaskDetail from './pages/TaskDetail';
 import Finance from './pages/Finance';
+import Analytics from './pages/Analytics';
+import Costs from './pages/Costs';
+import Logs from './pages/Logs';
+import AgentHealth from './pages/AgentHealth';
+import HealthMonitor from './pages/HealthMonitor';
+import Companies from './pages/Companies';
+import CrossProjectAnalytics from './pages/CrossProjectAnalytics';
+import Settings from './pages/Settings';
+import Roadmap from './pages/Roadmap';
+import AgentPerformance from './pages/AgentPerformance';
+import TraceView from './pages/TraceView';
 
-export default function App() {
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+// Helper to create URL-safe slugs from company names
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+// Helper to find company by slug
+function findCompanyBySlug(companies: Company[], slug: string): Company | undefined {
+  return companies.find(c => slugify(c.name) === slug);
+}
+
+// Company routes wrapper - handles URL param for company selection
+function CompanyRoutes() {
+  const { companySlug } = useParams<{ companySlug: string }>();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { data: companies, isLoading, error } = useQuery({
     queryKey: ['companies'],
     queryFn: api.getCompanies,
   });
 
-  // Auto-select the most recent company
+  // WebSocket connection and real-time updates
   useEffect(() => {
-    if (companies && companies.length > 0 && !selectedCompanyId) {
+    // Connect WebSocket on mount
+    wsClient.connect();
+
+    // Handle incoming WebSocket events
+    const handleMessage = (event: string, data: any) => {
+      console.log('[ws] Event received:', event, data);
+
+      // Invalidate relevant queries based on event type
+      switch (event) {
+        case 'agent_status_changed':
+          queryClient.invalidateQueries({ queryKey: ['agents'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          queryClient.invalidateQueries({ queryKey: ['agent-health'] });
+          break;
+
+        case 'task_updated':
+        case 'task_created':
+        case 'task_assigned':
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          break;
+
+        case 'cost_logged':
+          queryClient.invalidateQueries({ queryKey: ['costs'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          break;
+
+        case 'comment_added':
+          if (data?.taskId) {
+            queryClient.invalidateQueries({ queryKey: ['task', data.taskId] });
+          }
+          queryClient.invalidateQueries({ queryKey: ['activity'] });
+          break;
+
+        case 'activity_logged':
+        case 'nudge_received':
+          queryClient.invalidateQueries({ queryKey: ['activity'] });
+          break;
+
+        case 'config_updated':
+        case 'project_archived':
+        case 'project_deleted':
+          queryClient.invalidateQueries({ queryKey: ['companies'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          break;
+
+        case 'circuit_breaker_reset':
+        case 'agent_restarted':
+          queryClient.invalidateQueries({ queryKey: ['circuit-breaker'] });
+          queryClient.invalidateQueries({ queryKey: ['agent-health'] });
+          queryClient.invalidateQueries({ queryKey: ['incident-timeline'] });
+          break;
+
+        default:
+          // For any other event, invalidate dashboard as a safe fallback
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      }
+    };
+
+    wsClient.addMessageHandler(handleMessage);
+
+    return () => {
+      wsClient.removeMessageHandler(handleMessage);
+    };
+  }, [queryClient]);
+
+  // Redirect to first company if no slug provided
+  useEffect(() => {
+    if (!companySlug && companies && companies.length > 0) {
       const sorted = [...companies].sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
-      setSelectedCompanyId(sorted[0].id);
+      navigate(`/${slugify(sorted[0].name)}`, { replace: true });
     }
-  }, [companies, selectedCompanyId]);
+  }, [companySlug, companies, navigate]);
 
   if (isLoading) {
     return (
@@ -53,31 +149,65 @@ export default function App() {
   if (!companies || companies.length === 0) {
     return (
       <div className="flex h-screen items-center justify-center bg-zinc-950">
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900 px-6 py-4 text-zinc-400">
-          No companies found. Start a Hivemind company first.
+        <div className="max-w-md rounded-lg border border-zinc-800 bg-zinc-900 px-6 py-4">
+          <h2 className="mb-2 text-lg font-semibold text-zinc-100">No Companies Found</h2>
+          <p className="text-sm text-zinc-400">
+            Use the CLI to create your first company: <code className="rounded bg-zinc-800 px-2 py-1">hivemind init</code>
+          </p>
         </div>
       </div>
     );
   }
 
-  const selectedCompany = companies.find((c: Company) => c.id === selectedCompanyId) || companies[0];
+  // Find company by URL slug
+  const selectedCompany = companySlug
+    ? findCompanyBySlug(companies, companySlug) || companies[0]
+    : companies[0];
+
+  const handleSelectCompany = (id: string) => {
+    const company = companies.find(c => c.id === id);
+    if (company) {
+      navigate(`/${slugify(company.name)}`);
+    }
+  };
 
   return (
     <Layout
       companies={companies}
       selectedCompany={selectedCompany}
-      onSelectCompany={setSelectedCompanyId}
+      onSelectCompany={handleSelectCompany}
+      companySlug={slugify(selectedCompany.name)}
     >
       <Routes>
         <Route path="/" element={<Dashboard companyId={selectedCompany.id} />} />
-        <Route path="/tasks" element={<Tasks companyId={selectedCompany.id} />} />
-        <Route path="/agents" element={<Agents companyId={selectedCompany.id} />} />
-        <Route path="/activity" element={<Activity companyId={selectedCompany.id} />} />
-        <Route path="/finance" element={<Finance companyId={selectedCompany.id} />} />
-        <Route path="/tasks/:taskId" element={<TaskDetail />} />
-        <Route path="/logs/:agentName" element={<AgentLog />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="companies" element={<Companies />} />
+        <Route path="tasks" element={<Tasks companyId={selectedCompany.id} />} />
+        <Route path="agents" element={<Agents companyId={selectedCompany.id} />} />
+        <Route path="agent-health" element={<AgentHealth companyId={selectedCompany.id} />} />
+        <Route path="health-monitor" element={<HealthMonitor companyId={selectedCompany.id} />} />
+        <Route path="activity" element={<Activity companyId={selectedCompany.id} />} />
+        <Route path="finance" element={<Finance companyId={selectedCompany.id} />} />
+        <Route path="analytics" element={<Analytics companyId={selectedCompany.id} />} />
+        <Route path="cross-project-analytics" element={<CrossProjectAnalytics />} />
+        <Route path="costs" element={<Costs companyId={selectedCompany.id} />} />
+        <Route path="agent-performance" element={<AgentPerformance companyId={selectedCompany.id} />} />
+        <Route path="logs-view" element={<Logs />} />
+        <Route path="trace/:traceId" element={<TraceView />} />
+        <Route path="roadmap" element={<Roadmap />} />
+        <Route path="settings" element={<Settings companyId={selectedCompany.id} />} />
+        <Route path="tasks/:taskId" element={<TaskDetail />} />
+        <Route path="logs/:agentName" element={<AgentLog />} />
+        <Route path="*" element={<Navigate to={`/${slugify(selectedCompany.name)}`} replace />} />
       </Routes>
     </Layout>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<CompanyRoutes />} />
+      <Route path="/:companySlug/*" element={<CompanyRoutes />} />
+    </Routes>
   );
 }

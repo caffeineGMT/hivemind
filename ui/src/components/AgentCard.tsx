@@ -1,12 +1,15 @@
-import { User, Crown, Monitor, Code2, Palette, DollarSign, Terminal } from 'lucide-react';
+import { User, Crown, Monitor, Code2, Palette, DollarSign, Terminal, Megaphone } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useSwipeable } from 'react-swipeable';
 import { StatusBadge } from './StatusBadge';
 import { Agent } from '../api';
+import { useTouchRipple } from './TouchRipple';
 
 const roleIcon: Record<string, React.ReactNode> = {
   ceo: <Crown className="h-5 w-5 text-amber-400" />,
   cto: <Monitor className="h-5 w-5 text-blue-400" />,
   cfo: <DollarSign className="h-5 w-5 text-emerald-400" />,
+  cmo: <Megaphone className="h-5 w-5 text-pink-400" />,
   designer: <Palette className="h-5 w-5 text-purple-400" />,
   engineer: <Code2 className="h-5 w-5 text-emerald-400" />,
 };
@@ -15,6 +18,7 @@ const roleBg: Record<string, string> = {
   ceo: 'bg-amber-950/30 border-amber-900/30',
   cto: 'bg-blue-950/30 border-blue-900/30',
   cfo: 'bg-emerald-950/30 border-emerald-900/30',
+  cmo: 'bg-pink-950/30 border-pink-900/30',
   designer: 'bg-purple-950/30 border-purple-900/30',
   engineer: 'bg-emerald-950/30 border-emerald-900/30',
 };
@@ -31,11 +35,28 @@ function timeAgo(dateStr: string | null): string {
 }
 
 export default function AgentCard({ agent }: { agent: Agent }) {
+  const { createRipple, rippleElements } = useTouchRipple();
+
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => {
+      // Could implement swipe-to-action (e.g., quick access to logs)
+      console.log('Swiped left on agent card');
+    },
+    trackMouse: false,
+    trackTouch: true,
+    delta: 30,
+  });
+
   return (
-    <div className={`rounded-xl border bg-zinc-900/50 p-4 transition hover:border-zinc-700/60 ${roleBg[agent.role] || 'border-zinc-800/60'}`}>
+    <div
+      {...swipeHandlers}
+      className={`relative overflow-hidden rounded-xl border bg-zinc-900/50 p-4 transition-all duration-200 active:scale-[0.98] hover:border-zinc-700/60 md:active:scale-100 ${roleBg[agent.role] || 'border-zinc-800/60'}`}
+      onTouchStart={createRipple}
+    >
+      {rippleElements}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800/60">
+          <div className="flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-zinc-800/60 md:h-10 md:w-10">
             {roleIcon[agent.role] || <User className="h-5 w-5 text-zinc-400" />}
           </div>
           <div>
@@ -64,8 +85,8 @@ export default function AgentCard({ agent }: { agent: Agent }) {
         <span className="font-mono text-[10px] text-zinc-600" title={agent.id}>{agent.id.slice(0, 8)}</span>
       </div>
       <Link
-        to={`/logs/${agent.name}`}
-        className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-zinc-800/40 bg-zinc-800/20 px-3 py-1.5 text-xs text-zinc-400 transition hover:border-zinc-700/60 hover:bg-zinc-800/40 hover:text-zinc-200"
+        to={`../logs/${agent.name}`}
+        className="mt-3 flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-zinc-800/40 bg-zinc-800/20 px-3 py-2.5 text-xs text-zinc-400 transition hover:border-zinc-700/60 hover:bg-zinc-800/40 hover:text-zinc-200"
       >
         <Terminal className="h-3 w-3" />
         View Live Output

@@ -1,4 +1,5 @@
 import { Zap } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { ActivityEntry } from '../api';
 
 function formatTime(dateStr: string): string {
@@ -31,8 +32,8 @@ interface ActivityRowProps {
 }
 
 export default function ActivityRow({ entry, showDate = false }: ActivityRowProps) {
-  return (
-    <div className="flex items-start gap-3 rounded-lg px-3 py-2.5 transition hover:bg-zinc-900/40">
+  const content = (
+    <>
       <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-800/60">
         <Zap className="h-3 w-3 text-amber-400" />
       </div>
@@ -44,11 +45,17 @@ export default function ActivityRow({ entry, showDate = false }: ActivityRowProp
           )}
         </p>
         <div className="mt-0.5 flex items-center gap-3 text-[11px] text-zinc-600">
-          {entry.agent_id && (
-            <span className="font-mono">agent:{entry.agent_id.slice(0, 8)}</span>
+          {entry.agent_id && entry.agent_name && (
+            <Link
+              to={`../logs/${entry.agent_name}`}
+              className="font-mono text-emerald-600/70 hover:text-emerald-500 transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              agent:{entry.agent_id.slice(0, 8)}
+            </Link>
           )}
           {entry.task_id && (
-            <span className="font-mono">task:{entry.task_id.slice(0, 8)}</span>
+            <span className="font-mono text-amber-600/70">task:{entry.task_id.slice(0, 8)}</span>
           )}
         </div>
       </div>
@@ -58,6 +65,23 @@ export default function ActivityRow({ entry, showDate = false }: ActivityRowProp
           <p className="font-mono text-[10px] text-zinc-600">{formatDate(entry.created_at)}</p>
         )}
       </div>
+    </>
+  );
+
+  if (entry.task_id) {
+    return (
+      <Link
+        to={`../tasks/${entry.task_id}`}
+        className="flex items-start gap-3 rounded-lg px-3 py-2.5 transition hover:bg-zinc-800/40 cursor-pointer"
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-3 rounded-lg px-3 py-2.5 transition hover:bg-zinc-900/40">
+      {content}
     </div>
   );
 }

@@ -157,8 +157,8 @@ export function createTask({ id, companyId, parentId, title, description, priori
 }
 
 export function getTasksByCompany(companyId, status) {
-  if (status) return getDb().prepare("SELECT * FROM tasks WHERE company_id = ? AND status = ?").all(companyId, status);
-  return getDb().prepare("SELECT * FROM tasks WHERE company_id = ?").all(companyId);
+  if (status) return getDb().prepare("SELECT t.*, a.name as assignee_name FROM tasks t LEFT JOIN agents a ON t.assignee_id = a.id WHERE t.company_id = ? AND t.status = ?").all(companyId, status);
+  return getDb().prepare("SELECT t.*, a.name as assignee_name FROM tasks t LEFT JOIN agents a ON t.assignee_id = a.id WHERE t.company_id = ?").all(companyId);
 }
 
 export function getTasksByAssignee(assigneeId, status) {
