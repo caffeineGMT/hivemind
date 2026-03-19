@@ -576,6 +576,75 @@ export function createServer(port = 3100) {
     });
   });
 
+  // Get agent execution logs (all types)
+  app.get("/api/agents/:id/execution-logs", (req, res) => {
+    const agent = db.getAgent(req.params.id);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+    const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+    const logs = db.getAgentExecutionLogs(req.params.id, limit);
+
+    res.json({
+      agent_id: req.params.id,
+      agent_name: agent.name,
+      logs,
+      count: logs.length,
+    });
+  });
+
+  // Get agent API call logs
+  app.get("/api/agents/:id/api-calls", (req, res) => {
+    const agent = db.getAgent(req.params.id);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const apiCalls = db.getAgentApiCalls(req.params.id, limit);
+
+    // Calculate total tokens consumed
+    const totalTokens = apiCalls.reduce((sum, call) => {
+      const usage = call.metadata?.usage;
+      if (!usage) return sum;
+      return sum + (usage.inputTokens || 0) + (usage.outputTokens || 0);
+    }, 0);
+
+    const totalCost = apiCalls.reduce((sum, call) => {
+      const usage = call.metadata?.usage;
+      if (!usage) return sum;
+      const callCost = (
+        ((usage.inputTokens || 0) * 15.0 +
+         (usage.outputTokens || 0) * 75.0 +
+         (usage.cacheReadTokens || 0) * 1.5 +
+         (usage.cacheWriteTokens || 0) * 18.75) / 1_000_000
+      );
+      return sum + callCost;
+    }, 0);
+
+    res.json({
+      agent_id: req.params.id,
+      agent_name: agent.name,
+      api_calls: apiCalls,
+      count: apiCalls.length,
+      total_tokens: totalTokens,
+      total_cost_usd: totalCost,
+    });
+  });
+
+  // Get agent error logs
+  app.get("/api/agents/:id/errors", (req, res) => {
+    const agent = db.getAgent(req.params.id);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const errors = db.getAgentErrors(req.params.id, limit);
+
+    res.json({
+      agent_id: req.params.id,
+      agent_name: agent.name,
+      errors,
+      count: errors.length,
+    });
+  });
+
   // Circuit breaker status
   app.get("/api/circuit-breaker/status", async (req, res) => {
     try {

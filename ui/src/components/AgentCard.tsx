@@ -1,11 +1,14 @@
-import { memo } from 'react';
-import { User, Crown, Monitor, Code2, Palette, DollarSign, Terminal } from 'lucide-react';
+import { memo, useState } from 'react';
+import { User, Crown, Monitor, Code2, Palette, DollarSign, Terminal, RefreshCw, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSwipeable } from 'react-swipeable';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { StatusBadge } from './StatusBadge';
-import { Agent } from '../api';
+import { Agent, api } from '../api';
 import { useTouchRipple } from './TouchRipple';
 import { sanitize } from '../hooks/useSanitize';
+import { InlineError } from './ErrorMessage';
 
 const roleIcon: Record<string, React.ReactNode> = {
   ceo: <Crown className="h-5 w-5 text-amber-400" />,
@@ -36,6 +39,8 @@ function timeAgo(dateStr: string | null): string {
 
 function AgentCardComponent({ agent }: { agent: Agent }) {
   const { createRipple, rippleElements } = useTouchRipple();
+  const queryClient = useQueryClient();
+  const [isRestarting, setIsRestarting] = useState(false);
 
   const swipeHandlers = useSwipeable({
     onSwipedLeft: () => {},
@@ -43,6 +48,38 @@ function AgentCardComponent({ agent }: { agent: Agent }) {
     trackTouch: true,
     delta: 30,
   });
+
+  // Restart agent mutation
+  const restartMutation = useMutation({
+    mutationFn: () => api.restartAgent(agent.id),
+    onMutate: () => {
+      setIsRestarting(true);
+      toast.loading(`Restarting ${agent.title || agent.name}...`, { id: `restart-${agent.id}` });
+    },
+    onSuccess: () => {
+      toast.success(`${agent.title || agent.name} restarted successfully`, { id: `restart-${agent.id}` });
+      queryClient.invalidateQueries({ queryKey: ['agents'] });
+      queryClient.invalidateQueries({ queryKey: ['agent-health'] });
+      setIsRestarting(false);
+    },
+    onError: (error) => {
+      toast.error(`Failed to restart agent: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        id: `restart-${agent.id}`,
+      });
+      setIsRestarting(false);
+    },
+  });
+
+  const handleRestart = () => {
+    restartMutation.mutate();
+  };
+
+  // Check if agent is stale (no heartbeat for 5+ minutes)
+  const isStale = agent.last_heartbeat
+    ? Date.now() - new Date(agent.last_heartbeat).getTime() > 5 * 60 * 1000
+    : false;
+
+  const hasError = agent.status === 'error' || isStale;
 
   return (
     <article
