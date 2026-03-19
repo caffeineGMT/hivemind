@@ -16,7 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { HIVEMIND_HOME } from "../config.js";
 
-import logger from "./logger.js";
+import logger from "../logger.js";
 // Severity levels with escalation order
 export const SEVERITY = {
   INFO: "info",
