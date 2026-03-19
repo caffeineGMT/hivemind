@@ -338,7 +338,7 @@ function parseJsonFromText(text) {
   return null;
 }
 
-// Claude Opus 4 pricing (per 1M tokens)
+// Claude Opus 4.6 pricing (per 1M tokens)
 const PRICING = {
   input: 15.0,
   output: 75.0,

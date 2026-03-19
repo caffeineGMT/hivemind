@@ -14,7 +14,7 @@ import { getDb } from "./db.js";
 // ── Default configuration ──────────────────────────────────────────
 
 export const DEFAULT_PROJECT_CONFIG = {
-  max_concurrent_agents: 5,
+  max_concurrent_agents: 2,
   heartbeat_interval_sec: 15,
   checkpoint_every_n_turns: 5,
   max_budget_usd: null, // null = unlimited

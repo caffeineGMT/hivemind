@@ -21,6 +21,7 @@ import CrossProjectAnalytics from './pages/CrossProjectAnalytics';
 import Settings from './pages/Settings';
 import Roadmap from './pages/Roadmap';
 import AgentPerformance from './pages/AgentPerformance';
+import TraceView from './pages/TraceView';
 
 // Helper to create URL-safe slugs from company names
 function slugify(name: string): string {
@@ -191,6 +192,7 @@ function CompanyRoutes() {
         <Route path="costs" element={<Costs companyId={selectedCompany.id} />} />
         <Route path="agent-performance" element={<AgentPerformance companyId={selectedCompany.id} />} />
         <Route path="logs-view" element={<Logs />} />
+        <Route path="trace/:traceId" element={<TraceView />} />
         <Route path="roadmap" element={<Roadmap />} />
         <Route path="settings" element={<Settings companyId={selectedCompany.id} />} />
         <Route path="tasks/:taskId" element={<TaskDetail />} />

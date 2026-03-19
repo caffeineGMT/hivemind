@@ -685,6 +685,56 @@ export const api = {
     });
     return res.json();
   },
+
+  // Data export
+  exportData: async (companyId: string, opts: {
+    entities?: string[];
+    startDate?: string;
+    endDate?: string;
+    format?: 'json' | 'csv';
+  } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.entities?.length) params.set('entities', opts.entities.join(','));
+    if (opts.startDate) params.set('startDate', opts.startDate);
+    if (opts.endDate) params.set('endDate', opts.endDate);
+    if (opts.format) params.set('format', opts.format);
+    const res = await fetch(`/api/export/${companyId}?${params}`);
+    if (opts.format === 'csv') return res.text();
+    return res.json();
+  },
+
+  exportLogs: async (opts: {
+    companyId?: string;
+    startDate?: string;
+    endDate?: string;
+    level?: string;
+    source?: string;
+    format?: 'json' | 'csv';
+  } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.startDate) params.set('startDate', opts.startDate);
+    if (opts.endDate) params.set('endDate', opts.endDate);
+    if (opts.level) params.set('level', opts.level);
+    if (opts.source) params.set('source', opts.source);
+    if (opts.format) params.set('format', opts.format);
+    const url = opts.companyId
+      ? `/api/export/${opts.companyId}/logs?${params}`
+      : `/api/export/logs?${params}`;
+    const res = await fetch(url);
+    if (opts.format === 'csv') return res.text();
+    return res.json();
+  },
+
+  triggerArchival: async (daysOld = 30) => {
+    const res = await fetch('/api/export/archive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ daysOld }),
+    });
+    return res.json();
+  },
+
+  getArchives: () => fetchJson<Array<{ filename: string; size: number; created: string; modified: string }>>('/api/export/archives'),
 };
 
 // ── Alert Types ────────────────────────────────────────────────────

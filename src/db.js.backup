@@ -83,42 +83,6 @@ function migrate(db) {
     }
   } catch {}
 
-  // Add 'pattern_id' column to activity_log for failure pattern grouping
-  try {
-    const cols = db.prepare("PRAGMA table_info(activity_log)").all();
-    if (cols.length > 0 && !cols.find(c => c.name === "pattern_id")) {
-      db.exec("ALTER TABLE activity_log ADD COLUMN pattern_id TEXT");
-      db.exec("CREATE INDEX IF NOT EXISTS idx_activity_log_pattern ON activity_log(pattern_id)");
-    }
-  } catch {}
-
-
-  // Add agent resource pooling columns if missing
-  try {
-    const cols = db.prepare("PRAGMA table_info(agents)").all();
-    if (cols.length > 0) {
-      if (!cols.find(c => c.name === "capabilities")) {
-        db.exec("ALTER TABLE agents ADD COLUMN capabilities TEXT");
-      }
-      if (!cols.find(c => c.name === "cost_tier")) {
-        db.exec("ALTER TABLE agents ADD COLUMN cost_tier TEXT DEFAULT 'standard'");
-      }
-      if (!cols.find(c => c.name === "current_load")) {
-        db.exec("ALTER TABLE agents ADD COLUMN current_load INTEGER DEFAULT 0");
-      }
-      if (!cols.find(c => c.name === "max_load")) {
-        db.exec("ALTER TABLE agents ADD COLUMN max_load INTEGER DEFAULT 1");
-      }
-    }
-  } catch {}
-
-  // Add task requirements column if missing
-  try {
-    const cols = db.prepare("PRAGMA table_info(tasks)").all();
-    if (cols.length > 0 && !cols.find(c => c.name === "required_capabilities")) {
-      db.exec("ALTER TABLE tasks ADD COLUMN required_capabilities TEXT");
-    }
-  } catch {}
   db.exec(`
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY,
@@ -353,44 +317,6 @@ function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_task_executions_company ON task_executions(company_id);
     CREATE INDEX IF NOT EXISTS idx_task_executions_status ON task_executions(status);
 
-    CREATE TABLE IF NOT EXISTS agent_metrics (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id TEXT NOT NULL REFERENCES companies(id),
-      agent_id TEXT NOT NULL REFERENCES agents(id),
-      agent_name TEXT NOT NULL,
-      metric_type TEXT NOT NULL,
-      value REAL NOT NULL,
-      metadata TEXT,
-      timestamp TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_agent_metrics_company ON agent_metrics(company_id);
-    CREATE INDEX IF NOT EXISTS idx_agent_metrics_agent ON agent_metrics(agent_id);
-    CREATE INDEX IF NOT EXISTS idx_agent_metrics_type ON agent_metrics(metric_type);
-    CREATE INDEX IF NOT EXISTS idx_agent_metrics_timestamp ON agent_metrics(timestamp);
-
-    CREATE TABLE IF NOT EXISTS anomalies (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id TEXT NOT NULL REFERENCES companies(id),
-      agent_id TEXT NOT NULL REFERENCES agents(id),
-      agent_name TEXT NOT NULL,
-      metric_type TEXT NOT NULL,
-      value REAL NOT NULL,
-      baseline_mean REAL NOT NULL,
-      baseline_std_dev REAL NOT NULL,
-      z_score REAL NOT NULL,
-      severity TEXT NOT NULL,
-      direction TEXT NOT NULL,
-      deviation_percent REAL NOT NULL,
-      context TEXT,
-      detected_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_anomalies_company ON anomalies(company_id);
-    CREATE INDEX IF NOT EXISTS idx_anomalies_agent ON anomalies(agent_id);
-    CREATE INDEX IF NOT EXISTS idx_anomalies_severity ON anomalies(severity);
-    CREATE INDEX IF NOT EXISTS idx_anomalies_detected_at ON anomalies(detected_at);
-
     CREATE TABLE IF NOT EXISTS metrics (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       timestamp TEXT NOT NULL DEFAULT (datetime('now')),
@@ -549,36 +475,8 @@ export function assignTask(taskId, agentId) {
   }
 }
 
-export function logActivity({ companyId, agentId, taskId, action, detail, patternId }) {
-  getDb().prepare("INSERT INTO activity_log (company_id, agent_id, task_id, action, detail, pattern_id) VALUES (?, ?, ?, ?, ?, ?)").run(companyId, agentId, taskId, action, detail, patternId || null);
-}
-
-export function updateActivityPatternId(activityId, patternId) {
-  getDb().prepare("UPDATE activity_log SET pattern_id = ? WHERE id = ?").run(patternId, activityId);
-}
-
-export function getFailureActivities(companyId, limit = 500) {
-  let query = `SELECT * FROM activity_log WHERE (action LIKE '%error%' OR action LIKE '%fail%' OR action LIKE '%crash%' OR detail LIKE '%error%' OR detail LIKE '%fail%' OR detail LIKE '%exception%')`;
-  const params = [];
-  if (companyId) {
-    query += ' AND company_id = ?';
-    params.push(companyId);
-  }
-  query += ' ORDER BY created_at DESC LIMIT ?';
-  params.push(limit);
-  return getDb().prepare(query).all(...params);
-}
-
-export function getFailureLogs(companyId, limit = 500) {
-  let query = `SELECT * FROM logs WHERE level IN ('error', 'warn')`;
-  const params = [];
-  if (companyId) {
-    query += ' AND company_id = ?';
-    params.push(companyId);
-  }
-  query += ' ORDER BY timestamp DESC LIMIT ?';
-  params.push(limit);
-  return getDb().prepare(query).all(...params);
+export function logActivity({ companyId, agentId, taskId, action, detail }) {
+  getDb().prepare("INSERT INTO activity_log (company_id, agent_id, task_id, action, detail) VALUES (?, ?, ?, ?, ?)").run(companyId, agentId, taskId, action, detail);
 }
 
 export function addComment({ companyId, taskId, agentId, author, message }) {
@@ -1536,32 +1434,15 @@ export function getMetricsSummary({ metricName, agentId, companyId, startTime, e
 
 // ── Distributed Tracing ──────────────────────────────────────────────────
 
-export function saveSpan({ traceId, spanId, parentSpanId, operation, timestamp, metadata, durationMs, status, companyId, agentId, taskId }) {
+export function saveSpan({ traceId, spanId, parentSpanId, operation, timestamp, metadata }) {
   getDb().prepare(
-    `INSERT INTO traces (trace_id, span_id, parent_span_id, operation, timestamp, metadata, duration_ms, status, company_id, agent_id, task_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO traces (trace_id, span_id, parent_span_id, operation, timestamp, metadata)
+     VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(trace_id, span_id) DO UPDATE SET
        operation = excluded.operation,
        timestamp = excluded.timestamp,
-       metadata = excluded.metadata,
-       duration_ms = excluded.duration_ms,
-       status = excluded.status,
-       company_id = excluded.company_id,
-       agent_id = excluded.agent_id,
-       task_id = excluded.task_id`
-  ).run(
-    traceId,
-    spanId,
-    parentSpanId || null,
-    operation,
-    timestamp,
-    metadata ? JSON.stringify(metadata) : null,
-    durationMs || null,
-    status || null,
-    companyId || null,
-    agentId || null,
-    taskId || null
-  );
+       metadata = excluded.metadata`
+  ).run(traceId, spanId, parentSpanId || null, operation, timestamp, metadata ? JSON.stringify(metadata) : null);
 }
 
 export function getTraceById(traceId) {
@@ -1643,103 +1524,217 @@ export function deleteOldTraces(daysToKeep = 7) {
   return result.changes;
 }
 
+// ── Agent Runs (for tracking individual agent execution sessions) ──────────
 
-// ── Agent Capabilities & Resource Pooling ───────────────────────────────────
+export function createAgentRun({ agentId, taskId }) {
+  const result = getDb().prepare(
+    "INSERT INTO agent_runs (agent_id, task_id) VALUES (?, ?)"
+  ).run(agentId, taskId || null);
+  return result.lastInsertRowid;
+}
 
-/**
- * Update agent capabilities and resource settings
- */
-export function updateAgentCapabilities(agentId, { capabilities, costTier, maxLoad, currentLoad }) {
-  const db = getDb();
+export function endAgentRun(runId, { status, tokensUsed, cost, errorMessage }) {
+  getDb().prepare(
+    "UPDATE agent_runs SET end_time = datetime('now'), status = ?, tokens_used = ?, cost = ?, error_message = ? WHERE id = ?"
+  ).run(status, tokensUsed || 0, cost || 0, errorMessage || null, runId);
+}
+
+export function getAgentRuns(agentId, limit = 50) {
+  return getDb().prepare(
+    "SELECT * FROM agent_runs WHERE agent_id = ? ORDER BY start_time DESC LIMIT ?"
+  ).all(agentId, limit);
+}
+
+export function getAgentRunsByTask(taskId) {
+  return getDb().prepare(
+    "SELECT * FROM agent_runs WHERE task_id = ? ORDER BY start_time DESC"
+  ).all(taskId);
+}
+
+export function getAgentRunMetrics(agentId) {
+  return getDb().prepare(`
+    SELECT
+      COUNT(*) as total_runs,
+      SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as successful_runs,
+      SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failed_runs,
+      SUM(tokens_used) as total_tokens,
+      SUM(cost) as total_cost,
+      AVG(CASE
+        WHEN end_time IS NOT NULL THEN
+          (julianday(end_time) - julianday(start_time)) * 24 * 60
+        ELSE NULL
+      END) as avg_duration_minutes
+    FROM agent_runs
+    WHERE agent_id = ?
+  `).get(agentId);
+}
+
+// ── Task Executions (for tracking task lifecycle and retries) ──────────────
+
+export function createTaskExecution({ taskId, companyId }) {
+  const result = getDb().prepare(
+    "INSERT INTO task_executions (task_id, company_id) VALUES (?, ?)"
+  ).run(taskId, companyId);
+  return result.lastInsertRowid;
+}
+
+export function updateTaskExecution(executionId, { status, retries, completedAt }) {
   const sets = [];
   const vals = [];
 
-  if (capabilities !== undefined) {
-    sets.push("capabilities = ?");
-    vals.push(typeof capabilities === 'string' ? capabilities : JSON.stringify(capabilities));
-  }
-
-  if (costTier !== undefined) {
-    sets.push("cost_tier = ?");
-    vals.push(costTier);
-  }
-
-  if (maxLoad !== undefined) {
-    sets.push("max_load = ?");
-    vals.push(maxLoad);
-  }
-
-  if (currentLoad !== undefined) {
-    sets.push("current_load = ?");
-    vals.push(currentLoad);
-  }
+  if (status !== undefined) { sets.push("status = ?"); vals.push(status); }
+  if (retries !== undefined) { sets.push("retries = ?"); vals.push(retries); }
+  if (completedAt !== undefined) { sets.push("completed_at = ?"); vals.push(completedAt); }
 
   if (sets.length === 0) return;
 
-  vals.push(agentId);
-  db.prepare(`UPDATE agents SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
+  vals.push(executionId);
+  getDb().prepare(`UPDATE task_executions SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
 }
 
-/**
- * Update task requirements
- */
-export function updateTaskRequirements(taskId, requirements) {
-  const requirementsJson = typeof requirements === 'string' ? requirements : JSON.stringify(requirements);
-  
-  getDb().prepare(`
-    UPDATE tasks
-    SET required_capabilities = ?
-    WHERE id = ?
-  `).run(requirementsJson, taskId);
+export function incrementTaskRetries(executionId) {
+  getDb().prepare("UPDATE task_executions SET retries = retries + 1 WHERE id = ?").run(executionId);
 }
 
-/**
- * Get agents by capability
- */
-export function getAgentsByCapability(companyId, capability) {
-  const agents = getAgentsByCompany(companyId);
-  
-  return agents.filter(agent => {
-    if (!agent.capabilities) return false;
-    
-    try {
-      const caps = JSON.parse(agent.capabilities);
-      return Array.isArray(caps) && caps.includes(capability);
-    } catch {
-      return false;
-    }
-  });
-}
-
-/**
- * Get agents by cost tier
- */
-export function getAgentsByCostTier(companyId, costTier) {
+export function getTaskExecutions(taskId) {
   return getDb().prepare(
-    "SELECT * FROM agents WHERE company_id = ? AND cost_tier = ?"
-  ).all(companyId, costTier);
+    "SELECT * FROM task_executions WHERE task_id = ? ORDER BY created_at DESC"
+  ).all(taskId);
 }
 
-/**
- * Get agent workload stats
- */
-export function getAgentWorkloadStats(companyId) {
+export function getTaskExecutionMetrics(companyId) {
   return getDb().prepare(`
     SELECT
-      id,
-      name,
-      role,
-      status,
-      cost_tier,
-      current_load,
-      max_load,
-      capabilities,
-      CASE 
-        WHEN max_load > 0 THEN CAST(current_load AS REAL) / max_load
-        ELSE 0
-      END as utilization_ratio
-    FROM agents
+      COUNT(*) as total_executions,
+      SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_executions,
+      SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_executions,
+      SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_executions,
+      AVG(retries) as avg_retries,
+      MAX(retries) as max_retries,
+      AVG(CASE
+        WHEN completed_at IS NOT NULL THEN
+          (julianday(completed_at) - julianday(created_at)) * 24 * 60
+        ELSE NULL
+      END) as avg_duration_minutes
+    FROM task_executions
     WHERE company_id = ?
-    ORDER BY utilization_ratio DESC
-  `).all(companyId);
+  `).get(companyId);
+}
+
+// ── Metrics (for time-series data collection) ──────────────────────────────
+
+export function recordMetric({ metricName, value, agentId, companyId }) {
+  getDb().prepare(
+    "INSERT INTO metrics (metric_name, value, agent_id, company_id) VALUES (?, ?, ?, ?)"
+  ).run(metricName, value, agentId || null, companyId || null);
+}
+
+export function getMetrics({ metricName, agentId, companyId, startTime, endTime, limit = 1000 }) {
+  let query = "SELECT * FROM metrics WHERE 1=1";
+  const params = [];
+
+  if (metricName) {
+    query += " AND metric_name = ?";
+    params.push(metricName);
+  }
+
+  if (agentId) {
+    query += " AND agent_id = ?";
+    params.push(agentId);
+  }
+
+  if (companyId) {
+    query += " AND company_id = ?";
+    params.push(companyId);
+  }
+
+  if (startTime) {
+    query += " AND timestamp >= ?";
+    params.push(startTime);
+  }
+
+  if (endTime) {
+    query += " AND timestamp <= ?";
+    params.push(endTime);
+  }
+
+  query += " ORDER BY timestamp DESC LIMIT ?";
+  params.push(limit);
+
+  return getDb().prepare(query).all(...params);
+}
+
+export function getMetricAggregates({ metricName, agentId, companyId, startTime, endTime }) {
+  let query = "SELECT COUNT(*) as count, AVG(value) as avg, MIN(value) as min, MAX(value) as max, SUM(value) as sum FROM metrics WHERE 1=1";
+  const params = [];
+
+  if (metricName) {
+    query += " AND metric_name = ?";
+    params.push(metricName);
+  }
+
+  if (agentId) {
+    query += " AND agent_id = ?";
+    params.push(agentId);
+  }
+
+  if (companyId) {
+    query += " AND company_id = ?";
+    params.push(companyId);
+  }
+
+  if (startTime) {
+    query += " AND timestamp >= ?";
+    params.push(startTime);
+  }
+
+  if (endTime) {
+    query += " AND timestamp <= ?";
+    params.push(endTime);
+  }
+
+  return getDb().prepare(query).get(...params);
+}
+
+export function getMetricTimeSeries({ metricName, agentId, companyId, startTime, endTime, bucketMinutes = 60 }) {
+  let query = `
+    SELECT
+      strftime('%Y-%m-%d %H:00:00', datetime(timestamp, '-' || (strftime('%M', timestamp) % ?) || ' minutes')) as time_bucket,
+      AVG(value) as avg_value,
+      MIN(value) as min_value,
+      MAX(value) as max_value,
+      COUNT(*) as sample_count
+    FROM metrics
+    WHERE 1=1
+  `;
+  const params = [bucketMinutes];
+
+  if (metricName) {
+    query += " AND metric_name = ?";
+    params.push(metricName);
+  }
+
+  if (agentId) {
+    query += " AND agent_id = ?";
+    params.push(agentId);
+  }
+
+  if (companyId) {
+    query += " AND company_id = ?";
+    params.push(companyId);
+  }
+
+  if (startTime) {
+    query += " AND timestamp >= ?";
+    params.push(startTime);
+  }
+
+  if (endTime) {
+    query += " AND timestamp <= ?";
+    params.push(endTime);
+  }
+
+  query += " GROUP BY time_bucket ORDER BY time_bucket ASC";
+
+  return getDb().prepare(query).all(...params);
 }

@@ -12,6 +12,7 @@ export const MAX_CONCURRENT_AGENTS = parseInt(process.env.HIVEMIND_MAX_AGENTS ||
 export const HEALTH_CHECK_INTERVAL_SEC = parseInt(process.env.HIVEMIND_HEALTH_CHECK_SEC || "30", 10);
 export const CHECKPOINT_EVERY_N_TURNS = parseInt(process.env.HIVEMIND_CHECKPOINT_TURNS || "5", 10);
 export const SLACK_WEBHOOK_URL = process.env.HIVEMIND_SLACK_WEBHOOK || null;
+export const DEFAULT_MODEL = process.env.HIVEMIND_MODEL || "claude-opus-4-6";
 
 // Resolve claude command — use native binary to bypass sandbox-exec
 function resolveClaudeCmd() {

@@ -14,6 +14,8 @@ import { analyzeFailurePatterns } from "./analytics/failure-patterns.js";
 import * as anomalyDetector from "./monitoring/anomaly-detector.js";
 import * as alertManager from "./monitoring/alert-manager.js";
 import { registerBulkRoutes } from "./api/bulk-operations.js";
+import { registerExportRoutes } from "./export/data-exporter-routes.js";
+import { runArchival } from "./export/data-exporter.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -90,6 +92,9 @@ export function createServer(port = 3100) {
 
   // Bulk operations
   registerBulkRoutes(app);
+
+  // Data export and archival
+  registerExportRoutes(app);
 
   // Anomaly detection: manual trigger + recent alerts
   app.get("/api/anomalies", (req, res) => {
@@ -1975,6 +1980,19 @@ export function createServer(port = 3100) {
 
   // Start anomaly detection with WebSocket broadcast
   startAnomalyDetector(broadcast);
+
+  // Run auto-archival of old logs every 24 hours
+  const archivalInterval = setInterval(() => {
+    try {
+      const result = runArchival(30);
+      if (result.logs.archived > 0 || result.activity.archived > 0) {
+        console.log(`[archival] Archived ${result.logs.archived} logs, ${result.activity.archived} activity entries`);
+      }
+    } catch (err) {
+      console.error("[archival] Error:", err.message);
+    }
+  }, 24 * 60 * 60 * 1000);
+  archivalInterval.unref();
 
   return { app, wss };
 }

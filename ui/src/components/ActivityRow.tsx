@@ -45,8 +45,14 @@ export default function ActivityRow({ entry, showDate = false }: ActivityRowProp
           )}
         </p>
         <div className="mt-0.5 flex items-center gap-3 text-[11px] text-zinc-600">
-          {entry.agent_id && (
-            <span className="font-mono">agent:{entry.agent_id.slice(0, 8)}</span>
+          {entry.agent_id && entry.agent_name && (
+            <Link
+              to={`../logs/${entry.agent_name}`}
+              className="font-mono text-emerald-600/70 hover:text-emerald-500 transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              agent:{entry.agent_id.slice(0, 8)}
+            </Link>
           )}
           {entry.task_id && (
             <span className="font-mono text-amber-600/70">task:{entry.task_id.slice(0, 8)}</span>
@@ -65,7 +71,7 @@ export default function ActivityRow({ entry, showDate = false }: ActivityRowProp
   if (entry.task_id) {
     return (
       <Link
-        to={`/tasks/${entry.task_id}`}
+        to={`../tasks/${entry.task_id}`}
         className="flex items-start gap-3 rounded-lg px-3 py-2.5 transition hover:bg-zinc-800/40 cursor-pointer"
       >
         {content}

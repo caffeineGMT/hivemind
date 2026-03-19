@@ -1,0 +1,394 @@
+{
+  "playbooks": [
+    {
+      "id": "api-timeout-retry",
+      "name": "API Timeout Recovery",
+      "description": "Automatically retry API calls that timeout with exponential backoff",
+      "enabled": true,
+      "triggers": {
+        "error_type": "TIMEOUT",
+        "min_failures": 1,
+        "time_window_minutes": 5
+      },
+      "actions": [
+        {
+          "type": "log_playbook_start",
+          "params": {
+            "message": "API timeout detected, initiating recovery playbook"
+          }
+        },
+        {
+          "type": "retry_with_backoff",
+          "params": {
+            "max_attempts": 4,
+            "base_delay_ms": 2000,
+            "max_delay_ms": 60000,
+            "backoff_multiplier": 2.5
+          }
+        },
+        {
+          "type": "log_incident",
+          "params": {
+            "incident_type": "api_timeout_recovered",
+            "severity": "warning"
+          }
+        }
+      ],
+      "priority": 10
+    },
+    {
+      "id": "rate-limit-pause",
+      "name": "Rate Limit Recovery",
+      "description": "Pause and retry when rate limits are hit",
+      "enabled": true,
+      "triggers": {
+        "error_type": "RATE_LIMIT",
+        "min_failures": 1
+      },
+      "actions": [
+        {
+          "type": "log_playbook_start",
+          "params": {
+            "message": "Rate limit detected, pausing API calls for 60 seconds"
+          }
+        },
+        {
+          "type": "pause",
+          "params": {
+            "duration_ms": 60000,
+            "reason": "rate_limit_cooldown"
+          }
+        },
+        {
+          "type": "retry_with_backoff",
+          "params": {
+            "max_attempts": 5,
+            "base_delay_ms": 5000,
+            "max_delay_ms": 120000,
+            "backoff_multiplier": 2
+          }
+        },
+        {
+          "type": "log_activity",
+          "params": {
+            "action": "rate_limit_handled",
+            "detail": "Successfully recovered from rate limit"
+          }
+        }
+      ],
+      "priority": 20
+    },
+    {
+      "id": "context-overflow-split",
+      "name": "Context Overflow Task Split",
+      "description": "Split tasks when context window is exceeded",
+      "enabled": true,
+      "triggers": {
+        "error_message_contains": ["context", "too long", "token limit", "exceeded", "overflow"],
+        "min_failures": 1
+      },
+      "actions": [
+        {
+          "type": "log_playbook_start",
+          "params": {
+            "message": "Context overflow detected, task complexity too high"
+          }
+        },
+        {
+          "type": "split_task",
+          "params": {
+            "strategy": "subtasks",
+            "max_subtasks": 4,
+            "preserve_context": true
+          }
+        },
+        {
+          "type": "update_task_status",
+          "params": {
+            "status": "in_progress",
+            "result": "Task split into subtasks due to context overflow"
+          }
+        },
+        {
+          "type": "log_incident",
+          "params": {
+            "incident_type": "context_overflow_handled",
+            "severity": "info"
+          }
+        }
+      ],
+      "priority": 15
+    },
+    {
+      "id": "server-error-retry",
+      "name": "Server Error Recovery",
+      "description": "Retry on temporary server errors (5xx)",
+      "enabled": true,
+      "triggers": {
+        "error_type": "SERVER_ERROR",
+        "min_failures": 1
+      },
+      "actions": [
+        {
+          "type": "log_playbook_start",
+          "params": {
+            "message": "API server error detected, initiating retry sequence"
+          }
+        },
+        {
+          "type": "retry_with_backoff",
+          "params": {
+            "max_attempts": 3,
+            "base_delay_ms": 1000,
+            "max_delay_ms": 30000,
+            "backoff_multiplier": 3
+          }
+        }
+      ],
+      "priority": 12
+    },
+    {
+      "id": "network-error-retry",
+      "name": "Network Error Recovery",
+      "description": "Retry on network connectivity issues",
+      "enabled": true,
+      "triggers": {
+        "error_type": "NETWORK_ERROR",
+        "min_failures": 1
+      },
+      "actions": [
+        {
+          "type": "log_playbook_start",
+          "params": {
+            "message": "Network error detected, waiting before retry"
+          }
+        },
+        {
+          "type": "pause",
+          "params": {
+            "duration_ms": 3000,
+            "reason": "network_recovery_wait"
+          }
+        },
+        {
+          "type": "retry_with_backoff",
+          "params": {
+            "max_attempts": 4,
+            "base_delay_ms": 3000,
+            "max_delay_ms": 45000,
+            "backoff_multiplier": 2
+          }
+        },
+        {
+          "type": "log_incident",
+          "params": {
+            "incident_type": "network_error_recovered",
+            "severity": "warning"
+          }
+        }
+      ],
+      "priority": 11
+    },
+    {
+      "id": "circuit-breaker-recovery",
+      "name": "Circuit Breaker Recovery",
+      "description": "Wait for circuit breaker to reset before retrying",
+      "enabled": true,
+      "triggers": {
+        "error_type": "CIRCUIT_BREAKER_OPEN",
+        "min_failures": 1
+      },
+      "actions": [
+        {
+          "type": "log_playbook_start",
+          "params": {
+            "message": "Circuit breaker open, waiting for reset before retry"
+          }
+        },
+        {
+          "type": "pause",
+          "params": {
+            "duration_ms": 10000,
+            "reason": "circuit_breaker_cooldown"
+          }
+        },
+        {
+          "type": "retry_with_backoff",
+          "params": {
+            "max_attempts": 2,
+            "base_delay_ms": 10000,
+            "max_delay_ms": 300000,
+            "backoff_multiplier": 2
+          }
+        }
+      ],
+      "priority": 25
+    },
+    {
+      "id": "agent-crash-recovery",
+      "name": "Agent Crash Auto-Recovery",
+      "description": "Automatically restart crashed agents with exponential backoff",
+      "enabled": true,
+      "triggers": {
+        "agent_status": "error",
+        "incident_type": "agent_crash",
+        "min_failures": 1
+      },
+      "actions": [
+        {
+          "type": "log_playbook_start",
+          "params": {
+            "message": "Agent crash detected, initiating auto-recovery"
+          }
+        },
+        {
+          "type": "checkpoint_restore",
+          "params": {
+            "load_last_checkpoint": true
+          }
+        },
+        {
+          "type": "restart_agent",
+          "params": {
+            "use_recovery_manager": true,
+            "exponential_backoff": true
+          }
+        },
+        {
+          "type": "log_incident",
+          "params": {
+            "incident_type": "agent_auto_recovered",
+            "severity": "warning"
+          }
+        }
+      ],
+      "priority": 30
+    },
+    {
+      "id": "quota-exceeded-notify",
+      "name": "Quota Exceeded Alert",
+      "description": "Alert when API quota is exceeded (manual intervention needed)",
+      "enabled": true,
+      "triggers": {
+        "error_type": "QUOTA_EXCEEDED",
+        "min_failures": 1
+      },
+      "actions": [
+        {
+          "type": "log_playbook_start",
+          "params": {
+            "message": "API quota exceeded - manual intervention required"
+          }
+        },
+        {
+          "type": "update_task_status",
+          "params": {
+            "status": "blocked",
+            "result": "API quota exceeded. Manual intervention required."
+          }
+        },
+        {
+          "type": "log_incident",
+          "params": {
+            "incident_type": "quota_exceeded",
+            "severity": "critical",
+            "recovery_action": "MANUAL_INTERVENTION_REQUIRED"
+          }
+        },
+        {
+          "type": "notify_user",
+          "params": {
+            "message": "CRITICAL: API quota exceeded. Please check billing and usage limits."
+          }
+        }
+      ],
+      "priority": 50
+    },
+    {
+      "id": "auth-error-notify",
+      "name": "Authentication Error Alert",
+      "description": "Alert on authentication failures (manual intervention needed)",
+      "enabled": true,
+      "triggers": {
+        "error_type": "AUTH_ERROR",
+        "min_failures": 1
+      },
+      "actions": [
+        {
+          "type": "log_playbook_start",
+          "params": {
+            "message": "Authentication error - API credentials may be invalid"
+          }
+        },
+        {
+          "type": "update_task_status",
+          "params": {
+            "status": "blocked",
+            "result": "Authentication failed. Check API credentials."
+          }
+        },
+        {
+          "type": "log_incident",
+          "params": {
+            "incident_type": "auth_error",
+            "severity": "critical",
+            "recovery_action": "CHECK_API_CREDENTIALS"
+          }
+        },
+        {
+          "type": "notify_user",
+          "params": {
+            "message": "CRITICAL: Authentication error. Please verify API credentials."
+          }
+        }
+      ],
+      "priority": 60
+    },
+    {
+      "id": "task-stuck-recovery",
+      "name": "Stuck Task Recovery",
+      "description": "Recover tasks that are stuck in progress for too long",
+      "enabled": true,
+      "triggers": {
+        "task_stuck_minutes": 30,
+        "task_status": "in_progress"
+      },
+      "actions": [
+        {
+          "type": "log_playbook_start",
+          "params": {
+            "message": "Task stuck in progress for 30+ minutes, initiating recovery"
+          }
+        },
+        {
+          "type": "checkpoint_restore",
+          "params": {
+            "load_last_checkpoint": true
+          }
+        },
+        {
+          "type": "restart_task",
+          "params": {
+            "preserve_progress": true,
+            "reset_timeout": true
+          }
+        },
+        {
+          "type": "log_incident",
+          "params": {
+            "incident_type": "stuck_task_recovered",
+            "severity": "warning"
+          }
+        }
+      ],
+      "priority": 18
+    }
+  ],
+  "global_settings": {
+    "max_playbook_retries": 3,
+    "playbook_timeout_minutes": 15,
+    "enable_parallel_playbooks": false,
+    "log_all_playbook_executions": true,
+    "failure_notification_threshold": 5
+  }
+}

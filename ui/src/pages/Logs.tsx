@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Download, Copy, ChevronsDown, Filter, X, Calendar } from 'lucide-react';
-import { api } from '../api';
+import { Search, Download, Copy, ChevronsDown, Filter, X, Calendar, AlertTriangle, ChevronDown, ChevronRight, BarChart3, FileJson, FileSpreadsheet, Archive } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { api, FailurePatternData, FailurePatternEntry } from '../api';
 
 interface LogEntry {
   id: number;
@@ -16,6 +17,215 @@ interface LogEntry {
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
+const SEVERITY_CONFIG = {
+  critical: { bg: 'bg-red-900/30', text: 'text-red-400', border: 'border-red-700', label: 'CRITICAL' },
+  high: { bg: 'bg-orange-900/30', text: 'text-orange-400', border: 'border-orange-700', label: 'HIGH' },
+  medium: { bg: 'bg-yellow-900/30', text: 'text-yellow-400', border: 'border-yellow-700', label: 'MEDIUM' },
+  low: { bg: 'bg-zinc-800/30', text: 'text-zinc-400', border: 'border-zinc-700', label: 'LOW' },
+};
+
+function FailurePatternsPanel() {
+  const [data, setData] = useState<FailurePatternData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(true);
+  const [expandedPatterns, setExpandedPatterns] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    api.getFailurePatterns()
+      .then(setData)
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const togglePattern = (id: string) => {
+    const next = new Set(expandedPatterns);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setExpandedPatterns(next);
+  };
+
+  if (loading) {
+    return (
+      <div className="px-6 py-3 border-b border-zinc-800 bg-zinc-900/50">
+        <div className="flex items-center gap-2 text-zinc-500 text-sm">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-700 border-t-amber-500" />
+          Analyzing failure patterns...
+        </div>
+      </div>
+    );
+  }
+
+  if (!data || data.patterns.length === 0) return null;
+
+  const { patterns, summary } = data;
+  const topPatterns = patterns.slice(0, 10);
+
+  return (
+    <div className="border-b border-zinc-800 bg-zinc-900/50">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full px-6 py-3 flex items-center justify-between hover:bg-zinc-800/50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <AlertTriangle className="w-4 h-4 text-amber-500" />
+          <span className="text-sm font-semibold text-zinc-200">
+            Failure Patterns
+          </span>
+          <span className="text-xs text-zinc-500">
+            {summary.unique_patterns} patterns from {summary.total_failures} failures
+          </span>
+          {summary.top_pattern && (
+            <span className="text-xs px-2 py-0.5 bg-red-900/30 text-red-400 rounded border border-red-800">
+              Top: {summary.top_pattern.count}x
+            </span>
+          )}
+        </div>
+        {expanded ? <ChevronDown className="w-4 h-4 text-zinc-500" /> : <ChevronRight className="w-4 h-4 text-zinc-500" />}
+      </button>
+
+      {expanded && (
+        <div className="px-6 pb-4 space-y-3">
+          {/* Summary stats row */}
+          <div className="flex gap-4 text-xs">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 rounded">
+              <span className="text-zinc-500">Total Failures:</span>
+              <span className="text-zinc-200 font-semibold">{summary.total_failures}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 rounded">
+              <span className="text-zinc-500">Unique Patterns:</span>
+              <span className="text-zinc-200 font-semibold">{summary.unique_patterns}</span>
+            </div>
+            {summary.peak_failure_hour && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 rounded">
+                <span className="text-zinc-500">Peak Hour:</span>
+                <span className="text-zinc-200 font-semibold">
+                  {String(summary.peak_failure_hour.hour).padStart(2, '0')}:00 ({summary.peak_failure_hour.count} failures)
+                </span>
+              </div>
+            )}
+            {Object.keys(summary.failure_rate_by_agent).length > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 rounded">
+                <span className="text-zinc-500">Most Failing Agent:</span>
+                <span className="text-zinc-200 font-semibold">
+                  {Object.entries(summary.failure_rate_by_agent).sort((a, b) => b[1] - a[1])[0]?.[0]}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Pattern list */}
+          <div className="space-y-1">
+            {topPatterns.map((pattern) => (
+              <PatternRow
+                key={pattern.pattern_id}
+                pattern={pattern}
+                isExpanded={expandedPatterns.has(pattern.pattern_id)}
+                onToggle={() => togglePattern(pattern.pattern_id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PatternRow({ pattern, isExpanded, onToggle }: { pattern: FailurePatternEntry; isExpanded: boolean; onToggle: () => void }) {
+  const sev = SEVERITY_CONFIG[pattern.severity];
+
+  // Build a simple hour sparkline (24 bars)
+  const hourBars = useMemo(() => {
+    const maxCount = Math.max(1, ...Object.values(pattern.hour_distribution));
+    return Array.from({ length: 24 }, (_, h) => {
+      const count = pattern.hour_distribution[String(h)] || 0;
+      return { hour: h, count, pct: (count / maxCount) * 100 };
+    });
+  }, [pattern.hour_distribution]);
+
+  return (
+    <div className={`rounded border ${sev.border} ${sev.bg}`}>
+      <button
+        onClick={onToggle}
+        className="w-full px-3 py-2 flex items-center gap-3 text-left hover:bg-white/5 transition-colors"
+      >
+        {isExpanded ? <ChevronDown className="w-3 h-3 text-zinc-500 shrink-0" /> : <ChevronRight className="w-3 h-3 text-zinc-500 shrink-0" />}
+        <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${sev.bg} ${sev.text} shrink-0`}>
+          {sev.label}
+        </span>
+        <span className="text-xs text-zinc-300 flex-1 truncate font-mono">
+          {pattern.representative_message}
+        </span>
+        <span className="text-xs text-zinc-500 shrink-0">{pattern.count}x</span>
+        <span className="text-[10px] text-zinc-600 shrink-0">
+          {new Date(pattern.last_seen).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}
+        </span>
+      </button>
+
+      {isExpanded && (
+        <div className="px-3 pb-3 pt-1 space-y-3 border-t border-zinc-800/50">
+          {/* Metadata row */}
+          <div className="flex gap-4 text-[11px]">
+            <div>
+              <span className="text-zinc-600">First seen: </span>
+              <span className="text-zinc-400">{new Date(pattern.first_seen).toLocaleString()}</span>
+            </div>
+            <div>
+              <span className="text-zinc-600">Agents: </span>
+              <span className="text-zinc-400">{Object.entries(pattern.agent_types).map(([k, v]) => `${k} (${v})`).join(', ')}</span>
+            </div>
+            <div>
+              <span className="text-zinc-600">Task types: </span>
+              <span className="text-zinc-400">{Object.entries(pattern.task_types).map(([k, v]) => `${k} (${v})`).join(', ')}</span>
+            </div>
+          </div>
+
+          {/* Hour distribution sparkline */}
+          <div>
+            <div className="flex items-center gap-1 mb-1">
+              <BarChart3 className="w-3 h-3 text-zinc-600" />
+              <span className="text-[10px] text-zinc-600">Failures by hour</span>
+            </div>
+            <div className="flex items-end gap-px h-6">
+              {hourBars.map(bar => (
+                <div
+                  key={bar.hour}
+                  className={`flex-1 rounded-t ${bar.count > 0 ? 'bg-amber-500/60' : 'bg-zinc-800/40'}`}
+                  style={{ height: `${Math.max(bar.count > 0 ? 15 : 2, bar.pct)}%` }}
+                  title={`${String(bar.hour).padStart(2, '0')}:00 - ${bar.count} failures`}
+                />
+              ))}
+            </div>
+            <div className="flex justify-between text-[8px] text-zinc-700 mt-0.5">
+              <span>00</span>
+              <span>06</span>
+              <span>12</span>
+              <span>18</span>
+              <span>23</span>
+            </div>
+          </div>
+
+          {/* Sample entries */}
+          {pattern.sample_entries.length > 0 && (
+            <div>
+              <span className="text-[10px] text-zinc-600">Recent occurrences:</span>
+              <div className="mt-1 space-y-1">
+                {pattern.sample_entries.map((entry, i) => (
+                  <div key={i} className="text-[10px] font-mono px-2 py-1 bg-zinc-950/50 rounded flex items-start gap-2">
+                    <span className="text-zinc-600 shrink-0">
+                      {new Date(entry.created_at).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}
+                    </span>
+                    <span className="text-zinc-500 shrink-0">[{entry.agent_id || 'system'}]</span>
+                    <span className="text-zinc-400 truncate">{entry.detail || entry.action}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Logs() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,11 +236,11 @@ export default function Logs() {
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [autoScroll, setAutoScroll] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
-  const listRef = useRef<List>(null);
-  const itemSizeCache = useRef<Map<number, number>>(new Map());
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Fetch logs
   useEffect(() => {
     setLoading(true);
     api.searchLogs({
@@ -42,18 +252,15 @@ export default function Logs() {
       .finally(() => setLoading(false));
   }, [searchQuery, selectedLevels, agentFilter]);
 
-  // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
-    if (autoScroll && logs.length > 0 && listRef.current) {
-      listRef.current.scrollToItem(logs.length - 1, 'end');
+    if (autoScroll && logs.length > 0 && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [logs, autoScroll]);
 
-  // Filter logs by time range and search
   const filteredLogs = useMemo(() => {
     let result = [...logs];
 
-    // Time range filter
     if (timeRange !== 'all') {
       const now = Date.now();
       const ranges: Record<string, number> = {
@@ -66,25 +273,13 @@ export default function Logs() {
       result = result.filter(log => new Date(log.timestamp).getTime() >= cutoff);
     }
 
-    // Level filter
     if (selectedLevels.size > 0) {
       result = result.filter(log => selectedLevels.has(log.level.toLowerCase() as LogLevel));
     }
 
-    // Search filter (case-insensitive)
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(log =>
-        log.action.toLowerCase().includes(query) ||
-        log.source?.toLowerCase().includes(query) ||
-        log.metadata?.toLowerCase().includes(query)
-      );
-    }
-
     return result;
-  }, [logs, timeRange, selectedLevels, searchQuery]);
+  }, [logs, timeRange, selectedLevels]);
 
-  // Get unique agents for filter dropdown
   const uniqueAgents = useMemo(() => {
     const agents = new Set<string>();
     logs.forEach(log => {
@@ -111,8 +306,6 @@ export default function Logs() {
       newExpanded.add(id);
     }
     setExpandedIds(newExpanded);
-    itemSizeCache.current.clear();
-    listRef.current?.resetAfterIndex(0);
   };
 
   const copyToClipboard = (text: string) => {
@@ -144,6 +337,40 @@ export default function Logs() {
     URL.revokeObjectURL(url);
   };
 
+  const exportLogsServer = async (format: 'json' | 'csv') => {
+    try {
+      const level = selectedLevels.size === 1 ? Array.from(selectedLevels)[0] : undefined;
+      const data = await api.exportLogs({ level, source: agentFilter || undefined, format });
+      const blob = new Blob(
+        [typeof data === 'string' ? data : JSON.stringify(data, null, 2)],
+        { type: format === 'csv' ? 'text/csv' : 'application/json' }
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hivemind-logs-${Date.now()}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
+    setShowExportMenu(false);
+  };
+
+  const handleArchive = async () => {
+    setArchiving(true);
+    try {
+      const result = await api.triggerArchival(30);
+      const total = (result.logs?.archived || 0) + (result.activity?.archived || 0);
+      alert(`Archived ${total} entries (${result.logs?.archived || 0} logs, ${result.activity?.archived || 0} activity).`);
+    } catch (err) {
+      console.error('Archival failed:', err);
+      alert('Archival failed. Check console for details.');
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   const getLevelColor = (level: string) => {
     switch (level.toLowerCase()) {
       case 'error':
@@ -168,106 +395,8 @@ export default function Logs() {
     );
   };
 
-  const getItemSize = (index: number) => {
-    if (itemSizeCache.current.has(index)) {
-      return itemSizeCache.current.get(index)!;
-    }
-
-    const log = filteredLogs[index];
-    const isExpanded = expandedIds.has(log.id);
-    const baseHeight = 56; // Base height for collapsed entry
-    const expandedHeight = log.metadata ? 120 : 80; // Additional height when expanded
-
-    const size = isExpanded ? baseHeight + expandedHeight : baseHeight;
-    itemSizeCache.current.set(index, size);
-    return size;
-  };
-
-  const LogRow = ({ index, style }: { index: number; style: React.CSSProperties }) => {
-    const log = filteredLogs[index];
-    const isExpanded = expandedIds.has(log.id);
-    const colors = getLevelColor(log.level);
-
-    return (
-      <div
-        style={style}
-        className="border-b border-zinc-800 hover:bg-zinc-900/50 transition-colors cursor-pointer"
-        onClick={() => toggleExpanded(log.id)}
-      >
-        <div className="px-4 py-3 font-mono text-xs">
-          {/* Main log line */}
-          <div className="flex items-start gap-3">
-            {/* Timestamp */}
-            <span className="text-zinc-500 text-[10px] whitespace-nowrap shrink-0 w-36">
-              {new Date(log.timestamp).toLocaleString('en-US', {
-                month: 'short',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: false
-              })}
-            </span>
-
-            {/* Level badge */}
-            <span className={`${colors.bg} ${colors.text} ${colors.border} border px-2 py-0.5 rounded text-[10px] font-semibold uppercase shrink-0 w-16 text-center`}>
-              {log.level}
-            </span>
-
-            {/* Agent name */}
-            <span className="text-amber-400 font-semibold shrink-0 min-w-24">
-              {log.source || 'system'}
-            </span>
-
-            {/* Action message */}
-            <span className="text-zinc-300 flex-1">
-              {highlightMatch(log.action, searchQuery)}
-            </span>
-
-            {/* Copy button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                copyToClipboard(`[${log.timestamp}] ${log.level.toUpperCase()} ${log.source}: ${log.action}`);
-              }}
-              className="text-zinc-600 hover:text-zinc-400 transition-colors shrink-0"
-              title="Copy log entry"
-            >
-              <Copy className="w-3 h-3" />
-            </button>
-          </div>
-
-          {/* Expanded metadata */}
-          {isExpanded && (
-            <div className="mt-3 pl-40 space-y-2 text-zinc-400 text-[11px]">
-              {log.task_id && (
-                <div>
-                  <span className="text-zinc-600">Task ID:</span> {log.task_id}
-                </div>
-              )}
-              {log.agent_id && (
-                <div>
-                  <span className="text-zinc-600">Agent ID:</span> {log.agent_id}
-                </div>
-              )}
-              {log.metadata && (
-                <div>
-                  <span className="text-zinc-600">Metadata:</span>
-                  <pre className="mt-1 p-2 bg-zinc-950 rounded text-[10px] overflow-x-auto">
-                    {log.metadata}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="h-screen flex flex-col bg-zinc-950">
-      {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-zinc-100">System Logs</h1>
@@ -294,13 +423,49 @@ export default function Logs() {
             <Copy className="w-4 h-4" />
             Copy All
           </button>
-          <button
-            onClick={downloadLogs}
-            className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Download
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export
+            </button>
+            {showExportMenu && (
+              <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-50 py-1 min-w-[160px]">
+                <button
+                  onClick={downloadLogs}
+                  className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download TXT
+                </button>
+                <button
+                  onClick={() => exportLogsServer('json')}
+                  className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
+                >
+                  <FileJson className="w-3.5 h-3.5" />
+                  Export JSON
+                </button>
+                <button
+                  onClick={() => exportLogsServer('csv')}
+                  className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  Export CSV
+                </button>
+                <div className="border-t border-zinc-700 my-1" />
+                <button
+                  onClick={handleArchive}
+                  disabled={archiving}
+                  className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Archive className="w-3.5 h-3.5" />
+                  {archiving ? 'Archiving...' : 'Archive Old Logs'}
+                </button>
+              </div>
+            )}
+          </div>
           <button
             onClick={() => setAutoScroll(!autoScroll)}
             className={`px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
@@ -314,10 +479,8 @@ export default function Logs() {
         </div>
       </div>
 
-      {/* Filters Panel */}
       {showFilters && (
         <div className="px-6 py-4 bg-zinc-900 border-b border-zinc-800 space-y-3">
-          {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
             <input
@@ -337,8 +500,7 @@ export default function Logs() {
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Level filter */}
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="text-sm text-zinc-400">Level:</span>
               {(['debug', 'info', 'warn', 'error'] as LogLevel[]).map((level) => {
@@ -360,7 +522,6 @@ export default function Logs() {
               })}
             </div>
 
-            {/* Agent filter */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-zinc-400">Agent:</span>
               <select
@@ -375,7 +536,6 @@ export default function Logs() {
               </select>
             </div>
 
-            {/* Time range filter */}
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-zinc-400" />
               <select
@@ -391,7 +551,6 @@ export default function Logs() {
               </select>
             </div>
 
-            {/* Clear filters */}
             {(selectedLevels.size > 0 || agentFilter || searchQuery) && (
               <button
                 onClick={() => {
@@ -409,8 +568,12 @@ export default function Logs() {
         </div>
       )}
 
-      {/* Log list */}
-      <div className="flex-1 bg-zinc-950 overflow-hidden">
+      <FailurePatternsPanel />
+
+      <div
+        ref={scrollRef}
+        className="flex-1 bg-zinc-950 overflow-y-auto overflow-x-hidden"
+      >
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="flex items-center gap-3 text-zinc-500">
@@ -423,16 +586,92 @@ export default function Logs() {
             No logs found
           </div>
         ) : (
-          <List
-            ref={listRef}
-            height={window.innerHeight - (showFilters ? 220 : 140)}
-            itemCount={filteredLogs.length}
-            itemSize={getItemSize}
-            width="100%"
-            className="scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent"
-          >
-            {LogRow}
-          </List>
+          <div className="divide-y divide-zinc-800">
+            {filteredLogs.map((log) => {
+              const isExpanded = expandedIds.has(log.id);
+              const colors = getLevelColor(log.level);
+
+              return (
+                <div
+                  key={log.id}
+                  className="border-b border-zinc-800 hover:bg-zinc-900/50 transition-colors cursor-pointer"
+                  onClick={() => toggleExpanded(log.id)}
+                >
+                  <div className="px-4 py-3 font-mono text-xs">
+                    <div className="flex items-start gap-3">
+                      <span className="text-zinc-500 text-[10px] whitespace-nowrap shrink-0 w-36">
+                        {new Date(log.timestamp).toLocaleString('en-US', {
+                          month: 'short',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: false
+                        })}
+                      </span>
+
+                      <span className={`${colors.bg} ${colors.text} ${colors.border} border px-2 py-0.5 rounded text-[10px] font-semibold uppercase shrink-0 w-16 text-center`}>
+                        {log.level}
+                      </span>
+
+                      <span className="text-amber-400 font-semibold shrink-0 min-w-24">
+                        {log.source || 'system'}
+                      </span>
+
+                      <span className="text-zinc-300 flex-1">
+                        {highlightMatch(log.action, searchQuery)}
+                      </span>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(`[${log.timestamp}] ${log.level.toUpperCase()} ${log.source}: ${log.action}`);
+                        }}
+                        className="text-zinc-600 hover:text-zinc-400 transition-colors shrink-0"
+                        title="Copy log entry"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="mt-3 pl-40 space-y-2 text-zinc-400 text-[11px]">
+                        {log.task_id && (
+                          <div>
+                            <span className="text-zinc-600">Task ID:</span> {log.task_id}
+                          </div>
+                        )}
+                        {log.agent_id && (
+                          <div>
+                            <span className="text-zinc-600">Agent ID:</span>{' '}
+                            {log.source ? (
+                              <Link
+                                to={`../logs/${log.source}`}
+                                className="text-emerald-400 hover:text-emerald-300 transition-colors font-mono"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {log.agent_id}
+                              </Link>
+                            ) : (
+                              <span className="font-mono">{log.agent_id}</span>
+                            )}
+                          </div>
+                        )}
+                        {log.metadata && (
+                          <div>
+                            <span className="text-zinc-600">Metadata:</span>
+                            <pre className="mt-1 p-2 bg-zinc-950 rounded text-[10px] overflow-x-auto">
+                              {log.metadata}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

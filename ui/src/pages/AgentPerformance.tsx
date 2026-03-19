@@ -21,7 +21,7 @@ import {
   Line,
 } from 'recharts';
 import { api } from '../api';
-import { TrendingUp, Zap, DollarSign, CheckCircle2, Target, Award, Activity, TrendingDown, Minus, AlertTriangle, Clock } from 'lucide-react';
+import { TrendingUp, Zap, DollarSign, CheckCircle2, Target, Award, Activity, TrendingDown, Minus, AlertTriangle, Clock, Download, FileJson, FileSpreadsheet } from 'lucide-react';
 
 interface AgentPerformanceProps {
   companyId: string;
@@ -33,6 +33,7 @@ type SortBy = 'cost' | 'tasks' | 'efficiency' | 'tokens';
 
 export default function AgentPerformance({ companyId }: AgentPerformanceProps) {
   const [sortBy, setSortBy] = useState<SortBy>('cost');
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Fetch cost data
   const { data: costData, isLoading: costsLoading } = useQuery({
@@ -221,6 +222,28 @@ export default function AgentPerformance({ companyId }: AgentPerformanceProps) {
     };
   }, [costData, tasks, performanceData]);
 
+  const exportPerformanceData = async (format: 'json' | 'csv') => {
+    try {
+      const data = await api.exportData(companyId, {
+        entities: ['tasks', 'agents', 'costs'],
+        format,
+      });
+      const blob = new Blob(
+        [typeof data === 'string' ? data : JSON.stringify(data, null, 2)],
+        { type: format === 'csv' ? 'text/csv' : 'application/json' }
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `agent-performance-${companyId.slice(0, 8)}-${Date.now()}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
+    setShowExportMenu(false);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -241,11 +264,40 @@ export default function AgentPerformance({ companyId }: AgentPerformanceProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Agent Performance Analytics</h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          Cost breakdown, efficiency metrics, productivity analysis, and workload predictions
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Agent Performance Analytics</h1>
+          <p className="text-sm text-zinc-400 mt-1">
+            Cost breakdown, efficiency metrics, productivity analysis, and workload predictions
+          </p>
+        </div>
+        <div className="relative">
+          <button
+            onClick={() => setShowExportMenu(!showExportMenu)}
+            className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors flex items-center gap-2 text-sm"
+          >
+            <Download className="w-4 h-4" />
+            Export
+          </button>
+          {showExportMenu && (
+            <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-50 py-1 min-w-[160px]">
+              <button
+                onClick={() => exportPerformanceData('json')}
+                className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
+              >
+                <FileJson className="w-3.5 h-3.5" />
+                Export JSON
+              </button>
+              <button
+                onClick={() => exportPerformanceData('csv')}
+                className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                Export CSV
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Workload Prediction & Scaling Recommendations */}
