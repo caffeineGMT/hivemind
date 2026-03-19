@@ -15,7 +15,7 @@ const statusIcon: Record<string, React.ReactNode> = {
   blocked: <Ban className="h-4 w-4 text-red-400" />,
 };
 
-export default function TaskRow({ task }: { task: Task }) {
+function TaskRowComponent({ task }: { task: Task }) {
   const navigate = useNavigate();
   const [swipeAction, setSwipeAction] = useState<'left' | 'right' | null>(null);
 
@@ -115,3 +115,25 @@ export default function TaskRow({ task }: { task: Task }) {
     </article>
   );
 }
+
+// Custom comparison function to prevent unnecessary re-renders
+// Only re-render if displayed task properties have changed
+function areTaskPropsEqual(
+  prevProps: { task: Task },
+  nextProps: { task: Task }
+): boolean {
+  const prev = prevProps.task;
+  const next = nextProps.task;
+
+  return (
+    prev.id === next.id &&
+    prev.status === next.status &&
+    prev.title === next.title &&
+    prev.description === next.description &&
+    prev.priority === next.priority &&
+    prev.assignee_name === next.assignee_name &&
+    prev.assignee_id === next.assignee_id
+  );
+}
+
+export default memo(TaskRowComponent, areTaskPropsEqual);

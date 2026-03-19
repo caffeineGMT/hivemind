@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { type LucideIcon } from 'lucide-react';
 import { useTouchRipple } from './TouchRipple';
 
@@ -9,7 +10,7 @@ interface MetricCardProps {
   onClick?: () => void;
 }
 
-export default function MetricCard({ label, value, icon: Icon, color = 'text-zinc-400', onClick }: MetricCardProps) {
+function MetricCardComponent({ label, value, icon: Icon, color = 'text-zinc-400', onClick }: MetricCardProps) {
   const { createRipple, rippleElements } = useTouchRipple();
   const isClickable = !!onClick;
 
@@ -36,3 +37,20 @@ export default function MetricCard({ label, value, icon: Icon, color = 'text-zin
     </div>
   );
 }
+
+// Custom comparison function to prevent unnecessary re-renders
+// Only re-render if displayed properties have changed
+function areMetricPropsEqual(
+  prevProps: MetricCardProps,
+  nextProps: MetricCardProps
+): boolean {
+  return (
+    prevProps.label === nextProps.label &&
+    prevProps.value === nextProps.value &&
+    prevProps.color === nextProps.color &&
+    prevProps.icon === nextProps.icon &&
+    prevProps.onClick === nextProps.onClick
+  );
+}
+
+export default memo(MetricCardComponent, areMetricPropsEqual);

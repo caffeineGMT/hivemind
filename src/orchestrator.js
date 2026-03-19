@@ -643,6 +643,39 @@ function checkRunningAgents(company) {
       });
       log(company.id, "CFO", `${handle.agentName}: ${handle.usage.totalTokens} tokens, $${handle.usage.costUsd.toFixed(4)}, ${handle.usage.numTurns} turns`);
 
+      // Save detailed API call logs
+      if (handle.apiCalls && handle.apiCalls.length > 0) {
+        for (const apiCall of handle.apiCalls) {
+          db.saveApiCallLog({
+            agentId,
+            taskId: handle.taskId,
+            companyId: company.id,
+            timestamp: apiCall.timestamp,
+            sequence: apiCall.sequence,
+            turn: apiCall.turn,
+            model: apiCall.model,
+            stopReason: apiCall.stopReason,
+            usage: apiCall.usage,
+            content: apiCall.content,
+          });
+        }
+      }
+
+      // Save error logs
+      if (handle.errors && handle.errors.length > 0) {
+        for (const error of handle.errors) {
+          db.saveErrorLog({
+            agentId,
+            taskId: handle.taskId,
+            companyId: company.id,
+            timestamp: error.timestamp,
+            message: error.message,
+            code: error.code,
+            stack: error.stack,
+          });
+        }
+      }
+
       // Record metrics for real-time tracking
       db.recordMetric({
         metricName: 'token_usage',

@@ -123,7 +123,8 @@ console.log(`   📋 Unassigned tasks: ${todoTasks.count}`);
 const recentActivity = db.prepare(`
   SELECT
     agent_id,
-    event,
+    action,
+    detail,
     datetime(created_at, 'localtime') as time
   FROM activity_log
   WHERE company_id = ?
@@ -135,10 +136,11 @@ console.log("\n📝 RECENT ACTIVITY:");
 if (recentActivity.length === 0) {
   console.log("   (No recent activity)");
 } else {
-  recentActivity.forEach(({ agent_id, event, time }) => {
-    const shortEvent = event.length > 50 ? event.substring(0, 47) + "..." : event;
-    const agentName = agent_id ? agent_id.slice(0, 8) : "system";
-    console.log(`   [${time}] ${agentName}: ${shortEvent}`);
+  recentActivity.forEach(({ agent_id, action, detail, time }) => {
+    const msg = detail || action;
+    const shortMsg = msg.length > 50 ? msg.substring(0, 47) + "..." : msg;
+    const agentName = agent_id ? agent_id.slice(0, 12) : "system";
+    console.log(`   [${time}] ${agentName.padEnd(14)} ${action.padEnd(10)} ${shortMsg}`);
   });
 }
 

@@ -1210,6 +1210,113 @@ export function getTracesByTaskId(taskId, limit = 100) {
   }));
 }
 
+// ── Agent Execution Logs ──────────────────────────────────────────────────
+
+/**
+ * Save an API call log entry
+ */
+export function saveApiCallLog({ agentId, taskId, companyId, timestamp, sequence, turn, model, stopReason, usage, content, traceId }) {
+  const metadata = {
+    sequence,
+    turn,
+    model,
+    stopReason,
+    usage,
+    contentSummary: content ? content.map(c => ({ type: c.type, ...(c.name && { name: c.name }) })) : [],
+  };
+
+  getDb().prepare(
+    `INSERT INTO logs (timestamp, level, source, company_id, agent_id, task_id, trace_id, action, metadata)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    timestamp,
+    'info',
+    'api_call',
+    companyId || null,
+    agentId,
+    taskId || null,
+    traceId || null,
+    'claude_api_call',
+    JSON.stringify(metadata)
+  );
+}
+
+/**
+ * Save an error log entry
+ */
+export function saveErrorLog({ agentId, taskId, companyId, timestamp, message, code, stack, traceId }) {
+  const metadata = {
+    code,
+    stack,
+  };
+
+  getDb().prepare(
+    `INSERT INTO logs (timestamp, level, source, company_id, agent_id, task_id, trace_id, action, metadata)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    timestamp,
+    'error',
+    'agent_execution',
+    companyId || null,
+    agentId,
+    taskId || null,
+    traceId || null,
+    message,
+    JSON.stringify(metadata)
+  );
+}
+
+/**
+ * Get execution logs for an agent
+ */
+export function getAgentExecutionLogs(agentId, limit = 100) {
+  const logs = getDb().prepare(
+    `SELECT * FROM logs
+     WHERE agent_id = ? AND source IN ('api_call', 'agent_execution')
+     ORDER BY timestamp DESC
+     LIMIT ?`
+  ).all(agentId, limit);
+
+  return logs.map(log => ({
+    ...log,
+    metadata: log.metadata ? JSON.parse(log.metadata) : null,
+  }));
+}
+
+/**
+ * Get API call logs for an agent with token details
+ */
+export function getAgentApiCalls(agentId, limit = 50) {
+  const logs = getDb().prepare(
+    `SELECT * FROM logs
+     WHERE agent_id = ? AND source = 'api_call'
+     ORDER BY timestamp DESC
+     LIMIT ?`
+  ).all(agentId, limit);
+
+  return logs.map(log => ({
+    ...log,
+    metadata: log.metadata ? JSON.parse(log.metadata) : null,
+  }));
+}
+
+/**
+ * Get error logs for an agent
+ */
+export function getAgentErrors(agentId, limit = 50) {
+  const logs = getDb().prepare(
+    `SELECT * FROM logs
+     WHERE agent_id = ? AND level = 'error' AND source = 'agent_execution'
+     ORDER BY timestamp DESC
+     LIMIT ?`
+  ).all(agentId, limit);
+
+  return logs.map(log => ({
+    ...log,
+    metadata: log.metadata ? JSON.parse(log.metadata) : null,
+  }));
+}
+
 export function getRecentTraces(companyId, limit = 50) {
   const spans = getDb().prepare(
     `SELECT DISTINCT trace_id, MIN(timestamp) as start_time, MAX(timestamp) as end_time, COUNT(*) as span_count

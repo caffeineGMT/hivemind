@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { wsClient, ConnectionState } from '../websocket';
-import { Wifi, WifiOff, Signal, SignalLow, SignalMedium, SignalHigh, AlertTriangle } from 'lucide-react';
+import { Wifi, WifiOff, Signal, SignalLow, SignalMedium, SignalHigh, AlertTriangle, RefreshCw } from 'lucide-react';
+import ErrorMessage from './ErrorMessage';
+import { createWebSocketError } from '../utils/errors';
 
 function getLatencyInfo(latency: number | null): {
   label: string;
@@ -47,10 +49,21 @@ function getLatencyInfo(latency: number | null): {
 
 export default function WebSocketStatus() {
   const [state, setState] = useState<ConnectionState>(wsClient.getState());
+  const [showDetailedError, setShowDetailedError] = useState(false);
 
   useEffect(() => {
     const handleStateChange = (newState: ConnectionState) => {
       setState(newState);
+
+      // Auto-show detailed error if disconnected for 10+ seconds
+      if (newState.status === 'disconnected' && newState.disconnectedAt) {
+        const disconnectedDuration = Date.now() - newState.disconnectedAt;
+        if (disconnectedDuration > 10000) {
+          setShowDetailedError(true);
+        }
+      } else {
+        setShowDetailedError(false);
+      }
     };
 
     wsClient.addStateListener(handleStateChange);
@@ -60,6 +73,12 @@ export default function WebSocketStatus() {
     };
   }, []);
 
+  const handleForceReconnect = () => {
+    wsClient.reconnectNow();
+    setShowDetailedError(false);
+  };
+
+  // Connected state
   if (state.status === 'connected') {
     const { label, color, bgColor, borderColor, Icon } = getLatencyInfo(state.pingLatency);
     return (
@@ -78,6 +97,7 @@ export default function WebSocketStatus() {
     );
   }
 
+  // Connecting state
   if (state.status === 'connecting') {
     const isUnstable = state.reconnectAttempt >= 3;
     return (
@@ -99,22 +119,53 @@ export default function WebSocketStatus() {
     );
   }
 
+  // Disconnected state
   const isUnstable = state.reconnectAttempt >= 3;
+  const disconnectedDuration = state.disconnectedAt ? Math.floor((Date.now() - state.disconnectedAt) / 1000) : 0;
+
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      aria-label={`${isUnstable ? 'Unstable connection' : 'Offline'}${state.reconnectAttempt > 0 ? `, attempt ${state.reconnectAttempt}` : ''}`}
-      className="flex items-center gap-2 rounded-lg bg-red-950/30 border border-red-900/50 px-3 py-1.5 text-xs"
-    >
-      {isUnstable ? (
-        <AlertTriangle className="h-3.5 w-3.5 text-red-400 animate-pulse" aria-hidden="true" />
-      ) : (
-        <WifiOff className="h-3.5 w-3.5 text-red-500" aria-hidden="true" />
+    <div className="space-y-2">
+      {/* Status badge */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label={`${isUnstable ? 'Unstable connection' : 'Offline'}${state.reconnectAttempt > 0 ? `, attempt ${state.reconnectAttempt}` : ''}`}
+        className="flex items-center gap-2 rounded-lg bg-red-950/30 border border-red-900/50 px-3 py-1.5 text-xs"
+      >
+        {isUnstable ? (
+          <AlertTriangle className="h-3.5 w-3.5 text-red-400 animate-pulse" aria-hidden="true" />
+        ) : (
+          <WifiOff className="h-3.5 w-3.5 text-red-500" aria-hidden="true" />
+        )}
+        <span className="text-red-400 font-medium flex-1">
+          {isUnstable ? 'Unstable' : 'Offline'}{state.reconnectAttempt > 0 ? ` (${state.reconnectAttempt})` : ''}
+        </span>
+        {state.nextReconnectIn !== null && (
+          <span className="text-red-300/60 text-[10px]">
+            {state.nextReconnectIn}s
+          </span>
+        )}
+        <button
+          onClick={handleForceReconnect}
+          className="ml-2 p-1 rounded hover:bg-red-900/30 transition"
+          aria-label="Force reconnect"
+          title="Force reconnect now"
+        >
+          <RefreshCw className="h-3 w-3 text-red-300" />
+        </button>
+      </div>
+
+      {/* Detailed error message for prolonged disconnection */}
+      {(showDetailedError || isUnstable) && (
+        <ErrorMessage
+          error={createWebSocketError(
+            state.reconnectAttempt,
+            state.nextReconnectIn,
+            handleForceReconnect
+          )}
+          onDismiss={() => setShowDetailedError(false)}
+        />
       )}
-      <span className="text-red-400 font-medium">
-        {isUnstable ? 'Unstable' : 'Offline'}{state.reconnectAttempt > 0 ? ` (${state.reconnectAttempt})` : ''}
-      </span>
     </div>
   );
 }

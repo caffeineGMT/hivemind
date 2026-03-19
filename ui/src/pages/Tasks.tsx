@@ -90,20 +90,6 @@ export default function Tasks({ companyId }: { companyId: string }) {
     },
   });
 
-  // Delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (taskId: string) => {
-      const res = await fetch(`/api/tasks/${taskId}`, {
-        method: 'DELETE',
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', companyId] });
-      setSelectedTasks(new Set());
-    },
-  });
-
   // Filtered tasks
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
@@ -352,30 +338,60 @@ export default function Tasks({ companyId }: { companyId: string }) {
             <button
               onClick={() => handleBulkStatusChange('todo')}
               className="rounded-lg bg-blue-500/20 px-3 py-1 text-xs font-medium text-blue-400 hover:bg-blue-500/30"
+              aria-label="Mark selected tasks as todo"
             >
               Mark Todo
             </button>
             <button
               onClick={() => handleBulkStatusChange('in_progress')}
               className="rounded-lg bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-400 hover:bg-amber-500/30"
+              aria-label="Mark selected tasks as in progress"
             >
               Mark In Progress
             </button>
             <button
               onClick={() => handleBulkStatusChange('done')}
               className="rounded-lg bg-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-400 hover:bg-emerald-500/30"
+              aria-label="Mark selected tasks as done"
             >
               Mark Done
             </button>
             <button
+              onClick={handleBulkRetry}
+              className="rounded-lg bg-purple-500/20 px-3 py-1 text-xs font-medium text-purple-400 hover:bg-purple-500/30"
+              aria-label="Retry selected tasks"
+            >
+              <RefreshCw className="inline h-3 w-3 mr-1" />
+              Retry
+            </button>
+            <button
+              onClick={handleBulkCancel}
+              className="rounded-lg bg-orange-500/20 px-3 py-1 text-xs font-medium text-orange-400 hover:bg-orange-500/30"
+              aria-label="Cancel selected tasks"
+            >
+              <Ban className="inline h-3 w-3 mr-1" />
+              Cancel
+            </button>
+            <button
+              onClick={() => setShowReassignModal(true)}
+              className="rounded-lg bg-cyan-500/20 px-3 py-1 text-xs font-medium text-cyan-400 hover:bg-cyan-500/30"
+              aria-label="Reassign selected tasks"
+            >
+              <UserPlus className="inline h-3 w-3 mr-1" />
+              Reassign
+            </button>
+            <button
               onClick={handleBulkDelete}
               className="rounded-lg bg-red-500/20 px-3 py-1 text-xs font-medium text-red-400 hover:bg-red-500/30"
+              aria-label="Delete selected tasks"
             >
-              <Trash2 className="inline h-3 w-3" /> Delete
+              <Trash2 className="inline h-3 w-3 mr-1" />
+              Delete
             </button>
             <button
               onClick={() => setSelectedTasks(new Set())}
               className="rounded-lg bg-zinc-700 px-3 py-1 text-xs font-medium text-zinc-300 hover:bg-zinc-600"
+              aria-label="Clear selection"
             >
               Clear
             </button>
@@ -518,7 +534,50 @@ export default function Tasks({ companyId }: { companyId: string }) {
         variant="danger"
         requireTyping={true}
         confirmText="DELETE"
-        isLoading={deleteMutation.isPending}
+        isLoading={bulkOperationMutation.isPending}
+      />
+
+      {/* Reassign Modal */}
+      <ConfirmationModal
+        isOpen={showReassignModal}
+        onClose={() => {
+          setShowReassignModal(false);
+          setSelectedAgentForReassign('');
+        }}
+        onConfirm={handleBulkReassign}
+        onCancel={() => {
+          setShowReassignModal(false);
+          setSelectedAgentForReassign('');
+        }}
+        title="Reassign Tasks?"
+        message={
+          <div className="space-y-3">
+            <p className="text-sm text-zinc-400">
+              Reassign {selectedTasks.size} task{selectedTasks.size > 1 ? 's' : ''} to a new agent.
+            </p>
+            <div>
+              <label className="mb-2 block text-xs font-medium text-zinc-300">
+                Select Agent
+              </label>
+              <select
+                value={selectedAgentForReassign}
+                onChange={(e) => setSelectedAgentForReassign(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                autoFocus
+              >
+                <option value="">-- Select an agent --</option>
+                {agents?.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name} ({agent.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        }
+        confirmLabel="Reassign Tasks"
+        variant="primary"
+        isLoading={bulkOperationMutation.isPending}
       />
     </div>
   );
