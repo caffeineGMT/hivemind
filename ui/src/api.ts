@@ -38,6 +38,7 @@ export interface Task {
   status: 'backlog' | 'todo' | 'in_progress' | 'done' | 'blocked';
   priority: 'urgent' | 'high' | 'medium' | 'low';
   assignee_id: string | null;
+  assignee_name: string | null;
   parent_id: string | null;
   depends_on: string | null; // JSON string array of task IDs
   result: string | null;
@@ -394,56 +395,10 @@ export interface FailurePatternData {
 
 // ── Fetch helpers ──────────────────────────────────────────────────
 
-// Token management - will be set by the app
-
-// Try live API first, fall back to static JSON snapshots (for Vercel deployment)
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-
-  // Merge with provided headers
-  if (options?.headers) {
-    Object.assign(headers, options.headers);
-  }
-
-  try {
-    const res = await fetch(url, {
-      ...options,
-      headers,
-    });
-    if (res.ok) {
-      const ct = res.headers.get('content-type') || '';
-      if (ct.includes('application/json')) return res.json();
-    }
-  } catch {
-    // Live API unavailable
-  }
-
-  // Map API URL to static JSON file path
-  const staticUrl = mapToStaticUrl(url);
-  const staticRes = await fetch(staticUrl);
-  if (!staticRes.ok) throw new Error(`Data unavailable: ${url}`);
-  return staticRes.json();
-}
-
-function mapToStaticUrl(url: string): string {
-  // Truncate full UUIDs to 8-char prefixes (static files use prefixes as dir names)
-  const shortened = url.replace(
-    /\/api\/companies\/([0-9a-f]{8})[0-9a-f-]*/,
-    '/api/companies/$1'
-  );
-
-  if (/^\/api\/companies\/([^/]+)\/(dashboard|agents|tasks|activity)/.test(shortened)) {
-    return shortened.replace(/(\?.*)?$/, '.json');
-  }
-  if (/^\/api\/companies\/[^/]+$/.test(shortened)) {
-    return shortened + '/index.json';
-  }
-  if (shortened === '/api/companies') return '/api/companies.json';
-  if (shortened === '/api/health') return '/api/health.json';
-  if (shortened === '/api/logs') return '/api/logs.json';
-  return shortened + '.json';
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
+  return res.json();
 }
 
 export const api = {

@@ -1,4 +1,4 @@
-import { CircleDot, Circle, Clock, CheckCircle2, Ban } from 'lucide-react';
+import { CircleDot, Circle, Clock, CheckCircle2, Ban, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSwipeable } from 'react-swipeable';
 import { useState } from 'react';
@@ -19,22 +19,19 @@ export default function TaskRow({ task }: { task: Task }) {
 
   const handlers = useSwipeable({
     onSwipedLeft: () => {
-      // Mark done - visual feedback only for now
       setSwipeAction('left');
       setTimeout(() => setSwipeAction(null), 1000);
     },
     onSwipedRight: () => {
-      // Reassign - visual feedback only for now
       setSwipeAction('right');
       setTimeout(() => setSwipeAction(null), 1000);
     },
-    trackMouse: false, // Disable on desktop
+    trackMouse: false,
     preventScrollOnSwipe: true,
-    delta: 50, // Minimum swipe distance
+    delta: 50,
   });
 
   const handleClick = (e: React.MouseEvent) => {
-    // Allow swipe gestures on mobile without navigating
     if (!swipeAction) {
       navigate(`tasks/${task.id}`);
     }
@@ -59,17 +56,33 @@ export default function TaskRow({ task }: { task: Task }) {
           <p className="mt-0.5 line-clamp-2 text-xs text-zinc-500 sm:truncate sm:line-clamp-1">{task.description}</p>
         )}
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
+          {task.assignee_name && (
+            <Link
+              to={`/logs/${task.assignee_name}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 rounded-md bg-blue-950/30 px-2 py-0.5 text-[11px] font-medium text-blue-400 transition hover:bg-blue-950/50 hover:text-blue-300"
+              title={`View agent: ${task.assignee_name}`}
+            >
+              <User className="h-3 w-3" />
+              {task.assignee_name}
+            </Link>
+          )}
           <PriorityBadge priority={task.priority} />
           <StatusBadge status={task.status} />
-          {swipeAction === 'left' && (
-            <span className="text-[10px] text-emerald-400">Swipe left to mark done</span>
-          )}
-          {swipeAction === 'right' && (
-            <span className="text-[10px] text-blue-400">Swipe right to reassign</span>
-          )}
         </div>
       </div>
       <div className="hidden shrink-0 items-center gap-2 sm:flex">
+        {task.assignee_name && (
+          <Link
+            to={`/logs/${task.assignee_name}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 rounded-md bg-blue-950/30 px-2 py-0.5 text-[11px] font-medium text-blue-400 transition hover:bg-blue-950/50 hover:text-blue-300"
+            title={`View agent: ${task.assignee_name}`}
+          >
+            <User className="h-3 w-3" />
+            {task.assignee_name}
+          </Link>
+        )}
         <PriorityBadge priority={task.priority} />
         <StatusBadge status={task.status} />
         <span className="w-16 text-right font-mono text-[10px] text-zinc-600" title={task.id}>
