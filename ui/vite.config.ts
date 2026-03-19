@@ -20,9 +20,11 @@ export default defineConfig({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-query': ['@tanstack/react-query'],
-          'vendor-charts': ['recharts', 'd3'],
+          'vendor-recharts': ['recharts'],
+          'vendor-d3': ['d3'],
           'vendor-flow': ['reactflow', 'dagre'],
           'vendor-icons': ['lucide-react'],
+          'vendor-utils': ['date-fns', 'clsx'],
         },
       },
     },
