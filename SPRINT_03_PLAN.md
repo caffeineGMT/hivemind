@@ -1,525 +1,620 @@
-# Sprint 03: Quality & Performance Polish
-
-**Status:** Ready for dispatch
-**Sprint Duration:** 3-5 days
-**Focus:** Bug fixes, TypeScript quality, testing, performance optimization
-**Engineers Required:** 5 (parallel execution)
+# Sprint 03 — Production Readiness & Quality Improvements
+**Duration:** March 19 - April 2, 2026
+**Focus:** Critical bug fixes, performance optimization, test reliability, production monitoring
+**Status:** 🚨 URGENT — 2 E2E tests failing, blocking deployments
 
 ---
 
-## Critical Findings
-
-### 🔴 **Blockers (P0)**
-1. **16+ TypeScript type errors** in production code
-2. **Empty catch blocks** swallowing errors silently
-3. **9 files using console.log** instead of winston logger
-
-### 🟠 **High Impact (P1)**
-4. **SELECT * queries** throughout database layer (inefficient)
-5. **Test coverage at ~5%** (only 4 E2E tests, 1 unit test)
-6. **vendor-recharts bundle: 380.69 KB** (can be code-split further)
-
-### 🔵 **Medium Priority (P2)**
-7. **Inconsistent API error handling** (some endpoints lack validation)
-8. **No API documentation** (Swagger/OpenAPI missing)
-9. **Lighthouse performance unmeasured** (need baseline + targets)
-10. **Memory leak risk** in long-running agent sessions (no profiling)
+## 🎯 Sprint Goal
+Transform Hivemind Engine from feature-complete to production-ready by fixing critical bugs, optimizing bundle size, ensuring test reliability, and implementing production monitoring. Target: Zero test failures, <500KB bundle, 100% error visibility.
 
 ---
 
-## Sprint 03 Tasks
+## 🚨 AUDIT FINDINGS (March 19, 2026)
 
-### Task 1: Fix All TypeScript Type Errors (P0)
-**Assigned to:** Engineer 1
-**Estimated Time:** 2-3 hours
-**Files Affected:**
-- `ui/src/pages/AgentHealth.tsx` (ConfirmationModal props mismatch)
-- `ui/src/pages/Companies.tsx` (ConfirmationModal props mismatch)
-- `ui/src/pages/Tasks.tsx` (ConfirmationModal props mismatch)
-- `ui/src/pages/Logs.tsx` (QueryClient type issues)
-- `ui/src/pages/TraceView.tsx` (Date formatting, Span type issues)
-- `ui/src/pages/Trends.tsx` (Missing API method, tooltip type mismatches)
+### Critical Issues Found:
+1. **🔴 E2E Tests Failing** — 2/30 tests broken (BLOCKING CI/CD)
+2. **🔴 15 Empty Catch Blocks** — Silent error suppression across backend
+3. **🔴 123 Console Statements** — Should use structured logging
+4. **🟠 Bundle Size 1.1MB** — Exceeds 500KB target (recharts: 380KB)
+5. **🟠 No Production Monitoring** — Sentry not configured
+6. **🟠 No Component Tests** — Only E2E tests exist (0 unit tests)
 
-**Success Criteria:**
-- `cd ui && npx tsc --noEmit` passes with 0 errors
-- All builds green on GitHub Actions
-
-**Technical Details:**
-```bash
-# Current errors
-src/pages/AgentHealth.tsx(290,13): error TS2322: Property 'onClose' does not exist
-src/pages/Logs.tsx(252,13): error TS2345: Argument type mismatch
-src/pages/TraceView.tsx(119,7): error TS2769: fractionalSecondDigits not in DateTimeFormatOptions
-src/pages/Trends.tsx(153,24): error TS2339: Property 'getTrends' does not exist
-```
+### What's Working Well:
+- ✅ Accessibility WCAG 2.1 AA compliant
+- ✅ PWA implemented with service worker
+- ✅ WebSocket reconnection with exponential backoff
+- ✅ API rate limiting configured
+- ✅ Database migrations system in place
+- ✅ GitHub Actions CI/CD pipeline
 
 ---
 
-### Task 2: Replace console.log with Winston Logger (P0)
-**Assigned to:** Engineer 2
-**Estimated Time:** 1-2 hours
-**Files Affected:**
-- `ui/src/websocket.ts`
-- `ui/src/api.ts`
-- `ui/src/components/ErrorFallback.tsx`
-- `ui/src/components/DeploymentStatus.tsx`
-- `ui/src/components/ErrorBoundary.tsx`
-- `ui/src/hooks/usePullToRefresh.ts`
-- `ui/src/hooks/useInstallPrompt.ts`
-- `ui/src/pages/AgentPerformance.tsx`
-- `ui/src/pages/Logs.tsx`
+## 🔴 CRITICAL (P0) — Fix Immediately
 
-**Success Criteria:**
-- All `console.log`, `console.error`, `console.warn` replaced with proper logger
-- Create `ui/src/utils/logger.ts` for frontend logging
-- Logs sent to backend `/api/logs/client` endpoint for centralization
-
-**Implementation:**
-```typescript
-// ui/src/utils/logger.ts
-export const logger = {
-  info: (msg: string, meta?: any) => {
-    if (process.env.NODE_ENV === 'development') console.log(msg, meta);
-    fetch('/api/logs/client', {
-      method: 'POST',
-      body: JSON.stringify({ level: 'info', msg, meta })
-    }).catch(() => {});
-  },
-  error: (msg: string, err?: any) => { /* similar */ },
-  warn: (msg: string, meta?: any) => { /* similar */ }
-};
-```
-
----
-
-### Task 3: Fix Empty Catch Blocks & Error Handling (P0)
-**Assigned to:** Engineer 3
+### Task 1: Fix Failing E2E Tests (BLOCKING)
+**Deadline:** March 20, 2026
+**Status:** 🚨 **BLOCKING** — CI is broken, 2/30 tests failing
+**Impact:** CRITICAL — Cannot deploy with broken tests
+**Owner:** Engineer 1
 **Estimated Time:** 2 hours
-**Files Affected:**
-- `ui/src/pages/Logs.tsx:252` — `.catch(() => setData(null))` swallows errors
-- `ui/src/pages/TraceView.tsx` — `.catch((err) => setError(err.message))` loses stack trace
 
-**Success Criteria:**
-- All catch blocks log errors properly
-- User-facing error messages displayed via toast
-- Full error details sent to backend logger
+**Test Failures:**
 
-**Fix Pattern:**
-```typescript
-// BEFORE
-.catch(() => setData(null))
+1. **`/api/health` endpoint test failure:**
+   ```
+   Error: expect(received).toBeDefined()
+   Received: undefined
+   Expected: body.db to be defined
 
-// AFTER
-.catch((err) => {
-  logger.error('Failed to fetch logs', err);
-  toast.error('Failed to load logs. Please try again.');
-  setData(null);
-})
-```
+   File: ui/e2e/api-health.spec.ts:9
+   ```
+
+   **Root Cause:** Response schema mismatch between test expectations and actual API response
+
+   **Fix:**
+   ```javascript
+   // src/server.js:88-98 — Verify response format
+   app.get('/api/health', (req, res) => {
+     const dbOk = (() => { try { db.getDb(); return true; } catch { return false; } })();
+     res.json({
+       status: dbOk ? 'ok' : 'degraded',
+       timestamp: new Date().toISOString(),
+       uptime: process.uptime(),
+       db: dbOk ? 'connected' : 'disconnected',  // ← ENSURE THIS FIELD EXISTS
+       ws: { clients: clients.size, status: 'listening' },
+       memory: process.memoryUsage(),
+     });
+   });
+   ```
+
+2. **Dashboard navigation test — Duplicate link error:**
+   ```
+   Error: strict mode violation: locator('a:has-text("Dashboard")') resolved to 2 elements
+   Element 1: Sidebar navigation link
+   Element 2: Mobile bottom navigation link
+
+   File: ui/e2e/dashboard.spec.ts:12
+   ```
+
+   **Root Cause:** Both desktop sidebar and mobile bottom nav have identical "Dashboard" text, causing Playwright strict mode to fail
+
+   **Fix:**
+   ```tsx
+   // Update test to use unique test IDs instead of text
+   // ui/src/components/Layout.tsx
+   <a data-testid="desktop-nav-dashboard" ...>Dashboard</a>
+
+   // ui/src/components/MobileBottomNav.tsx
+   <a data-testid="mobile-nav-dashboard" ...>Dashboard</a>
+
+   // ui/e2e/dashboard.spec.ts:12
+   await expect(page.getByTestId('desktop-nav-dashboard')).toBeVisible();
+   ```
+
+**Validation:**
+- Run `npm run test:e2e` — All 30/30 tests pass
+- No Playwright strict mode violations
+- CI GitHub Actions workflow goes green
 
 ---
 
-### Task 4: Optimize Database Queries (P1)
-**Assigned to:** Engineer 4
-**Estimated Time:** 3-4 hours
-**Files Affected:** `src/db.js`
+### Task 2: Eliminate Silent Error Suppression (15 empty catch blocks)
+**Deadline:** March 21, 2026
+**Impact:** CRITICAL — Security vulnerability, impossible to debug production
+**Owner:** Engineer 2
+**Estimated Time:** 3 hours
 
-**Problem:** All queries use `SELECT *` which loads unnecessary columns
+**Found 15 empty `catch {}` blocks:**
+- `src/claude.js` — 6 instances (lines 83, 169, 315, 339, 343, 349)
+- `src/orchestrator.js` — 4 instances (lines 374, 375, 516, 591)
+- `src/self-healing.js` — 1 instance (line 364)
+- `src/server.js` — 2 instances (lines 33, 310)
+- `src/tmux.js` — 2 instances (lines 69, 75)
 
-**Success Criteria:**
-- Replace `SELECT *` with explicit column lists in all queries
-- Add database indexes on frequently queried columns
-- Measure query performance (before/after) using SQLite EXPLAIN QUERY PLAN
+**Why Critical:**
+- Production failures are invisible — no logs, no alerts
+- Debugging impossible — "it stops working" with zero context
+- Security risk — exceptions may indicate attacks or corruption
 
-**Queries to Fix:**
-```sql
--- BEFORE (db.js:40)
-SELECT * FROM companies WHERE id = ?
+**Fix Strategy by Category:**
 
--- AFTER
-SELECT id, name, goal, workspace, status, deployment_url, created_at, updated_at
-FROM companies WHERE id = ?
+1. **Process checks** (server.js:33, orchestrator.js:374-375):
+   ```javascript
+   // BEFORE
+   try { process.kill(a.pid, 0); hasLiveAgent = true; break; } catch {}
 
--- Add indexes
-CREATE INDEX IF NOT EXISTS idx_agents_company_id ON agents(company_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_company_id ON tasks(company_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
-CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
+   // AFTER
+   try {
+     process.kill(a.pid, 0);
+     hasLiveAgent = true;
+     break;
+   } catch (err) {
+     logger.debug(`Process ${a.pid} not running: ${err.message}`);
+   }
+   ```
+
+2. **JSON parsing** (claude.js:339, 343, 349):
+   ```javascript
+   // BEFORE
+   try { return JSON.parse(text); } catch {}
+
+   // AFTER
+   try {
+     return JSON.parse(text);
+   } catch (err) {
+     logger.warn(`JSON parse failed: ${err.message}`, { text: text.slice(0, 100) });
+     return null;
+   }
+   ```
+
+3. **Cleanup operations** (orchestrator.js:516, self-healing.js:364):
+   ```javascript
+   // BEFORE
+   try { if (handle.proc) handle.proc.kill("SIGTERM"); } catch {}
+
+   // AFTER
+   try {
+     if (handle.proc) handle.proc.kill("SIGTERM");
+   } catch (err) {
+     logger.error(`Failed to kill process ${handle.pid}: ${err.message}`);
+   }
+   ```
+
+**Validation:**
+- Zero `catch {}` blocks in codebase: `grep -rn "catch {}" src/` returns empty
+- All errors logged with context (error message + metadata)
+- Test each error path manually — verify logs appear
+
+---
+
+### Task 3: Bundle Size Optimization — 1.1MB → <500KB
+**Deadline:** March 22, 2026
+**Impact:** HIGH — Slow page load, poor mobile UX, hurts SEO
+**Owner:** Engineer 3
+**Estimated Time:** 5 hours
+
+**Current Bundle Analysis:**
+```
+vendor-recharts: 380KB (104KB gzipped) ⚠️ EXCEEDS WARNING
+index:           268KB (81KB gzipped)
+vendor-flow:     237KB (80KB gzipped)
+vendor-d3:       64KB (21KB gzipped)
+Total:           ~1.1MB uncompressed
+```
+
+**Target:**
+```
+Main bundle:     <400KB uncompressed (<120KB gzipped)
+Per-route chunk: <150KB uncompressed
+Largest vendor:  <250KB uncompressed
+```
+
+**Implementation Plan:**
+
+**Step 1: Replace Recharts with D3 (saves ~300KB)**
+
+Recharts is 380KB and used only on 3 pages. D3 is already in bundle (64KB).
+
+Create lightweight chart components using D3:
+
+```tsx
+// ui/src/components/charts/BarChart.tsx
+import { scaleLinear, scaleBand } from 'd3-scale';
+import { axisBottom, axisLeft } from 'd3-axis';
+
+export function BarChart({ data, width, height }) {
+  const xScale = scaleBand()
+    .domain(data.map(d => d.label))
+    .range([0, width])
+    .padding(0.2);
+
+  const yScale = scaleLinear()
+    .domain([0, Math.max(...data.map(d => d.value))])
+    .range([height, 0]);
+
+  return (
+    <svg width={width} height={height}>
+      {data.map((d, i) => (
+        <rect
+          key={i}
+          x={xScale(d.label)}
+          y={yScale(d.value)}
+          width={xScale.bandwidth()}
+          height={height - yScale(d.value)}
+          fill="#f59e0b"
+        />
+      ))}
+    </svg>
+  );
+}
 ```
 
 **Files to update:**
-- `getCompany()` (line 39-41)
-- `getActiveCompany()` (line 43-45)
-- `listCompanies()` (line 81-83)
-- `getAgent()` (line 94-96)
-- `getAgentsByCompany()` (line 98-100)
-- Plus ~30 more query functions
+- `ui/src/pages/Analytics.tsx` — Replace `<BarChart>`, `<LineChart>`
+- `ui/src/pages/Costs.tsx` — Replace `<PieChart>`
+- `ui/src/pages/AgentPerformance.tsx` — Replace `<AreaChart>`
 
----
+**Step 2: Lazy Load Reactflow (saves ~150KB from main bundle)**
 
-### Task 5: Comprehensive E2E Test Suite (P1)
-**Assigned to:** Engineer 5
-**Estimated Time:** 4-5 hours
-**Current Coverage:** 4 E2E tests (dashboard, navigation, mobile, api-health)
+```tsx
+// ui/src/pages/Roadmap.tsx
+import { lazy, Suspense } from 'react';
 
-**Success Criteria:**
-- 20+ E2E tests covering critical user flows
-- 80%+ test coverage on happy paths
-- All tests pass on CI/CD
+const ReactFlowComponent = lazy(() =>
+  import('reactflow').then(m => ({ default: m.ReactFlow }))
+);
 
-**Tests to Add:**
-```typescript
-// ui/e2e/company-management.spec.ts
-- Create new company
-- Edit company details
-- Delete company with confirmation
-- Archive company
-
-// ui/e2e/task-workflow.spec.ts
-- Create task manually
-- Assign task to agent
-- Mark task complete
-- Filter tasks by status
-- Search tasks by keyword
-- Delete task with confirmation
-
-// ui/e2e/agent-lifecycle.spec.ts
-- Agent spawns and shows "running"
-- Agent completes task
-- Agent auto-recovery after failure
-- Circuit breaker triggers after 3 failures
-- Manual agent restart
-
-// ui/e2e/websocket-reliability.spec.ts
-- WebSocket connects on page load
-- Auto-reconnect after network drop
-- Real-time task updates appear
-- Connection status indicator accurate
-
-// ui/e2e/cost-tracking.spec.ts
-- Cost breakdown by agent
-- Budget warning at 80%
-- Budget exceeded alert at 100%
-- Export cost data to CSV
-
-// ui/e2e/accessibility.spec.ts
-- Keyboard navigation (Tab, Enter, Escape)
-- Screen reader labels present
-- Focus indicators visible
-- Color contrast WCAG AA
+export default function Roadmap() {
+  return (
+    <Suspense fallback={<div>Loading workflow...</div>}>
+      <ReactFlowComponent {...props} />
+    </Suspense>
+  );
+}
 ```
 
----
+**Step 3: Tree-shake D3 imports**
 
-### Task 6: Bundle Size Optimization Round 2 (P1)
-**Assigned to:** Engineer 1 (after Task 1)
-**Estimated Time:** 2-3 hours
-**Current Issue:** `vendor-recharts-Bco79vRE.js` is 380.69 KB (104.74 KB gzipped)
-
-**Success Criteria:**
-- Recharts loaded only on pages that need charts (not in main bundle)
-- Main bundle < 250 KB gzipped
-- Lighthouse Performance Score > 90
-
-**Implementation:**
 ```typescript
-// ui/src/pages/Analytics.tsx
-import { lazy } from 'react';
+// BEFORE
+import * as d3 from 'd3';
 
-// Instead of direct import
-// import { LineChart, BarChart } from 'recharts';
-
-// Use dynamic import
-const LineChart = lazy(() => import('recharts').then(m => ({ default: m.LineChart })));
-const BarChart = lazy(() => import('recharts').then(m => ({ default: m.BarChart })));
-
-// Wrap in Suspense
-<Suspense fallback={<ChartSkeleton />}>
-  <LineChart data={data} />
-</Suspense>
+// AFTER
+import { scaleLinear, scaleTime } from 'd3-scale';
+import { axisBottom, axisLeft } from 'd3-axis';
+import { line, area } from 'd3-shape';
 ```
 
-**Pages using Recharts (lazy-load each):**
-- `Analytics.tsx`
-- `AgentPerformance.tsx`
-- `Costs.tsx`
-- `CrossProjectAnalytics.tsx`
-- `HealthMonitor.tsx`
-- `Trends.tsx` (if it exists in final build)
+**Step 4: Add Bundle Analyzer**
 
----
-
-### Task 7: API Documentation with Swagger (P2)
-**Assigned to:** Engineer 2 (after Task 2)
-**Estimated Time:** 3-4 hours
-
-**Success Criteria:**
-- OpenAPI 3.0 spec generated
-- Swagger UI available at `http://localhost:3100/api-docs`
-- All 50+ endpoints documented with examples
-
-**Implementation:**
 ```bash
-npm install swagger-jsdoc swagger-ui-express
+npm install -D rollup-plugin-visualizer
 ```
 
+```typescript
+// ui/vite.config.ts
+import { visualizer } from 'rollup-plugin-visualizer';
+
+export default defineConfig({
+  plugins: [
+    react(),
+    tailwindcss(),
+    visualizer({
+      filename: 'dist/stats.html',
+      gzipSize: true,
+      brotliSize: true,
+    }),
+  ],
+});
+```
+
+**Validation:**
+- `npm run build` → Total bundle <500KB gzipped
+- Open `dist/stats.html` → Largest chunk <250KB
+- Test all chart pages → Functionality intact
+- Lighthouse Performance > 90
+
+---
+
+## 🟠 HIGH PRIORITY (P1) — This Sprint
+
+### Task 4: Implement Sentry Error Monitoring
+**Deadline:** March 24, 2026
+**Impact:** HIGH — Cannot detect production errors
+**Owner:** Engineer 4
+**Estimated Time:** 2 hours
+
+**Current State:** Zero production error visibility
+
+**Setup:**
+
+```bash
+npm install @sentry/node @sentry/react
+cd ui && npm install @sentry/react @sentry/vite-plugin
+```
+
+**Backend:**
 ```javascript
 // src/server.js
-import swaggerJsdoc from 'swagger-jsdoc';
-import swaggerUi from 'swagger-ui-express';
+import * as Sentry from "@sentry/node";
 
-const swaggerSpec = swaggerJsdoc({
-  definition: {
-    openapi: '3.0.0',
-    info: {
-      title: 'Hivemind Engine API',
-      version: '1.0.0',
-      description: 'Orchestrator API for managing AI agent companies'
-    },
-    servers: [{ url: 'http://localhost:3100' }]
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV || 'production',
+  tracesSampleRate: 0.1,
+  beforeSend(event) {
+    if (event.exception?.values?.[0]?.type === 'AbortError') return null;
+    return event;
   },
-  apis: ['./src/server.js', './src/api/*.js']
 });
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
-/**
- * @openapi
- * /api/companies:
- *   get:
- *     summary: List all companies
- *     responses:
- *       200:
- *         description: Array of companies
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id: { type: string }
- *                   name: { type: string }
- *                   goal: { type: string }
- */
+app.use(Sentry.Handlers.requestHandler());
+app.use(Sentry.Handlers.errorHandler());
 ```
+
+**Frontend:**
+```typescript
+// ui/src/main.tsx
+import * as Sentry from "@sentry/react";
+
+Sentry.init({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.MODE,
+  integrations: [
+    Sentry.browserTracingIntegration(),
+    Sentry.replayIntegration(),
+  ],
+  tracesSampleRate: 0.1,
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+});
+```
+
+**Environment Variables:**
+```bash
+# .env.example
+SENTRY_DSN=https://xxx@yyy.ingest.sentry.io/zzz
+VITE_SENTRY_DSN=https://xxx@yyy.ingest.sentry.io/zzz
+```
+
+**Validation:**
+- Trigger test error → Appears in Sentry dashboard
+- Source maps uploaded (readable stack traces)
+- User context includes companyId, agentId
 
 ---
 
-### Task 8: API Error Handling Consistency (P2)
-**Assigned to:** Engineer 3 (after Task 3)
-**Estimated Time:** 2-3 hours
+### Task 5: Add Component Unit Tests (React Testing Library)
+**Deadline:** March 26, 2026
+**Impact:** MEDIUM — Prevent UI regressions
+**Owner:** Engineer 5
+**Estimated Time:** 4 hours
 
-**Problem:** Inconsistent error responses across endpoints
+**Current State:**
+- ✅ 30 E2E tests (Playwright)
+- ❌ 0 component unit tests
+- ❌ 0 backend unit tests
 
-**Success Criteria:**
-- All errors return `{ error: string, details?: any }` format
-- HTTP status codes used correctly (400, 404, 409, 500)
-- Input validation using Zod schemas
-- Error middleware catches all unhandled errors
+**Target:** 20+ component tests, 60% coverage
+
+**Setup:**
+```bash
+cd ui && npm install -D @testing-library/react @testing-library/jest-dom @testing-library/user-event vitest jsdom
+```
+
+**Test Priority:**
+
+1. **Interactive Components:**
+   - `MetricCard.test.tsx` — Click, keyboard nav
+   - `ConfirmationModal.test.tsx` — Open/close, confirm/cancel
+   - `FilterBar.test.tsx` — Dropdown selection
+
+2. **Data Display:**
+   - `StatusBadge.test.tsx` — Correct colors
+   - `ProjectCard.test.tsx` — Task rendering
+   - `AgentCard.test.tsx` — Status display
+
+**Example:**
+```tsx
+// ui/src/components/MetricCard.test.tsx
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import MetricCard from './MetricCard';
+import { Users } from 'lucide-react';
+
+test('renders with label and value', () => {
+  render(<MetricCard label="Agents" value={5} icon={Users} />);
+  expect(screen.getByText('Agents')).toBeInTheDocument();
+  expect(screen.getByText('5')).toBeInTheDocument();
+});
+
+test('handles click', async () => {
+  const onClick = vi.fn();
+  render(<MetricCard label="Tasks" value={10} icon={Users} onClick={onClick} />);
+  await userEvent.click(screen.getByRole('button'));
+  expect(onClick).toHaveBeenCalled();
+});
+```
+
+**Validation:**
+- Run `npm test` — All pass
+- Coverage >60% for components/
+
+---
+
+### Task 6: Database Query Optimization
+**Deadline:** March 28, 2026
+**Impact:** MEDIUM — Faster API responses
+**Owner:** Engineer 1 (after Task 1)
+**Estimated Time:** 3 hours
+
+**Optimizations:**
+
+1. **Combine dashboard queries (4 → 1):**
+   ```sql
+   -- CURRENT: 4 separate queries
+   SELECT COUNT(*) FROM agents WHERE company_id = ?
+   SELECT COUNT(*) FROM agents WHERE company_id = ? AND status = 'running'
+   SELECT COUNT(*) FROM tasks WHERE company_id = ?
+   SELECT COUNT(*) FROM tasks WHERE company_id = ? AND status = 'completed'
+
+   -- OPTIMIZED: 1 query
+   SELECT
+     COUNT(DISTINCT CASE WHEN a.id IS NOT NULL THEN a.id END) as totalAgents,
+     COUNT(DISTINCT CASE WHEN a.status = 'running' THEN a.id END) as runningAgents,
+     COUNT(DISTINCT t.id) as totalTasks,
+     COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN t.id END) as completedTasks
+   FROM companies c
+   LEFT JOIN agents a ON a.company_id = c.id
+   LEFT JOIN tasks t ON t.company_id = c.id
+   WHERE c.id = ?
+   ```
+
+2. **Add missing indexes:**
+   ```sql
+   CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assignee_id);
+   CREATE INDEX IF NOT EXISTS idx_tasks_company ON tasks(company_id);
+   CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+   CREATE INDEX IF NOT EXISTS idx_agents_company ON agents(company_id);
+   CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
+   ```
+
+3. **Log slow queries:**
+   ```javascript
+   // src/db.js
+   function logSlowQuery(query, duration) {
+     if (duration > 100) {
+       logger.warn(`Slow query (${duration}ms): ${query}`);
+     }
+   }
+   ```
+
+**Validation:**
+- Dashboard API <100ms response time
+- Zero slow queries (>100ms) under load
+
+---
+
+### Task 7: Replace Console with Structured Logging
+**Deadline:** March 30, 2026
+**Impact:** MEDIUM — Production debugging
+**Owner:** Engineer 2 (after Task 2)
+**Estimated Time:** 2 hours
+
+**Current State:** 123 console.log/error/warn statements
 
 **Implementation:**
-```javascript
-// src/middleware/error-handler.js
-export function errorHandler(err, req, res, next) {
-  logger.error('API Error', {
-    path: req.path,
-    method: req.method,
-    error: err.message,
-    stack: err.stack
-  });
 
-  if (err.name === 'ZodError') {
-    return res.status(400).json({
-      error: 'Validation failed',
-      details: err.errors
-    });
-  }
+1. **Automated migration:**
+   ```bash
+   find src/ ui/src/ -name "*.js" -o -name "*.ts" -o -name "*.tsx" | \
+   xargs sed -i '' \
+     -e 's/console\.log(/logger.info(/g' \
+     -e 's/console\.error(/logger.error(/g' \
+     -e 's/console\.warn(/logger.warn(/g'
+   ```
 
-  if (err.statusCode) {
-    return res.status(err.statusCode).json({ error: err.message });
-  }
+2. **Add context to logs:**
+   ```javascript
+   // BEFORE
+   console.log('Agent started', agentId);
 
-  res.status(500).json({ error: 'Internal server error' });
-}
+   // AFTER
+   logger.info('Agent started', { agentId, companyId, taskId });
+   ```
 
-// Apply globally
-app.use(errorHandler);
-```
+3. **Frontend logger:**
+   ```typescript
+   // ui/src/utils/logger.ts
+   export const logger = {
+     info: (msg: string, meta?: any) => {
+       if (import.meta.env.DEV) console.log(msg, meta);
+       fetch('/api/logs/client', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ level: 'info', msg, meta }),
+       }).catch(() => {});
+     },
+   };
+   ```
 
-**Add Zod validation to endpoints:**
-```javascript
-import { z } from 'zod';
-
-const createCompanySchema = z.object({
-  name: z.string().min(1).max(100),
-  goal: z.string().min(10).max(1000),
-  workspace: z.string().optional()
-});
-
-app.post('/api/companies', (req, res, next) => {
-  try {
-    const data = createCompanySchema.parse(req.body);
-    // ... rest of handler
-  } catch (err) {
-    next(err);
-  }
-});
-```
+**Validation:**
+- Zero console.* in production code
+- Logs written to logs/combined.log
+- JSON format
 
 ---
 
-### Task 9: Lighthouse Performance Baseline & Optimization (P2)
-**Assigned to:** Engineer 4 (after Task 4)
-**Estimated Time:** 3-4 hours
+## 🟡 MEDIUM PRIORITY (P2) — If Time Permits
 
-**Success Criteria:**
-- Lighthouse CI automated in GitHub Actions
-- Performance score > 90
-- Accessibility score > 95 (already achieved)
-- Best Practices score > 95
-- SEO score > 90 (for GitHub Pages staging)
+### Task 8: Lighthouse CI Performance Monitoring
+**Deadline:** April 1, 2026
+**Impact:** LOW — Regression detection
+**Owner:** Engineer 3 (after Task 3)
+**Estimated Time:** 2 hours
 
 **Setup:**
 ```bash
 npm install -D @lhci/cli
 ```
 
-```yaml
-# .github/workflows/lighthouse.yml
-name: Lighthouse CI
-on: [push, pull_request]
-jobs:
-  lighthouse:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-      - run: npm ci
-      - run: npm run build
-      - run: npx @lhci/cli autorun
-        env:
-          LHCI_GITHUB_APP_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+**Config:**
+```json
+// lighthouserc.json
+{
+  "ci": {
+    "assert": {
+      "assertions": {
+        "categories:performance": ["error", { "minScore": 0.9 }],
+        "categories:accessibility": ["error", { "minScore": 0.95 }]
+      }
+    }
+  }
+}
 ```
-
-**Optimizations to Apply:**
-- Preload critical fonts
-- Add resource hints (`<link rel="preconnect">`)
-- Lazy-load images below fold
-- Implement skeleton loaders for data fetching
-- Add `fetchpriority="high"` to hero images
 
 ---
 
-### Task 10: Memory Leak Detection & Profiling (P2)
-**Assigned to:** Engineer 5 (after Task 5)
-**Estimated Time:** 4-5 hours
+### Task 9: Skeleton Loaders for Loading States
+**Deadline:** April 2, 2026
+**Impact:** LOW — Perceived performance
+**Owner:** Engineer 4 (after Task 4)
+**Estimated Time:** 2 hours
 
-**Problem:** Long-running agent sessions may leak memory (tmux processes, SQLite connections, WebSocket handlers)
-
-**Success Criteria:**
-- Memory usage profiled over 24-hour test run
-- Memory leaks identified and fixed
-- Automated memory regression tests in CI
-- Dashboard shows memory usage per agent
-
-**Tools:**
-```bash
-npm install -D clinic autocannon
-```
-
-**Run Profiling:**
-```bash
-# Backend memory profiling
-clinic doctor -- node bin/hivemind.js
-
-# Load testing
-autocannon -c 10 -d 60 http://localhost:3100/api/companies
-```
-
-**Add Memory Metrics to Dashboard:**
-```javascript
-// src/server.js
-app.get('/api/metrics/memory', (req, res) => {
-  const usage = process.memoryUsage();
-  res.json({
-    rss: usage.rss,           // Total memory
-    heapTotal: usage.heapTotal,
-    heapUsed: usage.heapUsed,
-    external: usage.external,
-    arrayBuffers: usage.arrayBuffers
-  });
-});
-```
-
-**Common Leak Sources to Check:**
-- WebSocket event listeners not cleaned up
-- tmux processes not killed on agent stop
-- SQLite prepared statements not finalized
-- Interval timers not cleared
-- React query cache growing unbounded
+Create `<SkeletonCard />`, `<SkeletonTable />` to replace spinners.
 
 ---
 
-## Dispatch Order
+### Task 10: PostgreSQL Migration Guide
+**Deadline:** April 2, 2026
+**Impact:** LOW — SQLite works for localhost
+**Owner:** Engineer 5 (after Task 5)
+**Estimated Time:** 2 hours
 
-**Parallel Track 1 (Critical Path):**
-- Engineer 1: Task 1 (TypeScript) → Task 6 (Bundle Size)
-- Engineer 2: Task 2 (Logging) → Task 7 (API Docs)
-- Engineer 3: Task 3 (Error Handling) → Task 8 (API Consistency)
-
-**Parallel Track 2 (Independent):**
-- Engineer 4: Task 4 (DB Optimization) → Task 9 (Lighthouse)
-- Engineer 5: Task 5 (E2E Tests) → Task 10 (Memory Profiling)
-
-**Estimated Completion:** 3-5 days (assuming 4-6 hours/day per engineer)
+Document migration from SQLite → Postgres for production deployments.
 
 ---
 
-## Success Metrics
+## 📊 Success Metrics
 
-### Code Quality
-- ✅ TypeScript: 0 errors
-- ✅ Test Coverage: 80%+ (E2E), 60%+ (unit)
-- ✅ Logging: 0 console.log statements
-- ✅ Error Handling: 100% of catch blocks log properly
+**Reliability:**
+- ✅ E2E tests: 30/30 passing
+- ✅ Empty catch blocks: 0
+- ✅ Console statements: 0
+- ✅ Error visibility: 100% (Sentry)
 
-### Performance
-- ✅ Main bundle: < 250 KB gzipped
-- ✅ Lighthouse Performance: > 90
-- ✅ Database queries: < 10ms average
-- ✅ Memory usage: < 500 MB after 24 hours
+**Performance:**
+- ✅ Bundle size: <500KB gzipped
+- ✅ Dashboard API: <100ms
+- ✅ Lighthouse: >90
 
-### Documentation
-- ✅ API docs: All 50+ endpoints documented
-- ✅ Swagger UI: Live at /api-docs
-
-### Reliability
-- ✅ Memory leaks: 0 detected
-- ✅ E2E tests: 20+ passing
-- ✅ CI/CD: All checks green
+**Quality:**
+- ✅ Component tests: 20+
+- ✅ Test coverage: >60%
+- ✅ TypeScript errors: 0
 
 ---
 
-## Post-Sprint Review
+## ⏱️ Timeline
 
-After completion, run full audit:
-```bash
-# Build verification
-npm run build
+**Day 1 (Mar 19):** Task 1 (Fix tests) - BLOCKING
+**Day 2 (Mar 20):** Task 2 (Empty catches)
+**Day 3 (Mar 21):** Task 3 (Bundle size)
+**Day 4 (Mar 22):** Task 4 (Sentry)
+**Day 5+ (Mar 23-30):** Tasks 5-7 (parallel)
 
-# Type checking
-cd ui && npx tsc --noEmit
+**Total:** 22-26 hours (3-4 days for team of 5)
 
-# E2E tests
-npm run test:e2e
+---
 
-# Lighthouse
-npx @lhci/cli autorun
+## 🎯 Dispatch NOW
 
-# Memory profiling
-clinic doctor -- node bin/hivemind.js &
-sleep 3600 && pkill -f clinic
-```
+**Critical Path:**
+- Engineer 1: Task 1 → Task 6
+- Engineer 2: Task 2 → Task 7
+- Engineer 3: Task 3 → Task 8
+- Engineer 4: Task 4 → Task 9
+- Engineer 5: Task 5 → Task 10
 
-Generate report comparing Sprint 02 baseline vs Sprint 03 results.
+**START IMMEDIATELY!**
