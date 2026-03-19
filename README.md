@@ -2,9 +2,9 @@
 
 > Orchestrate teams of Claude agents to build software autonomously
 
-**Hivemind** is an AI company orchestrator that spawns and manages teams of Claude Code agents via tmux sessions. Give it a business goal, and watch specialized agents (CEO, Product Manager, Engineers) collaborate 24/7 to build working software, deploy to production, and iterate based on real-world feedback.
+**Hivemind** is an AI company orchestrator that spawns and manages teams of Claude Code agents via tmux sessions. Give it a business goal, and watch specialized agents (CEO, Product Manager, Engineers) collaborate 24/7 to build working software and iterate based on real-world feedback.
 
-**Live Demo:** [https://hivemind.dev](https://hivemind.dev) (guest/demo)
+**This is a LOCAL DASHBOARD** — runs on localhost:3100 for managing your AI agent companies. Not a SaaS product.
 
 ---
 
@@ -17,7 +17,7 @@ Hivemind creates autonomous software companies with:
 - **Engineer Agents** — Write code, fix bugs, deploy to production, monitor health
 - **24/7 Operation** — Agents work continuously, checkpoint state, self-heal on failures
 
-Each agent runs in its own tmux session with full Claude Code capabilities: reading files, writing code, running commands, pushing to GitHub, deploying to Vercel.
+Each agent runs in its own tmux session with full Claude Code capabilities: reading files, writing code, running commands, pushing to GitHub.
 
 ## Architecture
 
@@ -49,7 +49,6 @@ Each agent runs in its own tmux session with full Claude Code capabilities: read
 - **Agents:** Claude Code (Sonnet 4.5) via Anthropic SDK
 - **Session Management:** tmux multiplexing
 - **Dashboard:** React + TypeScript + Vite
-- **Deployment:** Vercel (automatic on git push)
 - **Monitoring:** Health checks, circuit breakers, error recovery
 
 ### Key Features
@@ -143,7 +142,7 @@ The orchestrator will:
 3. Spawn CEO agent to create strategy
 4. CEO breaks down work into tasks
 5. Engineer agents pick up tasks and start coding
-6. Agents deploy to Vercel on completion
+6. Agents commit and push code to GitHub
 7. Health monitoring runs continuously
 
 ## Dashboard
@@ -159,22 +158,34 @@ The React dashboard shows:
 
 Access at `http://localhost:3100` after starting the orchestrator.
 
+## Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the deployment workflow:
+
+1. Write code
+2. Run `npm run build` to verify zero errors
+3. Fix any build errors
+4. Commit and push to GitHub (staging environment)
+5. Production deployment is manual only
+
+**GitHub is the staging environment.** Do NOT use Vercel or any auto-deploy services.
+
 ## What It's Good At
 
 **Rapid Prototyping**
-- "Build a landing page with waitlist" → Live site in 30 minutes
-- "Add Stripe payments" → Working checkout flow in 1 hour
-- "Deploy to Vercel" → Automatic deployment on completion
-
-**24/7 Development Cycles**
-- Set a goal before bed, wake up to a working prototype
+- Build functional prototypes in hours instead of days
 - Agents iterate continuously based on test results
 - Self-healing on failures (no human intervention needed)
 
-**Multi-Agent Collaboration**
-- CEO creates strategy, PM prioritizes, engineers execute
+**24/7 Development Cycles**
+- Set a goal before bed, wake up to a working prototype
 - Parallel task execution (multiple engineers work simultaneously)
 - Shared context via SQLite database
+
+**Multi-Agent Collaboration**
+- CEO creates strategy, PM prioritizes, engineers execute
+- Agents communicate via database comments and task dependencies
+- Resource pooling and load balancing across agents
 
 ## Limitations
 
@@ -184,9 +195,9 @@ Access at `http://localhost:3100` after starting the orchestrator.
 - Human review recommended before production use
 
 **Cost Considerations**
-- Claude API usage can add up quickly ($0.05-0.20 per agent-hour)
+- Claude API usage can add up quickly
 - Budget controls help manage costs
-- Best for tasks that would take humans hours/days, not minutes
+- Monitor costs via the dashboard
 
 **Error Recovery**
 - Circuit breaker pauses agents after repeated failures
@@ -195,24 +206,7 @@ Access at `http://localhost:3100` after starting the orchestrator.
 
 **Code Quality**
 - Agents write working code, but may not follow all best practices
-- No automated testing (yet) — agents validate manually
 - Human code review recommended for production deployments
-
-## Real-World Usage
-
-**From Beta Users:**
-
-> "Built our MVP in 48 hours. The CEO agent broke down our vague idea into 12 concrete tasks, and the engineers just... built it. Saved us 2 weeks of work." — SaaS founder
-
-> "Cost was ~$15 for a landing page that would've taken me 4-6 hours. Worth every penny." — Solo developer
-
-> "Not perfect, but incredibly useful for prototyping. I use it to validate ideas before committing serious dev time." — Product manager
-
-**Typical Costs (Beta Usage):**
-- Simple landing page: $3-8 (30-60 min)
-- CRUD app with database: $15-25 (2-3 hours)
-- SaaS MVP with payments: $40-80 (6-10 hours)
-- Full product with analytics: $100-200 (15-25 hours)
 
 ## Roadmap
 
@@ -225,8 +219,6 @@ See [ROADMAP.md](ROADMAP.md) for planned features and community voting.
 - GitHub integration (automatic PR creation)
 - Human-in-the-loop approval gates
 
-**Vote on features:** [Submit your ideas](https://github.com/caffeineGMT/hivemind/issues/new?labels=feature-request)
-
 ## Contributing
 
 Contributions welcome! This is an experimental project, and we're learning what works.
@@ -236,7 +228,7 @@ Contributions welcome! This is an experimental project, and we're learning what 
 - Share your cost/time data
 - Submit prompts that work well (or don't)
 - Improve error recovery logic
-- Add deployment targets beyond Vercel
+- Add deployment targets beyond GitHub
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
