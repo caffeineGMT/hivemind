@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api, Company } from './api';
 import { wsClient } from './websocket';
 import Layout from './components/Layout';
+import { ErrorBoundary } from './components/ErrorFallback';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
 import Agents from './pages/Agents';
@@ -178,36 +179,40 @@ function CompanyRoutes() {
       onSelectCompany={handleSelectCompany}
       companySlug={slugify(selectedCompany.name)}
     >
-      <Routes>
-        <Route path="/" element={<Dashboard companyId={selectedCompany.id} />} />
-        <Route path="companies" element={<Companies />} />
-        <Route path="tasks" element={<Tasks companyId={selectedCompany.id} />} />
-        <Route path="agents" element={<Agents companyId={selectedCompany.id} />} />
-        <Route path="agent-health" element={<AgentHealth companyId={selectedCompany.id} />} />
-        <Route path="health-monitor" element={<HealthMonitor companyId={selectedCompany.id} />} />
-        <Route path="activity" element={<Activity companyId={selectedCompany.id} />} />
-        <Route path="finance" element={<Finance companyId={selectedCompany.id} />} />
-        <Route path="analytics" element={<Analytics companyId={selectedCompany.id} />} />
-        <Route path="cross-project-analytics" element={<CrossProjectAnalytics />} />
-        <Route path="costs" element={<Costs companyId={selectedCompany.id} />} />
-        <Route path="agent-performance" element={<AgentPerformance companyId={selectedCompany.id} />} />
-        <Route path="logs-view" element={<Logs />} />
-        <Route path="trace/:traceId" element={<TraceView />} />
-        <Route path="roadmap" element={<Roadmap />} />
-        <Route path="settings" element={<Settings companyId={selectedCompany.id} />} />
-        <Route path="tasks/:taskId" element={<TaskDetail />} />
-        <Route path="logs/:agentName" element={<AgentLog />} />
-        <Route path="*" element={<Navigate to={`/${slugify(selectedCompany.name)}`} replace />} />
-      </Routes>
+      <ErrorBoundary>
+        <Routes>
+          <Route path="/" element={<ErrorBoundary><Dashboard companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="companies" element={<ErrorBoundary><Companies /></ErrorBoundary>} />
+          <Route path="tasks" element={<ErrorBoundary><Tasks companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="agents" element={<ErrorBoundary><Agents companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="agent-health" element={<ErrorBoundary><AgentHealth companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="health-monitor" element={<ErrorBoundary><HealthMonitor companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="activity" element={<ErrorBoundary><Activity companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="finance" element={<ErrorBoundary><Finance companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="analytics" element={<ErrorBoundary><Analytics companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="cross-project-analytics" element={<ErrorBoundary><CrossProjectAnalytics /></ErrorBoundary>} />
+          <Route path="costs" element={<ErrorBoundary><Costs companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="agent-performance" element={<ErrorBoundary><AgentPerformance companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="logs-view" element={<ErrorBoundary><Logs /></ErrorBoundary>} />
+          <Route path="trace/:traceId" element={<ErrorBoundary><TraceView /></ErrorBoundary>} />
+          <Route path="roadmap" element={<ErrorBoundary><Roadmap /></ErrorBoundary>} />
+          <Route path="settings" element={<ErrorBoundary><Settings companyId={selectedCompany.id} /></ErrorBoundary>} />
+          <Route path="tasks/:taskId" element={<ErrorBoundary><TaskDetail /></ErrorBoundary>} />
+          <Route path="logs/:agentName" element={<ErrorBoundary><AgentLog /></ErrorBoundary>} />
+          <Route path="*" element={<Navigate to={`/${slugify(selectedCompany.name)}`} replace />} />
+        </Routes>
+      </ErrorBoundary>
     </Layout>
   );
 }
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<CompanyRoutes />} />
-      <Route path="/:companySlug/*" element={<CompanyRoutes />} />
-    </Routes>
+    <ErrorBoundary>
+      <Routes>
+        <Route path="/" element={<CompanyRoutes />} />
+        <Route path="/:companySlug/*" element={<CompanyRoutes />} />
+      </Routes>
+    </ErrorBoundary>
   );
 }

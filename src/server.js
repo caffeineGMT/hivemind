@@ -90,6 +90,15 @@ export function createServer(port = 3100) {
     res.json({ status: "ok", version: "0.1.0" });
   });
 
+  // Client-side error logging endpoint
+  app.post("/api/errors", (req, res) => {
+    const { message, stack, componentStack, timestamp, url } = req.body;
+    console.error(`[UI Error] ${timestamp} | ${url} | ${message}`);
+    if (stack) console.error(`[UI Error] Stack: ${stack}`);
+    if (componentStack) console.error(`[UI Error] Component: ${componentStack}`);
+    res.json({ logged: true });
+  });
+
   // Bulk operations
   registerBulkRoutes(app);
 
