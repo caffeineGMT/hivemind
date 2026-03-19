@@ -1,0 +1,10 @@
+{
+  "git": { "deploymentEnabled": false },
+  "buildCommand": "cd ui && npm install && npm run build",
+  "outputDirectory": "ui/dist",
+  "framework": null,
+  "rewrites": [
+    { "source": "/api/nudge", "destination": "/api/nudge" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
