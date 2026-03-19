@@ -49,7 +49,7 @@ function getHourBucket(timestamp) {
 function extractAgentType(agentId) {
   if (!agentId) return "unknown";
   const parts = agentId.toLowerCase().split(/[_\-\s]/);
-  const knownRoles = ["ceo", "cto", "cfo", "cmo", "designer", "engineer"];
+  const knownRoles = ["ceo", "cto", "cfo", "designer", "engineer"];
   for (const part of parts) {
     if (knownRoles.includes(part)) return part;
   }

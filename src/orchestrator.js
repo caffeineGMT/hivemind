@@ -220,90 +220,6 @@ async function runDesignerPhase(company) {
   }
 }
 
-// ── Phase 2.75: CMO — Marketing Strategy ────────────────────────────────
-
-async function runCmoPhase(company) {
-  const allTasks = db.getTasksByCompany(company.id);
-  const work = allTasks.filter(t => !t.title.startsWith("[PROJECT]"));
-
-  if (work.length === 0) return null;
-
-  log(company.id, "CMO", "Analyzing market, identifying target users, building go-to-market strategy...");
-  setAgentRunning(company.id, "cmo");
-  db.logActivity({ companyId: company.id, agentId: "cmo", action: "cmo_started", detail: "Building marketing strategy" });
-
-  try {
-    const prompt = prompts.cmoPrompt(company, work);
-    const { output: raw, usage: cmoUsage } = await claude.claudeSessionSync("cmo", prompt, {
-      cwd: company.workspace,
-      timeout: 300000,
-      maxTurns: 20,
-      model: DEFAULT_MODEL,
-    });
-    const strategy = claude.parseJsonResponse(raw);
-
-    setAgentIdle(company.id, "cmo");
-
-    if (cmoUsage) {
-      db.logCost({ companyId: company.id, agentName: "cmo", inputTokens: cmoUsage.inputTokens, outputTokens: cmoUsage.outputTokens, cacheReadTokens: cmoUsage.cacheReadTokens, cacheWriteTokens: cmoUsage.cacheWriteTokens, totalTokens: cmoUsage.totalTokens, costUsd: cmoUsage.costUsd, durationMs: cmoUsage.durationMs, numTurns: cmoUsage.numTurns, model: cmoUsage.model });
-      log(company.id, "CFO", `CMO: ${cmoUsage.totalTokens} tokens, $${cmoUsage.costUsd.toFixed(4)}`);
-    }
-
-    if (!strategy) {
-      log(company.id, "CMO", "Could not generate marketing strategy, proceeding without.");
-      return null;
-    }
-
-    log(company.id, "CMO", `Value prop: ${strategy.value_proposition}`);
-    if (strategy.target_users) {
-      log(company.id, "CMO", `Identified ${strategy.target_users.length} target segments`);
-      for (const seg of strategy.target_users) {
-        log(company.id, "CMO", `  → ${seg.segment}: ${seg.messaging}`);
-      }
-    }
-
-    // Create a Marketing project with tasks
-    if (strategy.marketing_tasks && strategy.marketing_tasks.length > 0) {
-      const projectId = uid();
-      db.createTask({
-        id: projectId,
-        companyId: company.id,
-        title: "[PROJECT] Marketing & Growth",
-        description: `Go-to-market strategy. Value prop: ${strategy.value_proposition}. Launch plan: ${strategy.launch_plan?.slice(0, 300) || "See CMO strategy"}`,
-        priority: "high",
-        createdById: "cmo",
-      });
-
-      for (const mt of strategy.marketing_tasks) {
-        db.createTask({
-          id: uid(),
-          companyId: company.id,
-          parentId: projectId,
-          title: mt.title,
-          description: `${mt.description}\n\nChannel: ${mt.channel}\nTarget users: ${strategy.target_users?.map(u => u.segment).join(", ")}`,
-          priority: mt.priority || "medium",
-          createdById: "cmo",
-        });
-      }
-
-      log(company.id, "CMO", `Created ${strategy.marketing_tasks.length} marketing tasks`);
-    }
-
-    db.logActivity({
-      companyId: company.id,
-      agentId: "cmo",
-      action: "marketing_strategy_created",
-      detail: strategy.value_proposition || "Marketing strategy complete",
-    });
-
-    return strategy;
-  } catch (err) {
-    setAgentIdle(company.id, "cmo");
-    log(company.id, "CMO", `Marketing phase error: ${err.message}`);
-    return null;
-  }
-}
-
 // ── Store design specs ───────────────────────────────────────────────────
 
 let _designSpecs = null;
@@ -630,7 +546,7 @@ export function cleanupStaleAgents(company) {
 
 // ── Purge idle engineer records ──────────────────────────────────────────
 // Keep DB lean: delete engineer agents that are idle and have no in-progress tasks.
-// C-suite agents (ceo, cto, designer, cfo, cmo) are always kept.
+// C-suite agents (ceo, cto, designer, cfo) are always kept.
 export function purgeIdleEngineers(company) {
   const agents = db.getAgentsByCompany(company.id);
   let purged = 0;
@@ -851,7 +767,6 @@ export async function startCompany(goal, opts = {}) {
   db.createAgent({ id: uid(), companyId, name: "cto", role: "cto", title: "CTO" });
   db.createAgent({ id: uid(), companyId, name: "designer", role: "designer", title: "Lead Designer" });
   db.createAgent({ id: uid(), companyId, name: "cfo", role: "cfo", title: "CFO" });
-  db.createAgent({ id: uid(), companyId, name: "cmo", role: "cmo", title: "CMO" });
 
   // Track company_created event
   db.trackEvent({
@@ -872,9 +787,6 @@ export async function startCompany(goal, opts = {}) {
 
   // Phase 2.5: Designer — full session, can create design files, review code
   const designSpecs = await runDesignerPhase(db.getCompany(companyId));
-
-  // Phase 2.75: CMO — marketing strategy, target users, go-to-market tasks
-  await runCmoPhase(db.getCompany(companyId));
 
   // Phase 3: Engineers — full sessions, each one has all Claude capabilities
   dispatchEngineers(db.getCompany(companyId), designSpecs);
@@ -994,7 +906,7 @@ async function runHeartbeatLoop(companyId) {
         db.logActivity({ companyId, action: "sprint_completed", detail: `Sprint ${sprintNum - 1} complete. All ${work.length} tasks done. Starting next sprint.` });
 
         log(companyId, "SPRINT", `Sprint ${sprintNum - 1} COMPLETE (${work.length} tasks done). Starting sprint ${sprintNum}...`);
-        log(companyId, "SPRINT", "24/7 mode: CEO reassessing → CTO refining → CMO marketing → Engineers building");
+        log(companyId, "SPRINT", "24/7 mode: CEO reassessing → CTO refining → Designer planning → Engineers building");
 
         try {
           // CEO plans next sprint based on what's been built
@@ -1002,11 +914,10 @@ async function runHeartbeatLoop(companyId) {
           if (plan) {
             await runCtoRefinement(db.getCompany(companyId));
             const designSpecs = await runDesignerPhase(db.getCompany(companyId));
-            await runCmoPhase(db.getCompany(companyId));
             dispatchEngineers(db.getCompany(companyId), designSpecs);
           } else {
             log(companyId, "SPRINT", "CEO planning returned no new tasks. Nudging for next steps...");
-            await nudge(companyId, "All current tasks are done. What's the next set of features, improvements, or marketing actions to push toward $1M revenue? Create new tasks.");
+            await nudge(companyId, "All current tasks are done. What's the next set of features or improvements for the dashboard? Create new tasks.");
           }
         } catch (err) {
           log(companyId, "SPRINT", `Sprint planning error: ${err.message}. Will retry next heartbeat.`);

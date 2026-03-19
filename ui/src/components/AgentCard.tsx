@@ -1,4 +1,4 @@
-import { User, Crown, Monitor, Code2, Palette, DollarSign, Terminal, Megaphone } from 'lucide-react';
+import { User, Crown, Monitor, Code2, Palette, DollarSign, Terminal } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSwipeable } from 'react-swipeable';
 import { StatusBadge } from './StatusBadge';
@@ -10,7 +10,6 @@ const roleIcon: Record<string, React.ReactNode> = {
   ceo: <Crown className="h-5 w-5 text-amber-400" />,
   cto: <Monitor className="h-5 w-5 text-blue-400" />,
   cfo: <DollarSign className="h-5 w-5 text-emerald-400" />,
-  cmo: <Megaphone className="h-5 w-5 text-pink-400" />,
   designer: <Palette className="h-5 w-5 text-purple-400" />,
   engineer: <Code2 className="h-5 w-5 text-emerald-400" />,
 };
@@ -19,7 +18,6 @@ const roleBg: Record<string, string> = {
   ceo: 'bg-amber-950/30 border-amber-900/30',
   cto: 'bg-blue-950/30 border-blue-900/30',
   cfo: 'bg-emerald-950/30 border-emerald-900/30',
-  cmo: 'bg-pink-950/30 border-pink-900/30',
   designer: 'bg-purple-950/30 border-purple-900/30',
   engineer: 'bg-emerald-950/30 border-emerald-900/30',
 };

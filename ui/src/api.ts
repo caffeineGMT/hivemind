@@ -24,7 +24,7 @@ export interface Company {
 export interface Agent {
   id: string;
   name: string;
-  role: 'ceo' | 'cto' | 'cfo' | 'cmo' | 'designer' | 'engineer';
+  role: 'ceo' | 'cto' | 'cfo' | 'designer' | 'engineer';
   title: string;
   status: 'idle' | 'running' | 'error';
   pid: number | null;
