@@ -32,6 +32,12 @@ for (const company of companies) {
 
   console.log(`   Starting ${company.name} (${prefix})...`);
 
+  // Prepare environment with required variables
+  const env = {
+    ...process.env,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || "meta-internal-plugboard", // Meta users use plugboard
+  };
+
   // Spawn detached process
   const child = spawn(
     process.execPath,
@@ -40,6 +46,7 @@ for (const company of companies) {
       detached: true,
       stdio: ["ignore", fs.openSync(logFile, "a"), fs.openSync(logFile, "a")],
       cwd: rootDir,
+      env, // Pass environment variables
     }
   );
 
