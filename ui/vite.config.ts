@@ -14,6 +14,9 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    include: ['react-is'],
+  },
   build: {
     outDir: 'dist',
     rollupOptions: {

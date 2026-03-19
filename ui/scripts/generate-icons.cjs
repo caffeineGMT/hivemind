@@ -24,7 +24,7 @@ const createIconSVG = (size) => `
 `.trim();
 
 // Generate icons
-const publicDir = path.join(__dirname, 'public');
+const publicDir = path.join(__dirname, '..', 'public');
 
 // Create 192x192 icon
 fs.writeFileSync(

@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node bin/hivemind.js",
+    "build": "cd ui && npm run build",
     "test:e2e": "cd ui && npx playwright test",
     "migrate": "node src/migration-runner.js up",
     "migrate:rollback": "node src/migration-runner.js down",

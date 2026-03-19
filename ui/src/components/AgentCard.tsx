@@ -4,6 +4,7 @@ import { useSwipeable } from 'react-swipeable';
 import { StatusBadge } from './StatusBadge';
 import { Agent } from '../api';
 import { useTouchRipple } from './TouchRipple';
+import { sanitize } from '../hooks/useSanitize';
 
 const roleIcon: Record<string, React.ReactNode> = {
   ceo: <Crown className="h-5 w-5 text-amber-400" />,
@@ -58,7 +59,7 @@ export default function AgentCard({ agent }: { agent: Agent }) {
             {roleIcon[agent.role] || <User className="h-5 w-5 text-zinc-400" />}
           </div>
           <div>
-            <p className="text-sm font-semibold text-zinc-200">{agent.title || agent.name}</p>
+            <p className="text-sm font-semibold text-zinc-200">{sanitize(agent.title || agent.name)}</p>
             <p className="text-xs uppercase tracking-wider text-zinc-500">{agent.role}</p>
           </div>
         </div>

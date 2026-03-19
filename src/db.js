@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import { DB_PATH, ensureDirs } from "./config.js";
 import { runMigrations } from "./migration-runner.js";
+import { sanitizeInput, sanitizeStrict } from "./utils/sanitize.js";
 
 import logger from "./logger.js";
 let _db;
@@ -24,432 +25,15 @@ export function getDb() {
 // Old ad-hoc migrate() function replaced by versioned migration system.
 // See src/migration-runner.js and migrations/ directory.
 // Old function kept commented for one release as rollback reference.
-  // Add 'read' column to comments if missing (for existing DBs)
-  try {
-    const cols = db.prepare("PRAGMA table_info(comments)").all();
-    if (cols.length > 0 && !cols.find(c => c.name === "read")) {
-      db.exec("ALTER TABLE comments ADD COLUMN read INTEGER NOT NULL DEFAULT 0");
-    }
-  } catch (err) {
-    logger.error("[DB Migration] Failed to add 'read' column to comments:", err.message);
-  }
-
-  // Add 'sprint' column to companies if missing
-  try {
-    const cols = db.prepare("PRAGMA table_info(companies)").all();
-    if (cols.length > 0 && !cols.find(c => c.name === "sprint")) {
-      db.exec("ALTER TABLE companies ADD COLUMN sprint INTEGER NOT NULL DEFAULT 0");
-    }
-  } catch (err) {
-    logger.error("[DB Migration] Failed to add 'sprint' column to companies:", err.message);
-  }
-
-  // Add 'deployment_url' column to companies if missing
-  try {
-    const cols = db.prepare("PRAGMA table_info(companies)").all();
-    if (cols.length > 0 && !cols.find(c => c.name === "deployment_url")) {
-      db.exec("ALTER TABLE companies ADD COLUMN deployment_url TEXT");
-    }
-  } catch (err) {
-    logger.error("[DB Migration] Failed to add 'deployment_url' column to companies:", err.message);
-  }
-
-  // Add trace enhancement columns if missing
-  try {
-    const traceCols = db.prepare("PRAGMA table_info(traces)").all();
-    if (traceCols.length > 0) {
-      if (!traceCols.find(c => c.name === "duration_ms")) {
-        db.exec("ALTER TABLE traces ADD COLUMN duration_ms INTEGER");
-      }
-      if (!traceCols.find(c => c.name === "status")) {
-        db.exec("ALTER TABLE traces ADD COLUMN status TEXT");
-      }
-      if (!traceCols.find(c => c.name === "company_id")) {
-        db.exec("ALTER TABLE traces ADD COLUMN company_id TEXT");
-      }
-      if (!traceCols.find(c => c.name === "agent_id")) {
-        db.exec("ALTER TABLE traces ADD COLUMN agent_id TEXT");
-      }
-      if (!traceCols.find(c => c.name === "task_id")) {
-        db.exec("ALTER TABLE traces ADD COLUMN task_id TEXT");
-      }
-    }
-  } catch (err) {
-    logger.error("[DB Migration] Failed to add trace enhancement columns:", err.message);
-  }
-
-  // Add trace_id column to logs if missing
-  try {
-    const logCols = db.prepare("PRAGMA table_info(logs)").all();
-    if (logCols.length > 0 && !logCols.find(c => c.name === "trace_id")) {
-      db.exec("ALTER TABLE logs ADD COLUMN trace_id TEXT");
-      db.exec("CREATE INDEX IF NOT EXISTS idx_logs_trace_id ON logs(trace_id)");
-    }
-  } catch (err) {
-    logger.error("[DB Migration] Failed to add 'trace_id' column to logs:", err.message);
-  }
-
-  // Add 'depends_on' column to tasks if missing
-  try {
-    const cols = db.prepare("PRAGMA table_info(tasks)").all();
-    if (cols.length > 0 && !cols.find(c => c.name === "depends_on")) {
-      db.exec("ALTER TABLE tasks ADD COLUMN depends_on TEXT");
-    }
-  } catch (err) {
-    logger.error("[DB Migration] Failed to add 'depends_on' column to tasks:", err.message);
-  }
-
-  // Add 'pattern_id' column to activity_log for failure pattern grouping
-  try {
-    const cols = db.prepare("PRAGMA table_info(activity_log)").all();
-    if (cols.length > 0 && !cols.find(c => c.name === "pattern_id")) {
-      db.exec("ALTER TABLE activity_log ADD COLUMN pattern_id TEXT");
-      db.exec("CREATE INDEX IF NOT EXISTS idx_activity_log_pattern ON activity_log(pattern_id)");
-    }
-  } catch (err) {
-    logger.error("[DB Migration] Failed to add 'pattern_id' column to activity_log:", err.message);
-  }
-
-
-  // Add agent resource pooling columns if missing
-  try {
-    const cols = db.prepare("PRAGMA table_info(agents)").all();
-    if (cols.length > 0) {
-      if (!cols.find(c => c.name === "capabilities")) {
-        db.exec("ALTER TABLE agents ADD COLUMN capabilities TEXT");
-      }
-      if (!cols.find(c => c.name === "cost_tier")) {
-        db.exec("ALTER TABLE agents ADD COLUMN cost_tier TEXT DEFAULT 'standard'");
-      }
-      if (!cols.find(c => c.name === "current_load")) {
-        db.exec("ALTER TABLE agents ADD COLUMN current_load INTEGER DEFAULT 0");
-      }
-      if (!cols.find(c => c.name === "max_load")) {
-        db.exec("ALTER TABLE agents ADD COLUMN max_load INTEGER DEFAULT 1");
-      }
-    }
-  } catch (err) {
-    logger.error("[DB Migration] Failed to add agent resource pooling columns:", err.message);
-  }
-
-  // Add task requirements column if missing
-  try {
-    const cols = db.prepare("PRAGMA table_info(tasks)").all();
-    if (cols.length > 0 && !cols.find(c => c.name === "required_capabilities")) {
-      db.exec("ALTER TABLE tasks ADD COLUMN required_capabilities TEXT");
-    }
-  } catch (err) {
-    logger.error("[DB Migration] Failed to add 'required_capabilities' column to tasks:", err.message);
-  }
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS companies (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      goal TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'active',
-      workspace TEXT,
-      sprint INTEGER NOT NULL DEFAULT 0,
-      deployment_url TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS agents (
-      id TEXT PRIMARY KEY,
-      company_id TEXT NOT NULL REFERENCES companies(id),
-      name TEXT NOT NULL,
-      role TEXT NOT NULL,
-      title TEXT,
-      reports_to TEXT REFERENCES agents(id),
-      status TEXT NOT NULL DEFAULT 'idle',
-      tmux_window TEXT,
-      pid INTEGER,
-      last_heartbeat TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS tasks (
-      id TEXT PRIMARY KEY,
-      company_id TEXT NOT NULL REFERENCES companies(id),
-      parent_id TEXT REFERENCES tasks(id),
-      title TEXT NOT NULL,
-      description TEXT,
-      status TEXT NOT NULL DEFAULT 'backlog',
-      priority TEXT NOT NULL DEFAULT 'medium',
-      assignee_id TEXT REFERENCES agents(id),
-      created_by_id TEXT,
-      depends_on TEXT,
-      result TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS comments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id TEXT NOT NULL,
-      task_id TEXT REFERENCES tasks(id),
-      agent_id TEXT,
-      author TEXT NOT NULL DEFAULT 'user',
-      message TEXT NOT NULL,
-      read INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS activity_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id TEXT NOT NULL,
-      agent_id TEXT,
-      task_id TEXT,
-      action TEXT NOT NULL,
-      detail TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS cost_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id TEXT NOT NULL,
-      agent_name TEXT NOT NULL,
-      task_id TEXT,
-      input_tokens INTEGER NOT NULL DEFAULT 0,
-      output_tokens INTEGER NOT NULL DEFAULT 0,
-      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
-      cache_write_tokens INTEGER NOT NULL DEFAULT 0,
-      total_tokens INTEGER NOT NULL DEFAULT 0,
-      cost_usd REAL NOT NULL DEFAULT 0,
-      duration_ms INTEGER NOT NULL DEFAULT 0,
-      num_turns INTEGER NOT NULL DEFAULT 0,
-      model TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS usage_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id TEXT NOT NULL,
-      metric TEXT NOT NULL,
-      value REAL NOT NULL,
-      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
-      agent_id TEXT,
-      metadata TEXT
-    );
-
-
-    CREATE TABLE IF NOT EXISTS checkpoints (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      agent_id TEXT NOT NULL REFERENCES agents(id),
-      task_id TEXT NOT NULL REFERENCES tasks(id),
-      turn_number INTEGER NOT NULL,
-      state_data TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS incidents (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id TEXT NOT NULL REFERENCES companies(id),
-      agent_id TEXT NOT NULL REFERENCES agents(id),
-      task_id TEXT REFERENCES tasks(id),
-      incident_type TEXT NOT NULL,
-      description TEXT,
-      recovery_action TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS deployment_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id TEXT NOT NULL REFERENCES companies(id),
-      commit_sha TEXT NOT NULL,
-      git_tag TEXT NOT NULL,
-      deployment_url TEXT,
-      status TEXT NOT NULL DEFAULT 'pending',
-      health_check_passed INTEGER DEFAULT 0,
-      health_check_error TEXT,
-      deployed_at TEXT NOT NULL DEFAULT (datetime('now')),
-      rolled_back_at TEXT,
-      rollback_reason TEXT
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_usage_company_metric ON usage_logs(company_id, metric);
-    CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_logs(timestamp);
-    CREATE INDEX IF NOT EXISTS idx_checkpoints_agent ON checkpoints(agent_id);
-    CREATE INDEX IF NOT EXISTS idx_incidents_company ON incidents(company_id);
-    CREATE INDEX IF NOT EXISTS idx_deployments_company ON deployment_history(company_id);
-    CREATE INDEX IF NOT EXISTS idx_deployments_status ON deployment_history(status);
-
-    CREATE TABLE IF NOT EXISTS retry_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      task_id TEXT,
-      agent_name TEXT,
-      attempt INTEGER NOT NULL,
-      error_type TEXT NOT NULL,
-      error_message TEXT,
-      timestamp TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_retry_logs_task ON retry_logs(task_id);
-
-    CREATE TABLE IF NOT EXISTS logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
-      level TEXT NOT NULL,
-      source TEXT,
-      company_id TEXT,
-      agent_id TEXT,
-      task_id TEXT,
-      action TEXT,
-      metadata TEXT,
-      FOREIGN KEY (company_id) REFERENCES companies(id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp);
-    CREATE INDEX IF NOT EXISTS idx_logs_company ON logs(company_id);
-    CREATE INDEX IF NOT EXISTS idx_logs_level ON logs(level);
-    CREATE INDEX IF NOT EXISTS idx_logs_source ON logs(source);
-
-    CREATE TABLE IF NOT EXISTS budget_config (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id TEXT NOT NULL REFERENCES companies(id),
-      monthly_budget REAL NOT NULL,
-      alert_threshold REAL NOT NULL DEFAULT 0.8,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(company_id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_budget_company ON budget_config(company_id);
-
-    CREATE TABLE IF NOT EXISTS project_config (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-      config_json TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(company_id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_project_config_company ON project_config(company_id);
-
-    CREATE TABLE IF NOT EXISTS workload_forecasts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-      forecast_type TEXT NOT NULL,
-      time_bucket TEXT NOT NULL,
-      predicted_value REAL NOT NULL,
-      confidence_score REAL NOT NULL DEFAULT 0.8,
-      metadata TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(company_id, forecast_type, time_bucket)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_forecasts_company ON workload_forecasts(company_id);
-    CREATE INDEX IF NOT EXISTS idx_forecasts_type ON workload_forecasts(forecast_type);
-    CREATE INDEX IF NOT EXISTS idx_forecasts_time ON workload_forecasts(time_bucket);
-
-    CREATE TABLE IF NOT EXISTS agent_runs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      agent_id TEXT NOT NULL REFERENCES agents(id),
-      task_id TEXT REFERENCES tasks(id),
-      start_time TEXT NOT NULL DEFAULT (datetime('now')),
-      end_time TEXT,
-      status TEXT NOT NULL DEFAULT 'running',
-      tokens_used INTEGER DEFAULT 0,
-      cost REAL DEFAULT 0,
-      error_message TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_agent_runs_agent ON agent_runs(agent_id);
-    CREATE INDEX IF NOT EXISTS idx_agent_runs_task ON agent_runs(task_id);
-    CREATE INDEX IF NOT EXISTS idx_agent_runs_status ON agent_runs(status);
-    CREATE INDEX IF NOT EXISTS idx_agent_runs_start_time ON agent_runs(start_time);
-
-    CREATE TABLE IF NOT EXISTS task_executions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      task_id TEXT NOT NULL REFERENCES tasks(id),
-      company_id TEXT NOT NULL REFERENCES companies(id),
-      status TEXT NOT NULL DEFAULT 'pending',
-      retries INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      completed_at TEXT
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_task_executions_task ON task_executions(task_id);
-    CREATE INDEX IF NOT EXISTS idx_task_executions_company ON task_executions(company_id);
-    CREATE INDEX IF NOT EXISTS idx_task_executions_status ON task_executions(status);
-
-    CREATE TABLE IF NOT EXISTS agent_metrics (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id TEXT NOT NULL REFERENCES companies(id),
-      agent_id TEXT NOT NULL REFERENCES agents(id),
-      agent_name TEXT NOT NULL,
-      metric_type TEXT NOT NULL,
-      value REAL NOT NULL,
-      metadata TEXT,
-      timestamp TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_agent_metrics_company ON agent_metrics(company_id);
-    CREATE INDEX IF NOT EXISTS idx_agent_metrics_agent ON agent_metrics(agent_id);
-    CREATE INDEX IF NOT EXISTS idx_agent_metrics_type ON agent_metrics(metric_type);
-    CREATE INDEX IF NOT EXISTS idx_agent_metrics_timestamp ON agent_metrics(timestamp);
-
-    CREATE TABLE IF NOT EXISTS anomalies (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      company_id TEXT NOT NULL REFERENCES companies(id),
-      agent_id TEXT NOT NULL REFERENCES agents(id),
-      agent_name TEXT NOT NULL,
-      metric_type TEXT NOT NULL,
-      value REAL NOT NULL,
-      baseline_mean REAL NOT NULL,
-      baseline_std_dev REAL NOT NULL,
-      z_score REAL NOT NULL,
-      severity TEXT NOT NULL,
-      direction TEXT NOT NULL,
-      deviation_percent REAL NOT NULL,
-      context TEXT,
-      detected_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_anomalies_company ON anomalies(company_id);
-    CREATE INDEX IF NOT EXISTS idx_anomalies_agent ON anomalies(agent_id);
-    CREATE INDEX IF NOT EXISTS idx_anomalies_severity ON anomalies(severity);
-    CREATE INDEX IF NOT EXISTS idx_anomalies_detected_at ON anomalies(detected_at);
-
-    CREATE TABLE IF NOT EXISTS metrics (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
-      metric_name TEXT NOT NULL,
-      value REAL NOT NULL,
-      agent_id TEXT REFERENCES agents(id),
-      company_id TEXT REFERENCES companies(id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp);
-    CREATE INDEX IF NOT EXISTS idx_metrics_name ON metrics(metric_name);
-    CREATE INDEX IF NOT EXISTS idx_metrics_agent ON metrics(agent_id);
-    CREATE INDEX IF NOT EXISTS idx_metrics_company ON metrics(company_id);
-
-    CREATE TABLE IF NOT EXISTS traces (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      trace_id TEXT NOT NULL,
-      span_id TEXT NOT NULL,
-      parent_span_id TEXT,
-      operation TEXT NOT NULL,
-      timestamp TEXT NOT NULL,
-      metadata TEXT,
-      UNIQUE(trace_id, span_id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_traces_trace_id ON traces(trace_id);
-    CREATE INDEX IF NOT EXISTS idx_traces_span_id ON traces(span_id);
-    CREATE INDEX IF NOT EXISTS idx_traces_parent_span_id ON traces(parent_span_id);
-    CREATE INDEX IF NOT EXISTS idx_traces_operation ON traces(operation);
-    CREATE INDEX IF NOT EXISTS idx_traces_timestamp ON traces(timestamp);
-  `);
-}
-
+// See git history for the full ad-hoc migrate() function body.
 export function createCompany({ id, name, goal, workspace }) {
   const db = getDb();
-  db.prepare("INSERT INTO companies (id, name, goal, workspace) VALUES (?, ?, ?, ?)").run(id, name, goal, workspace);
-  return { id, name, goal, workspace };
+  // Sanitize user inputs to prevent XSS
+  const safeName = sanitizeStrict(name);
+  const safeGoal = sanitizeInput(goal);
+  const safeWorkspace = sanitizeStrict(workspace);
+  db.prepare("INSERT INTO companies (id, name, goal, workspace) VALUES (?, ?, ?, ?)").run(id, safeName, safeGoal, safeWorkspace);
+  return { id, name: safeName, goal: safeGoal, workspace: safeWorkspace };
 }
 
 export function getCompany(id) {
@@ -465,8 +49,9 @@ export function updateCompany(id, updates) {
   const sets = [];
   const vals = [];
 
-  if (updates.name !== undefined) { sets.push("name = ?"); vals.push(updates.name); }
-  if (updates.goal !== undefined) { sets.push("goal = ?"); vals.push(updates.goal); }
+  // Sanitize user inputs to prevent XSS
+  if (updates.name !== undefined) { sets.push("name = ?"); vals.push(sanitizeStrict(updates.name)); }
+  if (updates.goal !== undefined) { sets.push("goal = ?"); vals.push(sanitizeInput(updates.goal)); }
   if (updates.status !== undefined) { sets.push("status = ?"); vals.push(updates.status); }
 
   if (sets.length === 0) return;
@@ -499,8 +84,11 @@ export function listCompanies() {
 
 export function createAgent({ id, companyId, name, role, title, reportsTo }) {
   const db = getDb();
-  db.prepare("INSERT INTO agents (id, company_id, name, role, title, reports_to) VALUES (?, ?, ?, ?, ?, ?)").run(id, companyId, name, role, title, reportsTo);
-  return { id, companyId, name, role, title, reportsTo };
+  // Sanitize user inputs to prevent XSS
+  const safeName = sanitizeStrict(name);
+  const safeTitle = sanitizeStrict(title);
+  db.prepare("INSERT INTO agents (id, company_id, name, role, title, reports_to) VALUES (?, ?, ?, ?, ?, ?)").run(id, companyId, safeName, role, safeTitle, reportsTo);
+  return { id, companyId, name: safeName, role, title: safeTitle, reportsTo };
 }
 
 export function getAgent(id) {
@@ -533,11 +121,14 @@ export function updateAgentStatus(id, status, extra = {}) {
 
 export function createTask({ id, companyId, parentId, title, description, priority, assigneeId, createdById, dependsOn }) {
   const db = getDb();
+  // Sanitize user inputs to prevent XSS
+  const safeTitle = sanitizeInput(title);
+  const safeDescription = sanitizeInput(description);
   const dependsOnStr = dependsOn && Array.isArray(dependsOn) ? JSON.stringify(dependsOn) : null;
   db.prepare(
     "INSERT INTO tasks (id, company_id, parent_id, title, description, priority, assignee_id, created_by_id, depends_on) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).run(id, companyId, parentId, title, description, priority || "medium", assigneeId, createdById, dependsOnStr);
-  return { id, title, description, priority, assigneeId, dependsOn };
+  ).run(id, companyId, parentId, safeTitle, safeDescription, priority || "medium", assigneeId, createdById, dependsOnStr);
+  return { id, title: safeTitle, description: safeDescription, priority, assigneeId, dependsOn };
 }
 
 export function getTasksByCompany(companyId, status) {
@@ -552,7 +143,9 @@ export function getTasksByAssignee(assigneeId, status) {
 
 export function updateTaskStatus(id, status, result) {
   const db = getDb();
-  db.prepare("UPDATE tasks SET status = ?, result = ?, updated_at = datetime('now') WHERE id = ?").run(status, result, id);
+  // Sanitize result to prevent XSS
+  const safeResult = sanitizeInput(result);
+  db.prepare("UPDATE tasks SET status = ?, result = ?, updated_at = datetime('now') WHERE id = ?").run(status, safeResult, id);
 
   // Get task info for broadcast
   const task = getTask(id);
@@ -572,7 +165,10 @@ export function assignTask(taskId, agentId) {
 }
 
 export function logActivity({ companyId, agentId, taskId, action, detail, patternId }) {
-  getDb().prepare("INSERT INTO activity_log (company_id, agent_id, task_id, action, detail, pattern_id) VALUES (?, ?, ?, ?, ?, ?)").run(companyId, agentId, taskId, action, detail, patternId || null);
+  // Sanitize activity log inputs to prevent XSS
+  const safeAction = sanitizeInput(action);
+  const safeDetail = sanitizeInput(detail);
+  getDb().prepare("INSERT INTO activity_log (company_id, agent_id, task_id, action, detail, pattern_id) VALUES (?, ?, ?, ?, ?, ?)").run(companyId, agentId, taskId, safeAction, safeDetail, patternId || null);
 }
 
 export function updateActivityPatternId(activityId, patternId) {
@@ -604,7 +200,9 @@ export function getFailureLogs(companyId, limit = 500) {
 }
 
 export function addComment({ companyId, taskId, agentId, author, message }) {
-  getDb().prepare("INSERT INTO comments (company_id, task_id, agent_id, author, message) VALUES (?, ?, ?, ?, ?)").run(companyId, taskId, agentId, author || "user", message);
+  // Sanitize comment message to prevent XSS
+  const safeMessage = sanitizeInput(message);
+  getDb().prepare("INSERT INTO comments (company_id, task_id, agent_id, author, message) VALUES (?, ?, ?, ?, ?)").run(companyId, taskId, agentId, author || "user", safeMessage);
 }
 
 export function getComments(taskId) {
@@ -1360,7 +958,8 @@ export function updateAgentRun(runId, { status, tokensUsed, cost, errorMessage }
   if (status !== undefined) { sets.push("status = ?"); vals.push(status); }
   if (tokensUsed !== undefined) { sets.push("tokens_used = ?"); vals.push(tokensUsed); }
   if (cost !== undefined) { sets.push("cost = ?"); vals.push(cost); }
-  if (errorMessage !== undefined) { sets.push("error_message = ?"); vals.push(errorMessage); }
+  // Sanitize error message to prevent XSS
+  if (errorMessage !== undefined) { sets.push("error_message = ?"); vals.push(sanitizeInput(errorMessage)); }
 
   if (sets.length === 0) return;
 

@@ -596,7 +596,7 @@ export function createServer(port = 3100) {
   });
 
   // Reset circuit breaker
-  app.post("/api/circuit-breaker/reset", async (req, res) => {
+  app.post("/api/circuit-breaker/reset", strictLimiter, async (req, res) => {
     try {
       const { circuitBreaker } = await import("./circuit-breaker.js");
       circuitBreaker.reset();
@@ -642,7 +642,7 @@ export function createServer(port = 3100) {
   });
 
   // Manually trigger self-healing rules (for testing/debugging)
-  app.post("/api/self-healing/trigger", async (req, res) => {
+  app.post("/api/self-healing/trigger", strictLimiter, async (req, res) => {
     try {
       const selfHealing = await import("./self-healing.js");
       const results = await selfHealing.triggerRules();
@@ -758,7 +758,7 @@ export function createServer(port = 3100) {
     res.json({ task, comments });
   });
 
-  app.post("/api/tasks/:id/comments", (req, res) => {
+  app.post("/api/tasks/:id/comments", strictLimiter, (req, res) => {
     const task = db.getTask(req.params.id);
     if (!task) return res.status(404).json({ error: "Not found" });
     const { message } = req.body || {};
@@ -1148,7 +1148,7 @@ export function createServer(port = 3100) {
     }
   });
 
-  app.post("/api/circuit-breaker/reset", async (req, res) => {
+  app.post("/api/circuit-breaker/reset", strictLimiter, async (req, res) => {
     try {
       const { circuitBreaker } = await import("./circuit-breaker.js");
       circuitBreaker.reset();
@@ -1704,7 +1704,7 @@ export function createServer(port = 3100) {
   });
 
   // Reload playbook configuration
-  app.post("/api/playbooks/reload", async (req, res) => {
+  app.post("/api/playbooks/reload", strictLimiter, async (req, res) => {
     try {
       const { reloadPlaybooks } = await import("./automation/playbooks.js");
       const result = reloadPlaybooks();
@@ -1721,7 +1721,7 @@ export function createServer(port = 3100) {
   });
 
   // Test playbook matching for a given context (debugging)
-  app.post("/api/playbooks/test-match", async (req, res) => {
+  app.post("/api/playbooks/test-match", strictLimiter, async (req, res) => {
     try {
       const { testPlaybookMatch } = await import("./automation/playbooks.js");
       const context = req.body;
@@ -1889,7 +1889,7 @@ export function createServer(port = 3100) {
   });
 
   // Manual alert trigger (for testing)
-  app.post("/api/companies/:id/alerts/test", (req, res) => {
+  app.post("/api/companies/:id/alerts/test", strictLimiter, (req, res) => {
     try {
       const company = findCompany(req.params.id);
       if (!company) return res.status(404).json({ error: "Company not found" });

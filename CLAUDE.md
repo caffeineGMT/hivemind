@@ -28,7 +28,8 @@ This is a **LOCAL operational dashboard** for managing AI agent companies. It ru
 DELETE IT. Do not preserve it. Do not refactor it. Remove it entirely.
 
 ## DEPLOYMENT RULES
+- **GitHub is the staging environment.** All code must be pushed to GitHub.
+- **Required workflow:** (1) Write code, (2) Run `npm run build` to verify zero errors, (3) Fix any errors, (4) Commit and push to GitHub.
 - Do NOT deploy to Vercel. Do NOT run `vercel`, `vercel deploy`, or any Vercel CLI commands.
-- You MAY commit and push to GitHub — that is fine.
-- Do NOT run `npm run build` for deployment purposes.
-- All deployments to hosting platforms are handled manually by the human. Never auto-deploy.
+- Production deployment to hosting platforms is handled manually by Michael. Never auto-deploy.
+- Always verify builds pass before committing. Zero errors required.

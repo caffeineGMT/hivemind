@@ -64,6 +64,31 @@
     outline: none;
   }
 
+  /* Screen reader only content - accessible but visually hidden */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* Make sr-only content visible when focused (for skip links) */
+  .sr-only.focus\:not-sr-only:focus {
+    position: fixed;
+    width: auto;
+    height: auto;
+    padding: 0.5rem 1rem;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
   @media (hover: none) and (pointer: coarse) {
     button:active, a:active {
       transform: scale(0.97);

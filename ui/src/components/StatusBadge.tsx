@@ -30,28 +30,35 @@ function formatLabel(s: string) {
 }
 
 export function StatusBadge({ status, size = 'sm' }: StatusBadgeProps) {
+  const formattedStatus = formatLabel(status);
   return (
     <span
+      role="status"
+      aria-live="polite"
+      aria-label={`Status: ${formattedStatus}`}
       className={clsx(
         'inline-flex items-center rounded-md border font-medium',
         size === 'sm' ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs',
         statusStyles[status] || 'bg-zinc-800 text-zinc-400 border-zinc-700'
       )}
     >
-      {formatLabel(status)}
+      {formattedStatus}
     </span>
   );
 }
 
 export function PriorityBadge({ priority }: { priority: string }) {
+  const formattedPriority = formatLabel(priority);
   return (
     <span
+      role="status"
+      aria-label={`Priority: ${formattedPriority}`}
       className={clsx(
         'inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium',
         priorityStyles[priority] || 'bg-zinc-800 text-zinc-400 border-zinc-700'
       )}
     >
-      {formatLabel(priority)}
+      {formattedPriority}
     </span>
   );
 }

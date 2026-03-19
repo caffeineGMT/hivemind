@@ -4,6 +4,7 @@ import { useSwipeable } from 'react-swipeable';
 import { useState } from 'react';
 import { StatusBadge, PriorityBadge } from './StatusBadge';
 import { Task } from '../api';
+import { sanitize } from '../hooks/useSanitize';
 
 const statusIcon: Record<string, React.ReactNode> = {
   backlog: <Circle className="h-4 w-4 text-zinc-500" />,
@@ -38,9 +39,18 @@ export default function TaskRow({ task }: { task: Task }) {
   };
 
   return (
-    <div
+    <article
       {...handlers}
       onClick={handleClick}
+      role="button"
+      tabIndex={0}
+      aria-label={`Task: ${task.title}, ${task.status}, ${task.priority} priority${task.assignee_name ? `, assigned to ${task.assignee_name}` : ''}`}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleClick(e as any);
+        }
+      }}
       className={`flex items-start gap-3 rounded-lg border px-3 py-3 transition cursor-pointer active:bg-zinc-800/40 sm:items-center sm:px-4 ${
         swipeAction === 'left'
           ? 'border-emerald-600/60 bg-emerald-950/30'
@@ -49,21 +59,21 @@ export default function TaskRow({ task }: { task: Task }) {
           : 'border-zinc-800/40 bg-zinc-900/30 hover:border-zinc-700/60 hover:bg-zinc-900/60'
       }`}
     >
-      <div className="mt-0.5 shrink-0 sm:mt-0">{statusIcon[task.status] || statusIcon.backlog}</div>
+      <div className="mt-0.5 shrink-0 sm:mt-0" aria-hidden="true">{statusIcon[task.status] || statusIcon.backlog}</div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-zinc-200 sm:truncate">{task.title}</p>
+        <p className="text-sm font-medium text-zinc-200 sm:truncate">{sanitize(task.title)}</p>
         {task.description && (
-          <p className="mt-0.5 line-clamp-2 text-xs text-zinc-500 sm:truncate sm:line-clamp-1">{task.description}</p>
+          <p className="mt-0.5 line-clamp-2 text-xs text-zinc-500 sm:truncate sm:line-clamp-1">{sanitize(task.description)}</p>
         )}
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
           {task.assignee_name && (
             <Link
               to={`/logs/${task.assignee_name}`}
               onClick={(e) => e.stopPropagation()}
+              aria-label={`View agent ${task.assignee_name}`}
               className="flex items-center gap-1 rounded-md bg-blue-950/30 px-2 py-0.5 text-[11px] font-medium text-blue-400 transition hover:bg-blue-950/50 hover:text-blue-300"
-              title={`View agent: ${task.assignee_name}`}
             >
-              <User className="h-3 w-3" />
+              <User className="h-3 w-3" aria-hidden="true" />
               {task.assignee_name}
             </Link>
           )}
@@ -76,10 +86,10 @@ export default function TaskRow({ task }: { task: Task }) {
           <Link
             to={`/logs/${task.assignee_name}`}
             onClick={(e) => e.stopPropagation()}
+            aria-label={`View agent ${task.assignee_name}`}
             className="flex items-center gap-1 rounded-md bg-blue-950/30 px-2 py-0.5 text-[11px] font-medium text-blue-400 transition hover:bg-blue-950/50 hover:text-blue-300"
-            title={`View agent: ${task.assignee_name}`}
           >
-            <User className="h-3 w-3" />
+            <User className="h-3 w-3" aria-hidden="true" />
             {task.assignee_name}
           </Link>
         )}
@@ -89,6 +99,6 @@ export default function TaskRow({ task }: { task: Task }) {
           {task.id.slice(0, 8)}
         </span>
       </div>
-    </div>
+    </article>
   );
 }

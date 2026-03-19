@@ -12,14 +12,15 @@ export default function ProjectCard({ project }: { project: Project }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (
-    <div
+    <article
+      aria-label={`Project: ${project.title}, ${project.status}, ${done} of ${total} tasks completed`}
       className="relative overflow-hidden rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4 transition-all duration-200 active:scale-[0.98] hover:border-zinc-700/60 md:active:scale-100"
       onTouchStart={createRipple}
     >
       {rippleElements}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2.5">
-          <FolderKanban className="h-4 w-4 text-amber-400" />
+          <FolderKanban className="h-4 w-4 text-amber-400" aria-hidden="true" />
           <h3 className="text-sm font-semibold text-zinc-200">{project.title}</h3>
         </div>
         <StatusBadge status={project.status} />
@@ -35,7 +36,14 @@ export default function ProjectCard({ project }: { project: Project }) {
           <span className="text-zinc-500">{done}/{total} tasks</span>
           <span className="tabular-nums text-zinc-400">{pct}%</span>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+        <div
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`Project progress: ${pct}% complete`}
+          className="h-1.5 overflow-hidden rounded-full bg-zinc-800"
+        >
           <div
             className="h-full rounded-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-500"
             style={{ width: `${pct}%` }}
@@ -50,14 +58,15 @@ export default function ProjectCard({ project }: { project: Project }) {
             <Link
               key={task.id}
               to={`../tasks/${task.id}`}
+              aria-label={`Task: ${task.title}, ${task.status}`}
               className="flex min-h-[44px] items-center gap-2 rounded-md px-1.5 py-2 text-xs transition hover:bg-zinc-800/40 md:min-h-0 md:py-1"
             >
               {task.status === 'done' ? (
-                <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />
+                <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" aria-hidden="true" />
               ) : task.status === 'in_progress' ? (
-                <Clock className="h-3 w-3 shrink-0 text-amber-400" />
+                <Clock className="h-3 w-3 shrink-0 text-amber-400" aria-hidden="true" />
               ) : (
-                <Circle className="h-3 w-3 shrink-0 text-zinc-600" />
+                <Circle className="h-3 w-3 shrink-0 text-zinc-600" aria-hidden="true" />
               )}
               <span className={`truncate ${task.status === 'done' ? 'text-zinc-500 line-through' : 'text-zinc-400'}`}>
                 {task.title}
@@ -65,10 +74,12 @@ export default function ProjectCard({ project }: { project: Project }) {
             </Link>
           ))}
           {children.length > 6 && (
-            <p className="px-1.5 text-[11px] text-zinc-600">+{children.length - 6} more</p>
+            <p className="px-1.5 text-[11px] text-zinc-600" aria-label={`${children.length - 6} more tasks`}>
+              +{children.length - 6} more
+            </p>
           )}
         </div>
       )}
-    </div>
+    </article>
   );
 }

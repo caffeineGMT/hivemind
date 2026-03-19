@@ -395,10 +395,30 @@ export interface FailurePatternData {
 
 // ── Fetch helpers ──────────────────────────────────────────────────
 
-async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, options);
+async function handleResponse<T>(res: Response): Promise<T> {
+  // Handle rate limiting with retry information
+  if (res.status === 429) {
+    const data = await res.json().catch(() => ({}));
+    const retryAfter = data.retryAfter ||
+                       res.headers.get('Retry-After') ||
+                       res.headers.get('X-RateLimit-Reset') ||
+                       60; // Default to 60 seconds
+
+    const error = new Error(
+      data.error || `Rate limited. Please wait ${retryAfter} seconds before trying again.`
+    ) as Error & { retryAfter: number; statusCode: number };
+    error.retryAfter = Number(retryAfter);
+    error.statusCode = 429;
+    throw error;
+  }
+
   if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
   return res.json();
+}
+
+async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(url, options);
+  return handleResponse<T>(res);
 }
 
 export const api = {
@@ -428,13 +448,13 @@ export const api = {
 
   addComment: async (taskId: string, message: string) => {
     const headers = { 'Content-Type': 'application/json' };
-    
+
     const res = await fetch(`/api/tasks/${taskId}/comments`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ message }),
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   getCosts: (companyId: string) =>
@@ -447,7 +467,7 @@ export const api = {
       headers,
       body: JSON.stringify({ monthlyBudget, alertThreshold }),
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   getCostsByDateRange: (companyId: string, startDate: string, endDate: string) =>
@@ -460,7 +480,7 @@ export const api = {
       headers,
       body: JSON.stringify({ companyId, message }),
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   // Structured logs
@@ -470,7 +490,7 @@ export const api = {
     if (filters.level) params.set('level', filters.level);
     if (filters.source) params.set('source', filters.source);
     const res = await fetch(`/api/logs/search?${params}`);
-    return res.json();
+    return handleResponse(res);
   },
 
   // Agent health monitoring
@@ -499,7 +519,7 @@ export const api = {
       headers,
       body: JSON.stringify({ companyId }),
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   restartAgent: async (agentId: string) => {
@@ -508,7 +528,7 @@ export const api = {
       method: 'POST',
       headers,
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   resetAgent: async (agentId: string) => {
@@ -517,7 +537,7 @@ export const api = {
       method: 'DELETE',
       headers,
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   // Company management
@@ -528,7 +548,7 @@ export const api = {
       headers,
       body: JSON.stringify(data),
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   updateCompany: async (id: string, data: Partial<Company>) => {
@@ -538,7 +558,7 @@ export const api = {
       headers,
       body: JSON.stringify(data),
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   deleteCompany: async (id: string) => {
@@ -547,7 +567,7 @@ export const api = {
       method: 'DELETE',
       headers,
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   // Cross-project analytics
@@ -572,7 +592,7 @@ export const api = {
       method: 'POST',
       headers,
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   // Workload prediction
@@ -601,7 +621,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rules }),
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   getAlertChannels: (companyId: string) =>
@@ -613,7 +633,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ channels }),
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   getAlertHistory: (companyId: string, hours = 24) =>
@@ -624,12 +644,12 @@ export const api = {
 
   acknowledgeAlert: async (alertId: number) => {
     const res = await fetch(`/api/alerts/${alertId}/acknowledge`, { method: 'POST' });
-    return res.json();
+    return handleResponse(res);
   },
 
   acknowledgeAllAlerts: async (companyId: string) => {
     const res = await fetch(`/api/companies/${companyId}/alerts/acknowledge-all`, { method: 'POST' });
-    return res.json();
+    return handleResponse(res);
   },
 
   testAlert: async (companyId: string, severity: string, title: string, message: string) => {
@@ -638,7 +658,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ severity, title, message }),
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   // Data export
@@ -686,7 +706,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ daysOld }),
     });
-    return res.json();
+    return handleResponse(res);
   },
 
   getArchives: () => fetchJson<Array<{ filename: string; size: number; created: string; modified: string }>>('/api/export/archives'),
