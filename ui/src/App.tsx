@@ -1,10 +1,12 @@
 import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, lazy, Suspense } from 'react';
+import { Toaster } from 'sonner';
 import { api, Company } from './api';
 import { wsClient } from './websocket';
 import Layout from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { InstallPromptBanner } from './components/InstallPromptBanner';
 
 // Lazy-loaded page components for code splitting (Task 3)
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -204,9 +206,24 @@ function CompanyRoutes() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<CompanyRoutes />} />
-      <Route path="/:companySlug/*" element={<CompanyRoutes />} />
-    </Routes>
+    <>
+      <Toaster
+        position="top-right"
+        theme="dark"
+        toastOptions={{
+          style: {
+            background: 'rgb(24 24 27)',
+            border: '1px solid rgb(39 39 42)',
+            color: 'rgb(228 228 231)',
+          },
+          className: 'sonner-toast',
+        }}
+      />
+      <InstallPromptBanner />
+      <Routes>
+        <Route path="/" element={<CompanyRoutes />} />
+        <Route path="/:companySlug/*" element={<CompanyRoutes />} />
+      </Routes>
+    </>
   );
 }
