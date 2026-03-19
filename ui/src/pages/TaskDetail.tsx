@@ -56,6 +56,36 @@ export default function TaskDetail() {
         </div>
       </div>
 
+      {/* Metadata */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Assignee */}
+        <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4">
+          <h3 className="mb-2 text-sm font-semibold text-zinc-300">Assigned To</h3>
+          {task.assignee_name ? (
+            <Link
+              to={`../logs/${task.assignee_name}`}
+              className="inline-flex items-center gap-2 rounded-lg border border-blue-900/30 bg-blue-950/20 px-3 py-2 text-sm font-medium text-blue-400 transition hover:border-blue-800/50 hover:bg-blue-950/40"
+            >
+              <User className="h-4 w-4" />
+              <div className="flex flex-col items-start">
+                <span>{task.assignee_name}</span>
+                {task.assignee_id && (
+                  <span className="font-mono text-xs text-blue-500/60">{task.assignee_id.slice(0, 12)}</span>
+                )}
+              </div>
+            </Link>
+          ) : (
+            <span className="text-sm text-zinc-600">Unassigned</span>
+          )}
+        </div>
+
+        {/* Task ID */}
+        <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4">
+          <h3 className="mb-2 text-sm font-semibold text-zinc-300">Task ID</h3>
+          <code className="block font-mono text-xs text-zinc-500">{task.id}</code>
+        </div>
+      </div>
+
       {/* Description */}
       <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4">
         <h3 className="mb-2 text-sm font-semibold text-zinc-300">Description</h3>

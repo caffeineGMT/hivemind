@@ -121,7 +121,7 @@ function CompanyRoutes() {
       const sorted = [...companies].sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
-      navigate(`/${slugify(sorted[0].name)}`, { replace: true });
+      navigate(`/projects/${slugify(sorted[0].name)}`, { replace: true });
     }
   }, [companySlug, companies, navigate]);
 
@@ -166,7 +166,7 @@ function CompanyRoutes() {
   const handleSelectCompany = (id: string) => {
     const company = companies.find(c => c.id === id);
     if (company) {
-      navigate(`/${slugify(company.name)}`);
+      navigate(`/projects/${slugify(company.name)}`);
     }
   };
 
@@ -197,7 +197,7 @@ function CompanyRoutes() {
           <Route path="settings" element={<ErrorBoundary level="route"><Settings companyId={selectedCompany.id} /></ErrorBoundary>} />
           <Route path="tasks/:taskId" element={<ErrorBoundary level="route"><TaskDetail /></ErrorBoundary>} />
           <Route path="logs/:agentName" element={<ErrorBoundary level="route"><AgentLog /></ErrorBoundary>} />
-          <Route path="*" element={<Navigate to={`/${slugify(selectedCompany.name)}`} replace />} />
+          <Route path="*" element={<Navigate to={`/projects/${slugify(selectedCompany.name)}`} replace />} />
         </Routes>
       </Suspense>
     </Layout>
@@ -221,8 +221,9 @@ export default function App() {
       />
       <InstallPromptBanner />
       <Routes>
-        <Route path="/" element={<CompanyRoutes />} />
-        <Route path="/:companySlug/*" element={<CompanyRoutes />} />
+        <Route path="/" element={<Navigate to="/projects" replace />} />
+        <Route path="/projects" element={<CompanyRoutes />} />
+        <Route path="/projects/:companySlug/*" element={<CompanyRoutes />} />
       </Routes>
     </>
   );

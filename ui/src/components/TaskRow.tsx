@@ -70,11 +70,17 @@ export default function TaskRow({ task }: { task: Task }) {
             <Link
               to={`/logs/${task.assignee_name}`}
               onClick={(e) => e.stopPropagation()}
-              aria-label={`View agent ${task.assignee_name}`}
+              aria-label={`View live output for agent ${task.assignee_name}`}
+              title="Click to view agent's live output"
               className="flex items-center gap-1 rounded-md bg-blue-950/30 px-2 py-0.5 text-[11px] font-medium text-blue-400 transition hover:bg-blue-950/50 hover:text-blue-300"
             >
               <User className="h-3 w-3" aria-hidden="true" />
               {task.assignee_name}
+              {task.assignee_id && (
+                <span className="ml-1 font-mono text-[10px] text-blue-500/60">
+                  ({task.assignee_id.slice(0, 8)})
+                </span>
+              )}
             </Link>
           )}
           <PriorityBadge priority={task.priority} />
@@ -86,11 +92,17 @@ export default function TaskRow({ task }: { task: Task }) {
           <Link
             to={`/logs/${task.assignee_name}`}
             onClick={(e) => e.stopPropagation()}
-            aria-label={`View agent ${task.assignee_name}`}
+            aria-label={`View live output for agent ${task.assignee_name}`}
+            title="Click to view agent's live output"
             className="flex items-center gap-1 rounded-md bg-blue-950/30 px-2 py-0.5 text-[11px] font-medium text-blue-400 transition hover:bg-blue-950/50 hover:text-blue-300"
           >
             <User className="h-3 w-3" aria-hidden="true" />
             {task.assignee_name}
+            {task.assignee_id && (
+              <span className="ml-1 font-mono text-[10px] text-blue-500/60">
+                ({task.assignee_id.slice(0, 8)})
+              </span>
+            )}
           </Link>
         )}
         <PriorityBadge priority={task.priority} />

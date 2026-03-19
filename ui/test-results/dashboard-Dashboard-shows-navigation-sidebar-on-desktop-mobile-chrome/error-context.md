@@ -1,0 +1,104 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications alt+T"
+  - generic [ref=e3]:
+    - link "Skip to main content" [ref=e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - generic [ref=e5]:
+      - button "Open navigation menu" [ref=e6]:
+        - img [ref=e7]
+      - generic [ref=e8]:
+        - img [ref=e9]
+        - generic [ref=e11]: TaxBridge
+      - status "Connecting" [ref=e12]:
+        - generic [ref=e14]: Connecting...
+    - complementary "Main navigation" [ref=e15]:
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - img [ref=e18]
+          - generic [ref=e20]:
+            - heading "Hivemind" [level=1] [ref=e21]
+            - paragraph [ref=e22]: AI Company Orchestrator
+        - button "Close navigation menu" [ref=e23]:
+          - img [ref=e24]
+      - 'button "Select company, current: TaxBridge" [ref=e28]':
+        - generic [ref=e31]: TaxBridge
+        - img [ref=e32]
+      - navigation [ref=e34]:
+        - link "Dashboard" [ref=e35] [cursor=pointer]:
+          - /url: /taxbridge
+          - img [ref=e36]
+          - text: Dashboard
+        - link "Companies" [ref=e41] [cursor=pointer]:
+          - /url: /taxbridge/companies
+          - img [ref=e42]
+          - text: Companies
+        - link "Tasks" [ref=e46] [cursor=pointer]:
+          - /url: /taxbridge/tasks
+          - img [ref=e47]
+          - text: Tasks
+        - link "Agents" [ref=e50] [cursor=pointer]:
+          - /url: /taxbridge/agents
+          - img [ref=e51]
+          - text: Agents
+        - link "Health Monitor" [ref=e56] [cursor=pointer]:
+          - /url: /taxbridge/health-monitor
+          - img [ref=e57]
+          - text: Health Monitor
+        - link "Activity" [ref=e59] [cursor=pointer]:
+          - /url: /taxbridge/activity
+          - img [ref=e60]
+          - text: Activity
+        - link "Finance" [ref=e62] [cursor=pointer]:
+          - /url: /taxbridge/finance
+          - img [ref=e63]
+          - text: Finance
+        - link "Analytics" [ref=e65] [cursor=pointer]:
+          - /url: /taxbridge/analytics
+          - img [ref=e66]
+          - text: Analytics
+        - link "Cross-Project" [ref=e69] [cursor=pointer]:
+          - /url: /taxbridge/cross-project-analytics
+          - img [ref=e70]
+          - text: Cross-Project
+        - link "Costs" [ref=e72] [cursor=pointer]:
+          - /url: /taxbridge/costs
+          - img [ref=e73]
+          - text: Costs
+        - link "Agent Performance" [ref=e75] [cursor=pointer]:
+          - /url: /taxbridge/agent-performance
+          - img [ref=e76]
+          - text: Agent Performance
+        - link "Roadmap" [ref=e79] [cursor=pointer]:
+          - /url: /taxbridge/roadmap
+          - img [ref=e80]
+          - text: Roadmap
+        - link "Settings" [ref=e82] [cursor=pointer]:
+          - /url: /taxbridge/settings
+          - img [ref=e83]
+          - text: Settings
+      - generic [ref=e86]:
+        - status "Connecting" [ref=e87]:
+          - generic [ref=e89]: Connecting...
+        - paragraph [ref=e90]: "Goal: US-Canada cross-border tax tool for H-1B/TN workers with RSUs."
+    - main [ref=e91]
+    - navigation [ref=e95]:
+      - link "Dashboard" [ref=e96] [cursor=pointer]:
+        - /url: /taxbridge
+        - img [ref=e97]
+        - generic [ref=e102]: Dashboard
+      - link "Tasks" [ref=e103] [cursor=pointer]:
+        - /url: /taxbridge/tasks
+        - img [ref=e104]
+        - generic [ref=e107]: Tasks
+      - link "Agents" [ref=e108] [cursor=pointer]:
+        - /url: /taxbridge/agents
+        - img [ref=e109]
+        - generic [ref=e114]: Agents
+      - link "Settings" [ref=e115] [cursor=pointer]:
+        - /url: /taxbridge/settings
+        - img [ref=e116]
+        - generic [ref=e119]: Settings
+```

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Users, Play, CheckCircle2, Clock, Send, ExternalLink } from 'lucide-react';
 import { api, wsClient } from '../api';
 import MetricCard from '../components/MetricCard';
@@ -14,6 +14,7 @@ import PullToRefreshIndicator from '../components/PullToRefreshIndicator';
 
 export default function Dashboard({ companyId }: { companyId: string }) {
   const navigate = useNavigate();
+  const { companySlug } = useParams<{ companySlug: string }>();
   const queryClient = useQueryClient();
   const [nudgeMsg, setNudgeMsg] = useState('');
   const [nudgeSending, setNudgeSending] = useState(false);
@@ -137,16 +138,16 @@ export default function Dashboard({ companyId }: { companyId: string }) {
 
       {/* Metric cards — clickable */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
-        <div onClick={() => navigate('/agents')} className="cursor-pointer">
+        <div onClick={() => navigate(`/${companySlug}/agents`)} className="cursor-pointer">
           <MetricCard label="Total Agents" value={metrics.totalAgents} icon={Users} color="text-blue-400" />
         </div>
-        <div onClick={() => navigate('/agents')} className="cursor-pointer">
+        <div onClick={() => navigate(`/${companySlug}/agents`)} className="cursor-pointer">
           <MetricCard label="Running Agents" value={metrics.runningAgents} icon={Play} color="text-emerald-400" />
         </div>
-        <div onClick={() => navigate('/tasks')} className="cursor-pointer">
+        <div onClick={() => navigate(`/${companySlug}/tasks`)} className="cursor-pointer">
           <MetricCard label="Tasks Done" value={metrics.doneTasks} icon={CheckCircle2} color="text-emerald-400" />
         </div>
-        <div onClick={() => navigate('/tasks')} className="cursor-pointer">
+        <div onClick={() => navigate(`/${companySlug}/tasks`)} className="cursor-pointer">
           <MetricCard label="In Progress" value={metrics.inProgressTasks} icon={Clock} color="text-amber-400" />
         </div>
       </div>
