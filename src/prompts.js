@@ -230,12 +230,20 @@ Instructions:
 - Focus on working, production-quality code. No placeholders or TODOs.
 - If you need to set up the project structure first, do it.
 - Run any necessary commands (npm init, install deps, etc.)
-- When you finish your task, run: git add -A && git commit -m "your commit message describing what you built" && git push origin main
+
+DEPLOYMENT WORKFLOW (CRITICAL — follow exactly):
+1. Write your code and make all necessary changes
+2. Run 'npm run build' to verify zero build errors
+3. If there are errors, fix them and run 'npm run build' again until it passes
+4. Once build succeeds, commit: git add -A && git commit -m "your descriptive commit message"
+5. Push to GitHub: git push origin main
+6. STOP — Do NOT deploy to Vercel or any hosting platform
+7. GitHub is the staging environment. Production deployment will be done manually by Michael.
+
 - Make sure your commit message is descriptive and mentions the specific feature/component.
-- IMPORTANT: Always push to remote after committing. Do not leave commits local-only.
-- After pushing, deployment with health check and rollback protection is handled automatically by the orchestrator.
-- Build for REAL users and REAL money. Payment flows must work. Landing pages must convert. SEO must rank.
-- Every feature you build should be LIVE on Vercel within minutes of completion.`;
+- IMPORTANT: Always verify the build passes before committing. Zero errors required.
+- IMPORTANT: Always push to GitHub after committing. Do not leave commits local-only.
+- Build for production quality. This is a real product serving real users.`;
 }
 
 export function reviewerPrompt(company, task, output) {

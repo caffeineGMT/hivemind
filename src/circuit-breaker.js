@@ -1,3 +1,4 @@
+import logger from "./logger.js";
 /**
  * Circuit Breaker for Claude API
  * Prevents cascade failures by pausing dispatching when too many consecutive failures occur
@@ -18,7 +19,7 @@ class CircuitBreaker {
     if (this.state === 'HALF_OPEN') {
       this.state = 'CLOSED';
       this.pausedUntil = null;
-      console.log('[CIRCUIT_BREAKER] Circuit restored to CLOSED - API calls resumed');
+      logger.info('[CIRCUIT_BREAKER] Circuit restored to CLOSED - API calls resumed');
     }
   }
 
@@ -28,7 +29,7 @@ class CircuitBreaker {
     if (this.consecutiveFailures >= FAILURE_THRESHOLD && this.state === 'CLOSED') {
       this.state = 'OPEN';
       this.pausedUntil = Date.now() + PAUSE_DURATION_MS;
-      console.error(`[CIRCUIT_BREAKER] Circuit OPEN - ${FAILURE_THRESHOLD} consecutive failures. Pausing for 5 minutes.`);
+      logger.error(`[CIRCUIT_BREAKER] Circuit OPEN - ${FAILURE_THRESHOLD} consecutive failures. Pausing for 5 minutes.`);
     }
   }
 
@@ -40,7 +41,7 @@ class CircuitBreaker {
     if (this.state === 'OPEN') {
       if (Date.now() >= this.pausedUntil) {
         this.state = 'HALF_OPEN';
-        console.log('[CIRCUIT_BREAKER] Circuit HALF_OPEN - Testing recovery');
+        logger.info('[CIRCUIT_BREAKER] Circuit HALF_OPEN - Testing recovery');
         return true;
       }
       return false;

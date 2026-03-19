@@ -1,5 +1,6 @@
 import { getDb } from "./db.js";
 
+import logger from "./logger.js";
 const CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const FAILURE_RATE_MULTIPLIER = 2.0;
 const COST_SPIKE_MULTIPLIER = 1.5;
@@ -26,7 +27,7 @@ function emitAlert(alert) {
   const key = alertKey(alert.type, alert.companyId);
   if (!shouldEmit(key)) return;
 
-  console.log(`[anomaly-detector] ALERT: ${alert.type} — ${alert.message}`);
+  logger.info(`[anomaly-detector] ALERT: ${alert.type} — ${alert.message}`);
 
   if (broadcastFn) {
     broadcastFn("anomaly_alert", alert);
@@ -47,7 +48,7 @@ function emitAlert(alert) {
       alert.recommendation || null
     );
   } catch (err) {
-    console.error(`[anomaly-detector] Failed to persist alert: ${err.message}`);
+    logger.error(`[anomaly-detector] Failed to persist alert: ${err.message}`);
   }
 }
 
@@ -236,19 +237,19 @@ function runChecks() {
   try {
     checkFailureRateSpike();
   } catch (err) {
-    console.error(`[anomaly-detector] failure rate check error: ${err.message}`);
+    logger.error(`[anomaly-detector] failure rate check error: ${err.message}`);
   }
 
   try {
     checkCostSpike();
   } catch (err) {
-    console.error(`[anomaly-detector] cost check error: ${err.message}`);
+    logger.error(`[anomaly-detector] cost check error: ${err.message}`);
   }
 
   try {
     checkCompletionTimeSpike();
   } catch (err) {
-    console.error(`[anomaly-detector] completion time check error: ${err.message}`);
+    logger.error(`[anomaly-detector] completion time check error: ${err.message}`);
   }
 }
 
@@ -261,16 +262,16 @@ export function startAnomalyDetector(broadcast) {
 
   // Run initial check after a short delay (let DB warm up)
   setTimeout(() => {
-    console.log("[anomaly-detector] Running initial anomaly check...");
+    logger.info("[anomaly-detector] Running initial anomaly check...");
     runChecks();
   }, 5000);
 
   intervalHandle = setInterval(() => {
-    console.log("[anomaly-detector] Running scheduled anomaly check...");
+    logger.info("[anomaly-detector] Running scheduled anomaly check...");
     runChecks();
   }, CHECK_INTERVAL_MS);
 
-  console.log(`[anomaly-detector] Started. Checking every ${CHECK_INTERVAL_MS / 60000} minutes.`);
+  logger.info(`[anomaly-detector] Started. Checking every ${CHECK_INTERVAL_MS / 60000} minutes.`);
 }
 
 /**
@@ -282,7 +283,7 @@ export function stopAnomalyDetector() {
     intervalHandle = null;
   }
   broadcastFn = null;
-  console.log("[anomaly-detector] Stopped.");
+  logger.info("[anomaly-detector] Stopped.");
 }
 
 /**

@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { DB_PATH, ensureDirs } from "./config.js";
+import { runMigrations } from "./migration-runner.js";
 
 import logger from "./logger.js";
 let _db;
@@ -16,11 +17,13 @@ export function getDb() {
   _db = new Database(DB_PATH);
   _db.pragma("journal_mode = WAL");
   _db.pragma("foreign_keys = ON");
-  migrate(_db);
+  runMigrations(_db);
   return _db;
 }
 
-function migrate(db) {
+// Old ad-hoc migrate() function replaced by versioned migration system.
+// See src/migration-runner.js and migrations/ directory.
+// Old function kept commented for one release as rollback reference.
   // Add 'read' column to comments if missing (for existing DBs)
   try {
     const cols = db.prepare("PRAGMA table_info(comments)").all();

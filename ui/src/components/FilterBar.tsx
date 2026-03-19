@@ -46,7 +46,9 @@ export default function FilterBar({ items, selectedIds, onSelectionChange, label
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex min-w-[240px] items-center justify-between gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:bg-zinc-800"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        className="flex min-h-[44px] min-w-[240px] items-center justify-between gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
       >
         <span className="truncate">
           {selectedCount === 0

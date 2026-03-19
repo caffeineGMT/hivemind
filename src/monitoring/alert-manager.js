@@ -16,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { HIVEMIND_HOME } from "../config.js";
 
+import logger from "./logger.js";
 // Severity levels with escalation order
 export const SEVERITY = {
   INFO: "info",
@@ -380,7 +381,7 @@ function deliverToLogFile(alert) {
     }
     fs.appendFileSync(ALERT_LOG_PATH, line);
   } catch (err) {
-    console.error(`[ALERT] Failed to write to log file: ${err.message}`);
+    logger.error(`[ALERT] Failed to write to log file: ${err.message}`);
   }
 }
 
@@ -552,7 +553,7 @@ export function fireAlert({
       : severity === SEVERITY.WARNING
         ? "WARNING"
         : "INFO";
-  console.log(`[ALERT][${icon}] ${title}: ${message}`);
+  logger.info(`[ALERT][${icon}] ${title}: ${message}`);
 
   return { alertId, deliveredChannels };
 }

@@ -1,4 +1,5 @@
 import ReconnectingWebSocket from 'reconnecting-websocket';
+import { toast } from 'sonner';
 
 type WebSocketMessage = {
   event: string;
@@ -41,6 +42,7 @@ class WebSocketClient {
   private pingInterval: ReturnType<typeof setInterval> | null = null;
   private countdownInterval: ReturnType<typeof setInterval> | null = null;
   private mutationQueue: QueuedMutation[] = [];
+  private wasConnected = false; // Track if we were previously connected
 
   // Legacy status listeners (for backward compatibility)
   private statusListeners: Set<(status: ConnectionStatus) => void> = new Set();
@@ -69,6 +71,15 @@ class WebSocketClient {
 
     this.ws.addEventListener('open', () => {
       console.log('[ws] Connected');
+
+      // Show success toast if we were previously disconnected
+      if (this.wasConnected && this._state.reconnectAttempt > 0) {
+        toast.success('Reconnected successfully!', {
+          description: 'Real-time updates are now active',
+          duration: 3000,
+        });
+      }
+
       this.updateState({
         status: 'connected',
         reconnectAttempt: 0,
@@ -76,6 +87,7 @@ class WebSocketClient {
         disconnectedAt: null,
         nextReconnectIn: null,
       });
+      this.wasConnected = true;
       this.startPingMonitor();
       this.flushMutationQueue();
       this.stopCountdown();
@@ -85,6 +97,22 @@ class WebSocketClient {
       console.log('[ws] Disconnected');
       const attempt = this._state.reconnectAttempt + 1;
       const backoffMs = getBackoffDelay(attempt);
+
+      // Show toast notification for unstable connection
+      if (this.wasConnected) {
+        if (attempt === 1) {
+          toast.warning('Connection lost', {
+            description: 'Attempting to reconnect...',
+            duration: 4000,
+          });
+        } else if (attempt === 3) {
+          toast.warning('Connection unstable', {
+            description: 'Retrying in background...',
+            duration: 5000,
+          });
+        }
+      }
+
       this.updateState({
         status: 'disconnected',
         reconnectAttempt: attempt,

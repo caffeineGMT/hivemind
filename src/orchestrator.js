@@ -803,7 +803,7 @@ function checkRunningAgents(company) {
 
 function log(companyId, source, message) {
   const ts = new Date().toLocaleTimeString();
-  console.log(`  [${ts}] [${source}] ${message}`);
+  logger.info(`  [${ts}] [${source}] ${message}`);
 
   // Also log to structured logging system
   structuredLog({
@@ -823,7 +823,7 @@ function printProgress(company) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
   const bar = "█".repeat(Math.floor(pct / 5)) + "░".repeat(20 - Math.floor(pct / 5));
-  console.log(`  [${new Date().toLocaleTimeString()}] [${bar}] ${done}/${total} done (${pct}%), ${running} running`);
+  logger.info(`  [${new Date().toLocaleTimeString()}] [${bar}] ${done}/${total} done (${pct}%), ${running} running`);
 }
 
 // ── Main entry ───────────────────────────────────────────────────────────
@@ -833,18 +833,18 @@ export async function startCompany(goal, opts = {}) {
   const companyId = uid();
   const name = opts.name || goal.split(/[.!?]/)[0].slice(0, 60);
 
-  console.log("");
-  console.log("  ╔═══════════════════════════════════════════════╗");
-  console.log("  ║     HIVEMIND — AI Company Orchestrator        ║");
-  console.log("  ╚═══════════════════════════════════════════════╝");
-  console.log(`\n  Company : ${name}`);
-  console.log(`  Goal    : ${goal}`);
-  console.log(`  Dir     : ${workspace}`);
-  console.log(`  ID      : ${companyId.slice(0, 8)}`);
-  console.log(`  Agents  : up to ${MAX_CONCURRENT_AGENTS} concurrent`);
-  console.log(`  Logs    : ${LOGS_DIR}`);
-  console.log(`  Dashboard: http://localhost:3100`);
-  console.log("");
+  logger.info("");
+  logger.info("  ╔═══════════════════════════════════════════════╗");
+  logger.info("  ║     HIVEMIND — AI Company Orchestrator        ║");
+  logger.info("  ╚═══════════════════════════════════════════════╝");
+  logger.info(`\n  Company : ${name}`);
+  logger.info(`  Goal    : ${goal}`);
+  logger.info(`  Dir     : ${workspace}`);
+  logger.info(`  ID      : ${companyId.slice(0, 8)}`);
+  logger.info(`  Agents  : up to ${MAX_CONCURRENT_AGENTS} concurrent`);
+  logger.info(`  Logs    : ${LOGS_DIR}`);
+  logger.info(`  Dashboard: http://localhost:3100`);
+  logger.info("");
 
   db.createCompany({ id: companyId, name, goal, workspace });
   db.createAgent({ id: uid(), companyId, name: "ceo", role: "ceo", title: "CEO" });
@@ -863,7 +863,7 @@ export async function startCompany(goal, opts = {}) {
   // Phase 1: CEO — full session, can read files, explore workspace
   const plan = await runCeoPlanning(db.getCompany(companyId));
   if (!plan) {
-    console.error("\n  [FATAL] CEO planning failed. Aborting.");
+    logger.error("\n  [FATAL] CEO planning failed. Aborting.");
     return;
   }
 
@@ -881,8 +881,8 @@ export async function startCompany(goal, opts = {}) {
 
   // Phase 4: Monitor loop
   const config = projectConfig.getProjectConfig(companyId);
-  console.log(`\n  Heartbeat every ${config.heartbeat_interval_sec}s. Press Ctrl+C to stop monitoring.`);
-  console.log(`  (Every agent is a standalone Claude session with full tool access.)\n`);
+  logger.info(`\n  Heartbeat every ${config.heartbeat_interval_sec}s. Press Ctrl+C to stop monitoring.`);
+  logger.info(`  (Every agent is a standalone Claude session with full tool access.)\n`);
 
   await runHeartbeatLoop(companyId);
 }
@@ -1019,9 +1019,9 @@ async function runHeartbeatLoop(companyId) {
     }, config.heartbeat_interval_sec * 1000);
 
     process.on("SIGINT", () => {
-      console.log(`\n  Stopping monitor. Agents continue as background processes.`);
-      console.log(`  Resume:  node bin/hivemind.js resume ${companyId.slice(0, 8)}`);
-      console.log(`  Status:  node bin/hivemind.js status`);
+      logger.info(`\n  Stopping monitor. Agents continue as background processes.`);
+      logger.info(`  Resume:  node bin/hivemind.js resume ${companyId.slice(0, 8)}`);
+      logger.info(`  Status:  node bin/hivemind.js status`);
       clearInterval(heartbeat);
       if (healthMonitor) stopHealthMonitoring(healthMonitor);
       resolve();
@@ -1039,11 +1039,11 @@ export async function resumeMonitoring(companyIdPrefix) {
     : companies.find(c => c.status === "active");
 
   if (!company) {
-    console.error("No active company found.");
+    logger.error("No active company found.");
     return;
   }
 
-  console.log(`\n  Resuming: ${company.name} (${company.id.slice(0, 8)})`);
+  logger.info(`\n  Resuming: ${company.name} (${company.id.slice(0, 8)})`);
 
   // Clean up stale agents whose PIDs are dead
   const cleaned = cleanupStaleAgents(company);
@@ -1065,7 +1065,7 @@ export function showStatus(companyIdPrefix) {
     : companies[0];
 
   if (!company) {
-    console.log("  No companies. Run: hivemind start \"Your goal\"");
+    logger.info("  No companies. Run: hivemind start \"Your goal\"");
     return;
   }
 
@@ -1074,56 +1074,56 @@ export function showStatus(companyIdPrefix) {
   const work = tasks.filter(t => !t.title.startsWith("[PROJECT]"));
   const activity = db.getRecentActivity(company.id, 10);
 
-  console.log("");
-  console.log("  ╔═══════════════════════════════════════════════╗");
-  console.log(`  ║  ${company.name.slice(0, 45).padEnd(45)}║`);
-  console.log("  ╚═══════════════════════════════════════════════╝");
-  console.log(`  Status : ${company.status} | ID: ${company.id.slice(0, 8)}`);
-  console.log(`  Goal   : ${company.goal}`);
-  console.log(`  Dir    : ${company.workspace}`);
+  logger.info("");
+  logger.info("  ╔═══════════════════════════════════════════════╗");
+  logger.info(`  ║  ${company.name.slice(0, 45).padEnd(45)}║`);
+  logger.info("  ╚═══════════════════════════════════════════════╝");
+  logger.info(`  Status : ${company.status} | ID: ${company.id.slice(0, 8)}`);
+  logger.info(`  Goal   : ${company.goal}`);
+  logger.info(`  Dir    : ${company.workspace}`);
 
-  console.log("\n  AGENTS:");
+  logger.info("\n  AGENTS:");
   for (const a of agents) {
     const icon = a.status === "running" ? "●" : "○";
-    console.log(`    ${icon} ${a.name} (${a.role}) — ${a.status}`);
+    logger.info(`    ${icon} ${a.name} (${a.role}) — ${a.status}`);
   }
 
-  console.log("\n  TASKS:");
+  logger.info("\n  TASKS:");
   for (const t of work) {
     const icon = { backlog: "□", todo: "◻", in_progress: "▶", done: "✓", blocked: "✗" }[t.status] || "?";
     const assignee = t.assignee_id ? (agents.find(a => a.id === t.assignee_id)?.name || "?") : "—";
-    console.log(`    ${icon} [${t.priority[0].toUpperCase()}] ${t.title.slice(0, 55)} (${assignee})`);
+    logger.info(`    ${icon} [${t.priority[0].toUpperCase()}] ${t.title.slice(0, 55)} (${assignee})`);
   }
 
   const done = work.filter(t => t.status === "done").length;
   const pct = work.length > 0 ? Math.round((done / work.length) * 100) : 0;
   const bar = "█".repeat(Math.floor(pct / 5)) + "░".repeat(20 - Math.floor(pct / 5));
-  console.log(`\n  PROGRESS: [${bar}] ${done}/${work.length} (${pct}%)`);
+  logger.info(`\n  PROGRESS: [${bar}] ${done}/${work.length} (${pct}%)`);
 
   // Cost summary (CFO report)
   const costTotals = db.getCostTotals(company.id);
   if (costTotals && costTotals.total_sessions > 0) {
-    console.log("\n  COSTS (CFO):");
-    console.log(`    Total spend   : $${(costTotals.total_cost_usd || 0).toFixed(4)}`);
-    console.log(`    Sessions      : ${costTotals.total_sessions}`);
-    console.log(`    Total tokens  : ${(costTotals.total_tokens || 0).toLocaleString()}`);
-    console.log(`    Total turns   : ${costTotals.total_turns || 0}`);
+    logger.info("\n  COSTS (CFO):");
+    logger.info(`    Total spend   : $${(costTotals.total_cost_usd || 0).toFixed(4)}`);
+    logger.info(`    Sessions      : ${costTotals.total_sessions}`);
+    logger.info(`    Total tokens  : ${(costTotals.total_tokens || 0).toLocaleString()}`);
+    logger.info(`    Total turns   : ${costTotals.total_turns || 0}`);
     const costByAgent = db.getCostSummary(company.id);
     if (costByAgent.length > 0) {
-      console.log("    By agent:");
+      logger.info("    By agent:");
       for (const c of costByAgent) {
-        console.log(`      ${c.agent_name.padEnd(16)} $${(c.total_cost_usd || 0).toFixed(4)}  (${c.sessions} sessions, ${(c.total_tokens || 0).toLocaleString()} tokens)`);
+        logger.info(`      ${c.agent_name.padEnd(16)} $${(c.total_cost_usd || 0).toFixed(4)}  (${c.sessions} sessions, ${(c.total_tokens || 0).toLocaleString()} tokens)`);
       }
     }
   }
 
   if (activity.length > 0) {
-    console.log("\n  RECENT ACTIVITY:");
+    logger.info("\n  RECENT ACTIVITY:");
     for (const a of activity.slice(0, 5)) {
-      console.log(`    ${a.created_at} | ${a.action}: ${(a.detail || "").slice(0, 70)}`);
+      logger.info(`    ${a.created_at} | ${a.action}: ${(a.detail || "").slice(0, 70)}`);
     }
   }
-  console.log("");
+  logger.info("");
 }
 
 // ── Nudge ────────────────────────────────────────────────────────────────
@@ -1135,11 +1135,11 @@ export async function nudge(companyIdPrefix, message) {
     : companies.find(c => c.status === "active");
 
   if (!company) {
-    console.log("  No active company found.");
+    logger.info("  No active company found.");
     return;
   }
 
-  console.log(`\n  Nudging ${company.name}...`);
+  logger.info(`\n  Nudging ${company.name}...`);
   cleanupStaleAgents(company);
   checkRunningAgents(company);
 

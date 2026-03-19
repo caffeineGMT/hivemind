@@ -78,7 +78,7 @@ export function recordAgentCrash({ agentId, agentName, companyId, taskId, reason
 
   // If agent was healthy for long enough, reset retry count
   if (state.lastSuccessTime && (now - state.lastSuccessTime) > SUCCESS_RESET_THRESHOLD_MS) {
-    console.log(`[RECOVERY] Agent ${agentName} was healthy for 10+ minutes, resetting retry count`);
+    logger.info(`[RECOVERY] Agent ${agentName} was healthy for 10+ minutes, resetting retry count`);
     state.attemptCount = 0;
     state.currentBackoffMs = INITIAL_BACKOFF_MS;
   }
@@ -101,7 +101,7 @@ export function recordAgentCrash({ agentId, agentName, companyId, taskId, reason
   if (state.attemptCount > MAX_RETRY_ATTEMPTS) {
     state.status = 'failed_permanently';
 
-    console.error(`[RECOVERY] Agent ${agentName} exceeded max retry attempts (${MAX_RETRY_ATTEMPTS}). Marking as permanently failed.`);
+    logger.error(`[RECOVERY] Agent ${agentName} exceeded max retry attempts (${MAX_RETRY_ATTEMPTS}). Marking as permanently failed.`);
 
     // Log permanent failure incident
     db.logIncident({
@@ -140,7 +140,7 @@ export function recordAgentCrash({ agentId, agentName, companyId, taskId, reason
   state.nextRetryTime = now + state.currentBackoffMs;
   state.status = 'recovering';
 
-  console.log(`[RECOVERY] Agent ${agentName} crash #${state.attemptCount}/${MAX_RETRY_ATTEMPTS}. Retry in ${state.currentBackoffMs}ms`);
+  logger.info(`[RECOVERY] Agent ${agentName} crash #${state.attemptCount}/${MAX_RETRY_ATTEMPTS}. Retry in ${state.currentBackoffMs}ms`);
 
   // Log retry attempt
   db.logRetry({
@@ -225,7 +225,7 @@ export function recordAgentRecovery({ agentId, agentName, companyId, taskId }) {
   // Don't reset attempt count immediately - wait for SUCCESS_RESET_THRESHOLD_MS
 
   if (wasRecovering && previousAttempts > 0) {
-    console.log(`[RECOVERY] Agent ${agentName} successfully recovered after ${previousAttempts} attempts`);
+    logger.info(`[RECOVERY] Agent ${agentName} successfully recovered after ${previousAttempts} attempts`);
 
     // Log successful recovery
     db.logActivity({
@@ -259,7 +259,7 @@ export function resetRecoveryState(agentId) {
   const state = recoveryState.get(agentId);
   if (!state) return;
 
-  console.log(`[RECOVERY] Manually resetting recovery state for agent ${state.agentName}`);
+  logger.info(`[RECOVERY] Manually resetting recovery state for agent ${state.agentName}`);
 
   state.attemptCount = 0;
   state.currentBackoffMs = INITIAL_BACKOFF_MS;

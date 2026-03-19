@@ -101,6 +101,7 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, co
         </div>
         <button
           onClick={() => setSidebarOpen(false)}
+          aria-label="Close navigation menu"
           className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 md:hidden"
         >
           <X className="h-5 w-5" />
@@ -111,7 +112,10 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, co
       <div className="border-b border-zinc-800/60 px-3 py-3" ref={dropdownRef}>
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
-          className="flex w-full items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm transition hover:border-zinc-700"
+          aria-expanded={dropdownOpen}
+          aria-haspopup="listbox"
+          aria-label={`Select company, current: ${selectedCompany.name}`}
+          className="flex w-full items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm transition hover:border-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
         >
           <div className="flex items-center gap-2 truncate">
             <span className={`h-2 w-2 shrink-0 rounded-full ${statusColor(selectedCompany.status)} ${selectedCompany.status === 'running' ? 'animate-pulse-dot' : ''}`} />
@@ -183,10 +187,19 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, co
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-950" {...swipeHandlers}>
+      {/* Skip to content link for keyboard/screen reader users */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-amber-600 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
+      >
+        Skip to main content
+      </a>
+
       {/* Mobile top bar */}
       <div className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-zinc-800/60 bg-zinc-950/95 px-4 backdrop-blur md:hidden safe-area-inset-top">
         <button
           onClick={() => setSidebarOpen(true)}
+          aria-label="Open navigation menu"
           className="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition active:bg-zinc-800 active:text-zinc-200 md:hover:bg-zinc-800 md:hover:text-zinc-200"
         >
           <Menu className="h-5 w-5" />
@@ -208,6 +221,7 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, co
 
       {/* Sidebar */}
       <aside
+        aria-label="Main navigation"
         className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-zinc-800/60 bg-zinc-950 transition-transform duration-200 md:static md:w-64 md:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
@@ -216,7 +230,7 @@ export default function Layout({ companies, selectedCompany, onSelectCompany, co
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
+      <main id="main-content" className="flex-1 overflow-y-auto pt-14 md:pt-0" role="main">
         <ConnectionBanner />
         <div className="mx-auto max-w-6xl p-4 pb-20 md:p-6 md:pb-6">
           {children}

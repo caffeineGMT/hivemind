@@ -3,6 +3,7 @@ import os from "node:os";
 import fs from "node:fs";
 import { existsSync } from "node:fs";
 
+import logger from "./logger.js";
 // ============================================================================
 // Environment Validation - Fail fast with clear errors
 // ============================================================================
@@ -29,9 +30,9 @@ function validateEnvironment() {
   }
 
   if (errors.length > 0) {
-    console.error("\n❌ Environment Configuration Errors:\n");
-    errors.forEach(err => console.error(`   • ${err}`));
-    console.error("\n💡 Copy .env.example to .env and configure required variables.\n");
+    logger.error("\n❌ Environment Configuration Errors:\n");
+    errors.forEach(err => logger.error(`   • ${err}`));
+    logger.error("\n💡 Copy .env.example to .env and configure required variables.\n");
     process.exit(1);
   }
 }

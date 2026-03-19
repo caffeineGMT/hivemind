@@ -1,3 +1,4 @@
+import logger from "./logger.js";
 import {
   exportData,
   exportTasks,
@@ -43,7 +44,7 @@ export function registerExportRoutes(app) {
 
       res.json(data);
     } catch (err) {
-      console.error("[export] Error:", err);
+      logger.error("[export] Error:", err);
       res.status(500).json({ error: "Export failed" });
     }
   });
@@ -60,7 +61,7 @@ export function registerExportRoutes(app) {
       });
       sendExportResponse(res, data, format, "tasks", req.params.companyId);
     } catch (err) {
-      console.error("[export] Tasks export error:", err);
+      logger.error("[export] Tasks export error:", err);
       res.status(500).json({ error: "Export failed" });
     }
   });
@@ -74,7 +75,7 @@ export function registerExportRoutes(app) {
       });
       sendExportResponse(res, data, format, "agents", req.params.companyId);
     } catch (err) {
-      console.error("[export] Agents export error:", err);
+      logger.error("[export] Agents export error:", err);
       res.status(500).json({ error: "Export failed" });
     }
   });
@@ -90,7 +91,7 @@ export function registerExportRoutes(app) {
       });
       sendExportResponse(res, data, format, "activity", req.params.companyId);
     } catch (err) {
-      console.error("[export] Activity export error:", err);
+      logger.error("[export] Activity export error:", err);
       res.status(500).json({ error: "Export failed" });
     }
   });
@@ -108,7 +109,7 @@ export function registerExportRoutes(app) {
       });
       sendExportResponse(res, data, format, "logs", req.params.companyId);
     } catch (err) {
-      console.error("[export] Logs export error:", err);
+      logger.error("[export] Logs export error:", err);
       res.status(500).json({ error: "Export failed" });
     }
   });
@@ -126,7 +127,7 @@ export function registerExportRoutes(app) {
       });
       sendExportResponse(res, data, format, "logs", "global");
     } catch (err) {
-      console.error("[export] Global logs export error:", err);
+      logger.error("[export] Global logs export error:", err);
       res.status(500).json({ error: "Export failed" });
     }
   });
@@ -142,7 +143,7 @@ export function registerExportRoutes(app) {
       });
       sendExportResponse(res, data, format, "costs", req.params.companyId);
     } catch (err) {
-      console.error("[export] Costs export error:", err);
+      logger.error("[export] Costs export error:", err);
       res.status(500).json({ error: "Export failed" });
     }
   });
@@ -158,7 +159,7 @@ export function registerExportRoutes(app) {
       });
       sendExportResponse(res, data, format, "incidents", req.params.companyId);
     } catch (err) {
-      console.error("[export] Incidents export error:", err);
+      logger.error("[export] Incidents export error:", err);
       res.status(500).json({ error: "Export failed" });
     }
   });
@@ -170,7 +171,7 @@ export function registerExportRoutes(app) {
       const result = runArchival(daysOld);
       res.json(result);
     } catch (err) {
-      console.error("[export] Archival error:", err);
+      logger.error("[export] Archival error:", err);
       res.status(500).json({ error: "Archival failed" });
     }
   });
@@ -180,7 +181,7 @@ export function registerExportRoutes(app) {
       const archives = listArchives();
       res.json(archives);
     } catch (err) {
-      console.error("[export] List archives error:", err);
+      logger.error("[export] List archives error:", err);
       res.status(500).json({ error: "Failed to list archives" });
     }
   });
@@ -198,7 +199,7 @@ export function registerExportRoutes(app) {
       }
       res.json(data);
     } catch (err) {
-      console.error("[export] Read archive error:", err);
+      logger.error("[export] Read archive error:", err);
       res.status(500).json({ error: "Failed to read archive" });
     }
   });

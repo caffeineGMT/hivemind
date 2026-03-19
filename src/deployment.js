@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import * as db from "./db.js";
 
+import logger from "./logger.js";
 /**
  * Create a Git tag for the current commit before deployment
  * @param {string} companyId - Company ID
@@ -20,11 +21,11 @@ export function tagDeployment(companyId, cwd) {
     execSync(`git tag ${gitTag}`, { cwd });
     execSync(`git push origin ${gitTag}`, { cwd });
 
-    console.log(`[deployment] Tagged commit ${commitSha.slice(0, 8)} as ${gitTag}`);
+    logger.info(`[deployment] Tagged commit ${commitSha.slice(0, 8)} as ${gitTag}`);
 
     return { commitSha, gitTag };
   } catch (err) {
-    console.error(`[deployment] Failed to tag commit: ${err.message}`);
+    logger.error(`[deployment] Failed to tag commit: ${err.message}`);
     throw err;
   }
 }
@@ -37,7 +38,7 @@ export function tagDeployment(companyId, cwd) {
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 export async function healthCheckDeployment(url, maxRetries = 5, retryDelayMs = 3000) {
-  console.log(`[deployment] Health checking ${url}...`);
+  logger.info(`[deployment] Health checking ${url}...`);
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -49,13 +50,13 @@ export async function healthCheckDeployment(url, maxRetries = 5, retryDelayMs = 
 
       if (response.ok) {
         const data = await response.json();
-        console.log(`[deployment] Health check passed: ${JSON.stringify(data)}`);
+        logger.info(`[deployment] Health check passed: ${JSON.stringify(data)}`);
         return { success: true };
       } else {
-        console.log(`[deployment] Health check attempt ${attempt}/${maxRetries}: HTTP ${response.status}`);
+        logger.info(`[deployment] Health check attempt ${attempt}/${maxRetries}: HTTP ${response.status}`);
       }
     } catch (err) {
-      console.log(`[deployment] Health check attempt ${attempt}/${maxRetries}: ${err.message}`);
+      logger.info(`[deployment] Health check attempt ${attempt}/${maxRetries}: ${err.message}`);
     }
 
     if (attempt < maxRetries) {
@@ -74,19 +75,19 @@ export async function healthCheckDeployment(url, maxRetries = 5, retryDelayMs = 
  * @returns {Promise<{success: boolean, deploymentUrl?: string, error?: string}>}
  */
 export async function rollbackDeployment(companyId, cwd, reason) {
-  console.log(`[deployment] Rolling back deployment for company ${companyId.slice(0, 8)}...`);
-  console.log(`[deployment] Reason: ${reason}`);
+  logger.info(`[deployment] Rolling back deployment for company ${companyId.slice(0, 8)}...`);
+  logger.info(`[deployment] Reason: ${reason}`);
 
   try {
     // Get last successful deployment
     const lastGood = db.getLastSuccessfulDeployment(companyId);
 
     if (!lastGood) {
-      console.error("[deployment] No previous successful deployment found to rollback to");
+      logger.error("[deployment] No previous successful deployment found to rollback to");
       return { success: false, error: "No previous successful deployment found" };
     }
 
-    console.log(`[deployment] Found last good deployment: ${lastGood.git_tag} (${lastGood.commit_sha.slice(0, 8)})`);
+    logger.info(`[deployment] Found last good deployment: ${lastGood.git_tag} (${lastGood.commit_sha.slice(0, 8)})`);
 
     // Save current state (stash uncommitted changes if any)
     try {
@@ -99,10 +100,10 @@ export async function rollbackDeployment(companyId, cwd, reason) {
     execSync(`git reset --hard ${lastGood.commit_sha}`, { cwd });
     execSync(`git push origin main --force`, { cwd });
 
-    console.log(`[deployment] Reset to commit ${lastGood.commit_sha.slice(0, 8)}`);
+    logger.info(`[deployment] Reset to commit ${lastGood.commit_sha.slice(0, 8)}`);
 
     // Deploy to Vercel
-    console.log(`[deployment] Deploying rolled-back version to Vercel...`);
+    logger.info(`[deployment] Deploying rolled-back version to Vercel...`);
     const deployOutput = execSync("npx vercel --prod --yes", {
       cwd,
       encoding: "utf-8",
@@ -114,13 +115,13 @@ export async function rollbackDeployment(companyId, cwd, reason) {
     const deploymentUrl = urlMatch ? urlMatch[0] : null;
 
     if (deploymentUrl) {
-      console.log(`[deployment] Rollback deployed to: ${deploymentUrl}`);
+      logger.info(`[deployment] Rollback deployed to: ${deploymentUrl}`);
 
       // Health check the rollback
       const healthCheck = await healthCheckDeployment(deploymentUrl);
 
       if (healthCheck.success) {
-        console.log(`[deployment] Rollback successful and health check passed`);
+        logger.info(`[deployment] Rollback successful and health check passed`);
 
         // Log the rollback deployment
         const deploymentId = db.logDeployment({
@@ -135,15 +136,15 @@ export async function rollbackDeployment(companyId, cwd, reason) {
 
         return { success: true, deploymentUrl };
       } else {
-        console.error(`[deployment] Rollback deployed but health check failed: ${healthCheck.error}`);
+        logger.error(`[deployment] Rollback deployed but health check failed: ${healthCheck.error}`);
         return { success: false, error: `Health check failed: ${healthCheck.error}` };
       }
     } else {
-      console.error("[deployment] Failed to extract deployment URL from Vercel output");
+      logger.error("[deployment] Failed to extract deployment URL from Vercel output");
       return { success: false, error: "Could not extract deployment URL" };
     }
   } catch (err) {
-    console.error(`[deployment] Rollback failed: ${err.message}`);
+    logger.error(`[deployment] Rollback failed: ${err.message}`);
     return { success: false, error: err.message };
   }
 }
@@ -155,7 +156,7 @@ export async function rollbackDeployment(companyId, cwd, reason) {
  * @returns {Promise<{success: boolean, deploymentUrl?: string, deploymentId?: number, error?: string}>}
  */
 export async function deployWithRollback(companyId, cwd) {
-  console.log(`[deployment] Starting deployment with rollback protection for company ${companyId.slice(0, 8)}...`);
+  logger.info(`[deployment] Starting deployment with rollback protection for company ${companyId.slice(0, 8)}...`);
 
   let deploymentId = null;
 
@@ -173,7 +174,7 @@ export async function deployWithRollback(companyId, cwd) {
     });
 
     // Step 3: Deploy to Vercel
-    console.log(`[deployment] Deploying to Vercel...`);
+    logger.info(`[deployment] Deploying to Vercel...`);
     const deployOutput = execSync("npx vercel --prod --yes", {
       cwd,
       encoding: "utf-8",
@@ -188,7 +189,7 @@ export async function deployWithRollback(companyId, cwd) {
       throw new Error("Could not extract deployment URL from Vercel output");
     }
 
-    console.log(`[deployment] Deployed to: ${deploymentUrl}`);
+    logger.info(`[deployment] Deployed to: ${deploymentUrl}`);
 
     // Update deployment record with URL
     db.getDb().prepare("UPDATE deployment_history SET deployment_url = ? WHERE id = ?").run(deploymentUrl, deploymentId);
@@ -199,14 +200,14 @@ export async function deployWithRollback(companyId, cwd) {
     if (healthCheck.success) {
       // Success!
       db.updateDeploymentStatus(deploymentId, 'success', true, null);
-      console.log(`[deployment] Deployment successful!`);
+      logger.info(`[deployment] Deployment successful!`);
       return { success: true, deploymentUrl, deploymentId };
     } else {
       // Health check failed — trigger rollback
-      console.error(`[deployment] Health check failed: ${healthCheck.error}`);
+      logger.error(`[deployment] Health check failed: ${healthCheck.error}`);
       db.updateDeploymentStatus(deploymentId, 'failed', false, healthCheck.error);
 
-      console.log(`[deployment] Triggering automatic rollback...`);
+      logger.info(`[deployment] Triggering automatic rollback...`);
       const rollback = await rollbackDeployment(companyId, cwd, `Health check failed: ${healthCheck.error}`);
 
       if (rollback.success) {
@@ -223,13 +224,13 @@ export async function deployWithRollback(companyId, cwd) {
       }
     }
   } catch (err) {
-    console.error(`[deployment] Deployment failed: ${err.message}`);
+    logger.error(`[deployment] Deployment failed: ${err.message}`);
 
     if (deploymentId) {
       db.updateDeploymentStatus(deploymentId, 'failed', false, err.message);
 
       // Attempt rollback
-      console.log(`[deployment] Triggering automatic rollback...`);
+      logger.info(`[deployment] Triggering automatic rollback...`);
       const rollback = await rollbackDeployment(companyId, cwd, `Deployment error: ${err.message}`);
 
       if (rollback.success) {

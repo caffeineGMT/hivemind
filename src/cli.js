@@ -4,6 +4,7 @@ import { startCompany, showStatus, nudge, resumeMonitoring, cleanupStaleAgents }
 import { listCompanies, getCostSummary, getCostTotals } from "./db.js";
 import { readAgentLog } from "./claude.js";
 
+import logger from "./logger.js";
 const HELP = `
   hivemind — Autonomous AI Company Orchestrator
 
@@ -42,7 +43,7 @@ const HELP = `
 
 export async function run(args) {
   if (args.length === 0 || args[0] === "help" || args[0] === "--help" || args[0] === "-h") {
-    console.log(HELP);
+    logger.info(HELP);
     return;
   }
 
@@ -68,7 +69,7 @@ export async function run(args) {
         }
 
         if (!goal) {
-          console.error('  Error: Provide a goal. Example: hivemind start "Build an app"');
+          logger.error('  Error: Provide a goal. Example: hivemind start "Build an app"');
           return;
         }
 
@@ -101,14 +102,14 @@ export async function run(args) {
       case "list": {
         const companies = listCompanies();
         if (companies.length === 0) {
-          console.log('  No companies. Run: hivemind start "Your goal"');
+          logger.info('  No companies. Run: hivemind start "Your goal"');
           return;
         }
-        console.log("\n  Companies:");
+        logger.info("\n  Companies:");
         for (const c of companies) {
-          console.log(`    ${c.id.slice(0, 8)} | ${c.status.padEnd(10)} | ${c.name}`);
+          logger.info(`    ${c.id.slice(0, 8)} | ${c.status.padEnd(10)} | ${c.name}`);
         }
-        console.log("");
+        logger.info("");
         break;
       }
 
@@ -127,14 +128,14 @@ export async function run(args) {
         const co = rest[0]
           ? allCos2.find(c => c.id.startsWith(rest[0]))
           : allCos2.find(c => c.status === "active") || allCos2[0];
-        if (!co) { console.log("  No companies found."); return; }
+        if (!co) { logger.info("  No companies found."); return; }
         const { getCompany } = await import("./db.js");
         const fullCo = getCompany(co.id);
         const cleaned = cleanupStaleAgents(fullCo);
         if (cleaned > 0) {
-          console.log(`  Cleaned up ${cleaned} stale agent(s). Run 'hivemind status' to see updated state.`);
+          logger.info(`  Cleaned up ${cleaned} stale agent(s). Run 'hivemind status' to see updated state.`);
         } else {
-          console.log("  No stale agents found — all agents are healthy.");
+          logger.info("  No stale agents found — all agents are healthy.");
         }
         break;
       }
@@ -142,14 +143,14 @@ export async function run(args) {
       case "logs": {
         const agentName = rest[0];
         if (!agentName) {
-          console.error("  Usage: hivemind logs <agent-name>");
+          logger.error("  Usage: hivemind logs <agent-name>");
           return;
         }
         const log = readAgentLog(agentName);
         if (log) {
-          console.log(log);
+          logger.info(log);
         } else {
-          console.error(`  No logs found for agent: ${agentName}`);
+          logger.error(`  No logs found for agent: ${agentName}`);
         }
         break;
       }
@@ -161,17 +162,17 @@ export async function run(args) {
         const targetCo = rest[0]
           ? allCos.find(c => c.id.startsWith(rest[0]))
           : allCos[0];
-        if (!targetCo) { console.log("  No companies found."); return; }
+        if (!targetCo) { logger.info("  No companies found."); return; }
 
         const totals = getCostTotals(targetCo.id);
         const summary = getCostSummary(targetCo.id);
 
-        console.log(`\n  ╔═══════════════════════════════════════════════╗`);
-        console.log(`  ║  CFO Report — ${targetCo.name.slice(0, 33).padEnd(33)}║`);
-        console.log(`  ╚═══════════════════════════════════════════════╝`);
+        logger.info(`\n  ╔═══════════════════════════════════════════════╗`);
+        logger.info(`  ║  CFO Report — ${targetCo.name.slice(0, 33).padEnd(33)}║`);
+        logger.info(`  ╚═══════════════════════════════════════════════╝`);
 
         if (!totals || !totals.total_sessions) {
-          console.log("  No cost data recorded yet.\n");
+          logger.info("  No cost data recorded yet.\n");
           return;
         }
 
@@ -189,21 +190,21 @@ export async function run(args) {
           return `${(s / 60).toFixed(1)}m`;
         };
 
-        console.log(`\n  Total Cost : ${fmtCost(totals.total_cost_usd)}`);
-        console.log(`  Tokens     : ${fmtTok(totals.total_tokens)} (${fmtTok(totals.total_input_tokens)} in / ${fmtTok(totals.total_output_tokens)} out)`);
-        console.log(`  Cache Read : ${fmtTok(totals.total_cache_read_tokens)}`);
-        console.log(`  Sessions   : ${totals.total_sessions}`);
-        console.log(`  Turns      : ${totals.total_turns}`);
-        console.log(`  Time       : ${fmtTime(totals.total_duration_ms)}`);
+        logger.info(`\n  Total Cost : ${fmtCost(totals.total_cost_usd)}`);
+        logger.info(`  Tokens     : ${fmtTok(totals.total_tokens)} (${fmtTok(totals.total_input_tokens)} in / ${fmtTok(totals.total_output_tokens)} out)`);
+        logger.info(`  Cache Read : ${fmtTok(totals.total_cache_read_tokens)}`);
+        logger.info(`  Sessions   : ${totals.total_sessions}`);
+        logger.info(`  Turns      : ${totals.total_turns}`);
+        logger.info(`  Time       : ${fmtTime(totals.total_duration_ms)}`);
 
         if (summary.length > 0) {
-          console.log("\n  COST BY AGENT:");
+          logger.info("\n  COST BY AGENT:");
           for (const row of summary) {
             const pct = totals.total_cost_usd ? ((row.total_cost_usd / totals.total_cost_usd) * 100).toFixed(0) : 0;
-            console.log(`    ${row.agent_name.padEnd(16)} ${fmtCost(row.total_cost_usd).padStart(8)}  ${fmtTok(row.total_tokens).padStart(7)} tok  ${row.sessions} sess  ${fmtTime(row.total_duration_ms).padStart(6)}  (${pct}%)`);
+            logger.info(`    ${row.agent_name.padEnd(16)} ${fmtCost(row.total_cost_usd).padStart(8)}  ${fmtTok(row.total_tokens).padStart(7)} tok  ${row.sessions} sess  ${fmtTime(row.total_duration_ms).padStart(6)}  (${pct}%)`);
           }
         }
-        console.log("");
+        logger.info("");
         break;
       }
 
@@ -213,12 +214,12 @@ export async function run(args) {
           const goal = [command, ...rest].join(" ");
           await startCompany(goal);
         } else {
-          console.error(`  Unknown command: ${command}`);
-          console.log(HELP);
+          logger.error(`  Unknown command: ${command}`);
+          logger.info(HELP);
         }
     }
   } catch (err) {
-    console.error(`\n  Error: ${err.message}`);
-    if (process.env.DEBUG) console.error(err.stack);
+    logger.error(`\n  Error: ${err.message}`);
+    if (process.env.DEBUG) logger.error(err.stack);
   }
 }

@@ -117,7 +117,7 @@ function logRemediation({ companyId, agentId, taskId, ruleName, issue, action, s
   stats.remediated++;
   ruleState.ruleExecutionStats.set(ruleName, stats);
 
-  console.log(`[SELF-HEAL] ${ruleName}: ${issue} → ${action} (${success ? 'SUCCESS' : 'FAILED'})`);
+  logger.info(`[SELF-HEAL] ${ruleName}: ${issue} → ${action} (${success ? 'SUCCESS' : 'FAILED'})`);
 }
 
 /**
@@ -364,7 +364,7 @@ async function rule_memory_leak_detection() {
               } catch {}
             }, 5000);
           } catch (err) {
-            console.error(`[SELF-HEAL] Failed to kill process ${agent.pid}: ${err.message}`);
+            logger.error(`[SELF-HEAL] Failed to kill process ${agent.pid}: ${err.message}`);
           }
 
           // Clean up agent state
@@ -463,7 +463,7 @@ async function rule_deployment_failure_detection() {
     const issue = `Deployment ${deployment.git_tag} failed: ${deployment.health_check_error || 'Unknown error'}`;
 
     try {
-      console.log(`[SELF-HEAL] Triggering automatic rollback for deployment ${deployment.id}...`);
+      logger.info(`[SELF-HEAL] Triggering automatic rollback for deployment ${deployment.id}...`);
 
       // Trigger rollback
       const rollbackResult = await rollbackDeployment(
@@ -538,7 +538,7 @@ async function executeRules() {
     results.push(await rule_memory_leak_detection());
     results.push(await rule_deployment_failure_detection());
   } catch (err) {
-    console.error(`[SELF-HEAL] Error executing rules: ${err.message}`);
+    logger.error(`[SELF-HEAL] Error executing rules: ${err.message}`);
     structuredLog({
       level: 'error',
       source: 'self-healing',
@@ -555,7 +555,7 @@ async function executeRules() {
  */
 export function startSelfHealing({ company, runningAgents, restartCallback }) {
   if (ruleCheckInterval) {
-    console.log('[SELF-HEAL] Self-healing engine already running');
+    logger.info('[SELF-HEAL] Self-healing engine already running');
     return;
   }
 
@@ -563,7 +563,7 @@ export function startSelfHealing({ company, runningAgents, restartCallback }) {
   globalRunningAgents = runningAgents;
   globalRestartCallback = restartCallback;
 
-  console.log(`[SELF-HEAL] Starting self-healing rule engine (check every ${RULE_CHECK_INTERVAL_MS / 1000}s)`);
+  logger.info(`[SELF-HEAL] Starting self-healing rule engine (check every ${RULE_CHECK_INTERVAL_MS / 1000}s)`);
 
   structuredLog({
     level: 'info',
@@ -583,13 +583,13 @@ export function startSelfHealing({ company, runningAgents, restartCallback }) {
 
   // Run immediately on start
   executeRules().catch(err => {
-    console.error(`[SELF-HEAL] Initial rule execution failed: ${err.message}`);
+    logger.error(`[SELF-HEAL] Initial rule execution failed: ${err.message}`);
   });
 
   // Then run on interval
   ruleCheckInterval = setInterval(() => {
     executeRules().catch(err => {
-      console.error(`[SELF-HEAL] Rule execution failed: ${err.message}`);
+      logger.error(`[SELF-HEAL] Rule execution failed: ${err.message}`);
     });
   }, RULE_CHECK_INTERVAL_MS);
 
@@ -604,7 +604,7 @@ export function stopSelfHealing() {
     clearInterval(ruleCheckInterval);
     ruleCheckInterval = null;
 
-    console.log('[SELF-HEAL] Self-healing engine stopped');
+    logger.info('[SELF-HEAL] Self-healing engine stopped');
 
     structuredLog({
       level: 'info',
@@ -669,7 +669,7 @@ export function getRemediationHistory(limit = 50) {
  * Manually trigger rule execution (for testing/debugging)
  */
 export async function triggerRules() {
-  console.log('[SELF-HEAL] Manually triggering rule execution...');
+  logger.info('[SELF-HEAL] Manually triggering rule execution...');
   return await executeRules();
 }
 
@@ -682,7 +682,7 @@ export function resetRuleState() {
   ruleState.remediationHistory.length = 0;
   ruleState.ruleExecutionStats.clear();
 
-  console.log('[SELF-HEAL] Rule state reset');
+  logger.info('[SELF-HEAL] Rule state reset');
 
   structuredLog({
     level: 'info',

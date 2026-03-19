@@ -17,7 +17,10 @@ import * as alertManager from "./monitoring/alert-manager.js";
 import { registerBulkRoutes } from "./api/bulk-operations.js";
 import { registerExportRoutes } from "./export/data-exporter-routes.js";
 import { runArchival } from "./export/data-exporter.js";
+import { globalLimiter, nudgeLimiter, deployLimiter, agentLimiter, strictLimiter } from "./middleware/rate-limiter.js";
+import { validate } from "./middleware/validators.js";
 
+import logger from "./logger.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function triggerResume(companyId) {
@@ -37,7 +40,7 @@ function triggerResume(companyId) {
         detached: true,
       });
       child.unref();
-      console.log(`[server] Auto-resumed orchestrator for company ${companyId.slice(0, 8)}`);
+      logger.info(`[server] Auto-resumed orchestrator for company ${companyId.slice(0, 8)}`);
     }
     const nudgeChild = spawn("node", ["bin/hivemind.js", "nudge", companyId.slice(0, 8), "Process unread comments and dispatch tasks immediately"], {
       cwd: path.resolve(__dirname, ".."),
@@ -46,7 +49,7 @@ function triggerResume(companyId) {
     });
     nudgeChild.unref();
   } catch (err) {
-    console.error(`[server] triggerResume error: ${err.message}`);
+    logger.error(`[server] triggerResume error: ${err.message}`);
   }
 }
 
@@ -58,10 +61,10 @@ export function createServer(port = 3100) {
 
   wss.on('connection', (ws) => {
     clients.add(ws);
-    console.log('[ws] Client connected. Total:', clients.size);
+    logger.info('[ws] Client connected. Total:', clients.size);
     ws.on('close', () => {
       clients.delete(ws);
-      console.log('[ws] Client disconnected. Total:', clients.size);
+      logger.info('[ws] Client disconnected. Total:', clients.size);
     });
   });
 
@@ -76,7 +79,23 @@ export function createServer(port = 3100) {
   db.setBroadcastFunction(broadcast);
 
   app.locals.broadcast = broadcast;
-  app.use(express.json());
+  app.use(express.json({ limit: '10mb' }));
+
+  // Global rate limiting
+  app.use(globalLimiter);
+
+  // Health check endpoint (Task 8)
+  app.get('/api/health', (req, res) => {
+    const dbOk = (() => { try { db.getDb(); return true; } catch { return false; } })();
+    res.json({
+      status: dbOk ? 'ok' : 'degraded',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      db: dbOk ? 'connected' : 'disconnected',
+      ws: { clients: clients.size, status: 'listening' },
+      memory: process.memoryUsage(),
+    });
+  });
   const uiDist = path.join(__dirname, "../ui/dist");
 
   // Security headers via helmet
@@ -120,9 +139,9 @@ export function createServer(port = 3100) {
   // Client-side error logging endpoint
   app.post("/api/errors", (req, res) => {
     const { message, stack, componentStack, timestamp, url } = req.body;
-    console.error(`[UI Error] ${timestamp} | ${url} | ${message}`);
-    if (stack) console.error(`[UI Error] Stack: ${stack}`);
-    if (componentStack) console.error(`[UI Error] Component: ${componentStack}`);
+    logger.error(`[UI Error] ${timestamp} | ${url} | ${message}`);
+    if (stack) logger.error(`[UI Error] Stack: ${stack}`);
+    if (componentStack) logger.error(`[UI Error] Component: ${componentStack}`);
     res.json({ logged: true });
   });
 
@@ -176,7 +195,7 @@ export function createServer(port = 3100) {
     res.json(company);
   });
 
-  app.post("/api/companies", (req, res) => {
+  app.post("/api/companies", strictLimiter, (req, res) => {
     const { name, goal } = req.body || {};
     if (!name || !goal) {
       return res.status(400).json({ error: "Name and goal required" });
@@ -571,7 +590,7 @@ export function createServer(port = 3100) {
         paused_seconds_remaining: status.pausedUntil ? Math.max(0, Math.floor((status.pausedUntil - Date.now()) / 1000)) : 0,
       });
     } catch (err) {
-      console.error("[circuit-breaker] Error fetching status:", err);
+      logger.error("[circuit-breaker] Error fetching status:", err);
       res.status(500).json({ error: "Failed to fetch circuit breaker status" });
     }
   });
@@ -592,7 +611,7 @@ export function createServer(port = 3100) {
 
       res.json({ success: true, message: "Circuit breaker reset to CLOSED state" });
     } catch (err) {
-      console.error("[circuit-breaker] Error resetting:", err);
+      logger.error("[circuit-breaker] Error resetting:", err);
       res.status(500).json({ error: "Failed to reset circuit breaker" });
     }
   });
@@ -604,7 +623,7 @@ export function createServer(port = 3100) {
       const status = selfHealing.getSelfHealingStatus();
       res.json(status);
     } catch (err) {
-      console.error("[self-healing] Error fetching status:", err);
+      logger.error("[self-healing] Error fetching status:", err);
       res.status(500).json({ error: "Failed to fetch self-healing status" });
     }
   });
@@ -617,7 +636,7 @@ export function createServer(port = 3100) {
       const history = selfHealing.getRemediationHistory(limit);
       res.json({ history, total: history.length });
     } catch (err) {
-      console.error("[self-healing] Error fetching remediation history:", err);
+      logger.error("[self-healing] Error fetching remediation history:", err);
       res.status(500).json({ error: "Failed to fetch remediation history" });
     }
   });
@@ -645,7 +664,7 @@ export function createServer(port = 3100) {
         }))
       });
     } catch (err) {
-      console.error("[self-healing] Error triggering rules:", err);
+      logger.error("[self-healing] Error triggering rules:", err);
       res.status(500).json({ error: "Failed to trigger self-healing rules" });
     }
   });
@@ -664,13 +683,13 @@ export function createServer(port = 3100) {
 
       res.json({ success: true, message: "Self-healing rule state reset" });
     } catch (err) {
-      console.error("[self-healing] Error resetting state:", err);
+      logger.error("[self-healing] Error resetting state:", err);
       res.status(500).json({ error: "Failed to reset self-healing state" });
     }
   });
 
   // Manual agent restart
-  app.post("/api/agents/:id/restart", async (req, res) => {
+  app.post("/api/agents/:id/restart", agentLimiter, async (req, res) => {
     try {
       const agent = db.getAgent(req.params.id);
       if (!agent) return res.status(404).json({ error: "Agent not found" });
@@ -679,9 +698,9 @@ export function createServer(port = 3100) {
       if (agent.pid) {
         try {
           process.kill(agent.pid, "SIGTERM");
-          console.log(`[restart] Killed agent ${agent.name} (PID ${agent.pid})`);
+          logger.info(`[restart] Killed agent ${agent.name} (PID ${agent.pid})`);
         } catch (err) {
-          console.log(`[restart] Agent ${agent.name} process already dead`);
+          logger.info(`[restart] Agent ${agent.name} process already dead`);
         }
       }
 
@@ -726,7 +745,7 @@ export function createServer(port = 3100) {
         agent: { ...agent, status: "idle", pid: null }
       });
     } catch (err) {
-      console.error("[restart] Error restarting agent:", err);
+      logger.error("[restart] Error restarting agent:", err);
       res.status(500).json({ error: "Failed to restart agent" });
     }
   });
@@ -843,7 +862,7 @@ export function createServer(port = 3100) {
     });
   });
 
-  app.post("/api/companies/:id/nudge", async (req, res) => {
+  app.post("/api/companies/:id/nudge", nudgeLimiter, async (req, res) => {
     const company = findCompany(req.params.id);
     if (!company) return res.status(404).json({ error: "Not found" });
     const { message } = req.body || {};
@@ -865,7 +884,7 @@ export function createServer(port = 3100) {
     res.json({ success: true, message: "Nudge sent — agent picking it up now" });
   });
 
-  app.post("/api/nudge", async (req, res) => {
+  app.post("/api/nudge", nudgeLimiter, async (req, res) => {
     const { companyId, message } = req.body || {};
     if (!message) return res.status(400).json({ error: "Message required" });
     let company;
@@ -1074,7 +1093,7 @@ export function createServer(port = 3100) {
         agentPerformance,
       });
     } catch (err) {
-      console.error('[analytics] Error fetching cross-project data:', err);
+      logger.error('[analytics] Error fetching cross-project data:', err);
       res.status(500).json({ error: 'Failed to fetch analytics data' });
     }
   });
@@ -1085,7 +1104,7 @@ export function createServer(port = 3100) {
       const result = analyzeFailurePatterns(null, { limit: parseInt(req.query.limit) || 500 });
       res.json(result);
     } catch (err) {
-      console.error('[analytics] Error analyzing failure patterns:', err);
+      logger.error('[analytics] Error analyzing failure patterns:', err);
       res.status(500).json({ error: 'Failed to analyze failure patterns' });
     }
   });
@@ -1098,7 +1117,7 @@ export function createServer(port = 3100) {
       const result = analyzeFailurePatterns(company.id, { limit: parseInt(req.query.limit) || 500 });
       res.json(result);
     } catch (err) {
-      console.error('[analytics] Error analyzing failure patterns:', err);
+      logger.error('[analytics] Error analyzing failure patterns:', err);
       res.status(500).json({ error: 'Failed to analyze failure patterns' });
     }
   });
@@ -1124,7 +1143,7 @@ export function createServer(port = 3100) {
         paused_seconds_remaining: pausedSecondsRemaining,
       });
     } catch (err) {
-      console.error("[circuit-breaker] Error fetching status:", err);
+      logger.error("[circuit-breaker] Error fetching status:", err);
       res.status(500).json({ error: "Failed to fetch circuit breaker status" });
     }
   });
@@ -1144,12 +1163,12 @@ export function createServer(port = 3100) {
 
       res.json({ success: true, message: "Circuit breaker reset to CLOSED state" });
     } catch (err) {
-      console.error("[circuit-breaker] Error resetting:", err);
+      logger.error("[circuit-breaker] Error resetting:", err);
       res.status(500).json({ error: "Failed to reset circuit breaker" });
     }
   });
 
-  app.post("/api/agents/:id/restart", (req, res) => {
+  app.post("/api/agents/:id/restart", agentLimiter, (req, res) => {
     try {
       const agent = db.getAgent(req.params.id);
       if (!agent) return res.status(404).json({ error: "Agent not found" });
@@ -1191,7 +1210,7 @@ export function createServer(port = 3100) {
         message: `Agent ${agent.name} restarted. Orchestrator will reassign tasks.`
       });
     } catch (err) {
-      console.error("[agent] Error restarting:", err);
+      logger.error("[agent] Error restarting:", err);
       res.status(500).json({ error: "Failed to restart agent" });
     }
   });
@@ -1205,9 +1224,9 @@ export function createServer(port = 3100) {
       if (agent.pid) {
         try {
           process.kill(agent.pid, 'SIGKILL');
-          console.log(`[agent] Force killed PID ${agent.pid} for agent ${agent.name}`);
+          logger.info(`[agent] Force killed PID ${agent.pid} for agent ${agent.name}`);
         } catch (err) {
-          console.log(`[agent] PID ${agent.pid} already dead or inaccessible`);
+          logger.info(`[agent] PID ${agent.pid} already dead or inaccessible`);
         }
       }
 
@@ -1252,7 +1271,7 @@ export function createServer(port = 3100) {
         message: `Agent ${agent.name} hard reset. Process killed, checkpoints cleared.`
       });
     } catch (err) {
-      console.error("[agent] Error hard resetting:", err);
+      logger.error("[agent] Error hard resetting:", err);
       res.status(500).json({ error: "Failed to hard reset agent" });
     }
   });
@@ -1324,7 +1343,7 @@ export function createServer(port = 3100) {
         },
       });
     } catch (err) {
-      console.error("[incidents] Error fetching timeline:", err);
+      logger.error("[incidents] Error fetching timeline:", err);
       res.status(500).json({ error: "Failed to fetch incident timeline" });
     }
   });
@@ -1414,7 +1433,7 @@ export function createServer(port = 3100) {
         },
       });
     } catch (err) {
-      console.error("[health-history] Error:", err);
+      logger.error("[health-history] Error:", err);
       res.status(500).json({ error: "Failed to fetch health history" });
     }
   });
@@ -1431,7 +1450,7 @@ export function createServer(port = 3100) {
 
       res.json(metrics);
     } catch (err) {
-      console.error("[retry] Error fetching metrics:", err);
+      logger.error("[retry] Error fetching metrics:", err);
       res.status(500).json({ error: "Failed to fetch retry metrics" });
     }
   });
@@ -1447,7 +1466,7 @@ export function createServer(port = 3100) {
 
       res.json(timeline);
     } catch (err) {
-      console.error("[retry] Error fetching timeline:", err);
+      logger.error("[retry] Error fetching timeline:", err);
       res.status(500).json({ error: "Failed to fetch retry timeline" });
     }
   });
@@ -1463,7 +1482,7 @@ export function createServer(port = 3100) {
 
       res.json(tasks);
     } catch (err) {
-      console.error("[retry] Error fetching high-retry tasks:", err);
+      logger.error("[retry] Error fetching high-retry tasks:", err);
       res.status(500).json({ error: "Failed to fetch high-retry tasks" });
     }
   });
@@ -1476,7 +1495,7 @@ export function createServer(port = 3100) {
 
       res.json(state);
     } catch (err) {
-      console.error("[retry] Error fetching task retry state:", err);
+      logger.error("[retry] Error fetching task retry state:", err);
       res.status(500).json({ error: "Failed to fetch retry state" });
     }
   });
@@ -1490,7 +1509,7 @@ export function createServer(port = 3100) {
         policies: RetryPolicy
       });
     } catch (err) {
-      console.error("[retry] Error fetching policies:", err);
+      logger.error("[retry] Error fetching policies:", err);
       res.status(500).json({ error: "Failed to fetch retry policies" });
     }
   });
@@ -1512,7 +1531,7 @@ export function createServer(port = 3100) {
         stats
       });
     } catch (err) {
-      console.error("[recovery] Error fetching recovery status:", err);
+      logger.error("[recovery] Error fetching recovery status:", err);
       res.status(500).json({ error: "Failed to fetch recovery status" });
     }
   });
@@ -1527,7 +1546,7 @@ export function createServer(port = 3100) {
 
       res.json(info);
     } catch (err) {
-      console.error("[recovery] Error fetching agent recovery info:", err);
+      logger.error("[recovery] Error fetching agent recovery info:", err);
       res.status(500).json({ error: "Failed to fetch agent recovery info" });
     }
   });
@@ -1554,7 +1573,7 @@ export function createServer(port = 3100) {
         message: `Recovery state reset for agent ${agent.name}`
       });
     } catch (err) {
-      console.error("[recovery] Error resetting recovery state:", err);
+      logger.error("[recovery] Error resetting recovery state:", err);
       res.status(500).json({ error: "Failed to reset recovery state" });
     }
   });
@@ -1571,7 +1590,7 @@ export function createServer(port = 3100) {
 
       res.json(report);
     } catch (err) {
-      console.error("[workload] Error generating forecast:", err);
+      logger.error("[workload] Error generating forecast:", err);
       res.status(500).json({ error: "Failed to generate workload forecast" });
     }
   });
@@ -1587,7 +1606,7 @@ export function createServer(port = 3100) {
 
       res.json(prediction);
     } catch (err) {
-      console.error("[workload] Error predicting task volume:", err);
+      logger.error("[workload] Error predicting task volume:", err);
       res.status(500).json({ error: "Failed to predict task volume" });
     }
   });
@@ -1602,7 +1621,7 @@ export function createServer(port = 3100) {
 
       res.json(recommendation);
     } catch (err) {
-      console.error("[workload] Error calculating scaling recommendation:", err);
+      logger.error("[workload] Error calculating scaling recommendation:", err);
       res.status(500).json({ error: "Failed to calculate scaling recommendation" });
     }
   });
@@ -1617,7 +1636,7 @@ export function createServer(port = 3100) {
 
       res.json(analysis);
     } catch (err) {
-      console.error("[workload] Error analyzing peak hours:", err);
+      logger.error("[workload] Error analyzing peak hours:", err);
       res.status(500).json({ error: "Failed to analyze peak hours" });
     }
   });
@@ -1632,7 +1651,7 @@ export function createServer(port = 3100) {
 
       res.json(efficiency);
     } catch (err) {
-      console.error("[workload] Error predicting agent efficiency:", err);
+      logger.error("[workload] Error predicting agent efficiency:", err);
       res.status(500).json({ error: "Failed to predict agent efficiency" });
     }
   });
@@ -1646,7 +1665,7 @@ export function createServer(port = 3100) {
       const playbooks = listPlaybooks();
       res.json({ playbooks });
     } catch (err) {
-      console.error("[playbooks] Error listing playbooks:", err);
+      logger.error("[playbooks] Error listing playbooks:", err);
       res.status(500).json({ error: "Failed to list playbooks" });
     }
   });
@@ -1663,7 +1682,7 @@ export function createServer(port = 3100) {
 
       res.json({ history });
     } catch (err) {
-      console.error("[playbooks] Error fetching history:", err);
+      logger.error("[playbooks] Error fetching history:", err);
       res.status(500).json({ error: "Failed to fetch playbook history" });
     }
   });
@@ -1679,7 +1698,7 @@ export function createServer(port = 3100) {
 
       res.json(stats);
     } catch (err) {
-      console.error("[playbooks] Error fetching stats:", err);
+      logger.error("[playbooks] Error fetching stats:", err);
       res.status(500).json({ error: "Failed to fetch playbook stats" });
     }
   });
@@ -1696,7 +1715,7 @@ export function createServer(port = 3100) {
         message: "Playbook configuration reloaded"
       });
     } catch (err) {
-      console.error("[playbooks] Error reloading playbooks:", err);
+      logger.error("[playbooks] Error reloading playbooks:", err);
       res.status(500).json({ error: "Failed to reload playbooks" });
     }
   });
@@ -1710,7 +1729,7 @@ export function createServer(port = 3100) {
 
       res.json(result);
     } catch (err) {
-      console.error("[playbooks] Error testing playbook match:", err);
+      logger.error("[playbooks] Error testing playbook match:", err);
       res.status(500).json({ error: "Failed to test playbook match" });
     }
   });
@@ -1726,7 +1745,7 @@ export function createServer(port = 3100) {
 
       res.json(result);
     } catch (err) {
-      console.error("[playbooks] Error performing health check:", err);
+      logger.error("[playbooks] Error performing health check:", err);
       res.status(500).json({ error: "Failed to perform health check" });
     }
   });
@@ -1996,7 +2015,7 @@ export function createServer(port = 3100) {
         completionDistribution, errorHeatmap: mergedHeatmap, taskStatusOverTime,
       });
     } catch (err) {
-      console.error("[trends] Error fetching trends:", err);
+      logger.error("[trends] Error fetching trends:", err);
       res.status(500).json({ error: "Failed to fetch trends data" });
     }
   });
@@ -2022,10 +2041,10 @@ export function createServer(port = 3100) {
     try {
       const result = runArchival(30);
       if (result.logs.archived > 0 || result.activity.archived > 0) {
-        console.log(`[archival] Archived ${result.logs.archived} logs, ${result.activity.archived} activity entries`);
+        logger.info(`[archival] Archived ${result.logs.archived} logs, ${result.activity.archived} activity entries`);
       }
     } catch (err) {
-      console.error("[archival] Error:", err.message);
+      logger.error("[archival] Error:", err.message);
     }
   }, 24 * 60 * 60 * 1000);
   archivalInterval.unref();
@@ -2043,8 +2062,8 @@ function findCompany(idOrPrefix) {
 export function startServer(port = 3100) {
   const { app, wss } = createServer(port);
   const server = app.listen(port, () => {
-    console.log(`  Hivemind dashboard: http://localhost:${port}`);
-    console.log(`  WebSocket server ready`);
+    logger.info(`  Hivemind dashboard: http://localhost:${port}`);
+    logger.info(`  WebSocket server ready`);
   });
 
   server.on('upgrade', (req, socket, head) => {

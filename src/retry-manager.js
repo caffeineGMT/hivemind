@@ -13,6 +13,7 @@
 import * as db from "./db.js";
 import { circuitBreaker } from "./circuit-breaker.js";
 
+import logger from "./logger.js";
 // ──────────────────────────────────────────────────────────────────
 // Error Classification
 // ──────────────────────────────────────────────────────────────────
@@ -350,11 +351,11 @@ export async function executeWithRetry(fn, options = {}) {
         });
       }
 
-      console.error(`[RETRY] Attempt ${attempt + 1} failed: ${errorType} - ${error.message}`);
+      logger.error(`[RETRY] Attempt ${attempt + 1} failed: ${errorType} - ${error.message}`);
 
       // Check if error is retryable
       if (category !== ErrorCategory.TRANSIENT) {
-        console.error(`[RETRY] Error is not retryable (category: ${category}). Failing immediately.`);
+        logger.error(`[RETRY] Error is not retryable (category: ${category}). Failing immediately.`);
         circuitBreaker.recordFailure();
         break;
       }
@@ -364,21 +365,21 @@ export async function executeWithRetry(fn, options = {}) {
 
       // Check if we've exhausted retries
       if (attempt >= policy.maxAttempts) {
-        console.error(`[RETRY] Max attempts (${policy.maxAttempts}) reached for ${errorType}`);
+        logger.error(`[RETRY] Max attempts (${policy.maxAttempts}) reached for ${errorType}`);
         circuitBreaker.recordFailure();
         break;
       }
 
       // Calculate backoff delay with jitter
       const delay = calculateBackoffDelay(attempt, policy);
-      console.log(`[RETRY] Waiting ${delay}ms before retry (policy: ${errorType}, attempt: ${attempt + 1}/${policy.maxAttempts})`);
+      logger.info(`[RETRY] Waiting ${delay}ms before retry (policy: ${errorType}, attempt: ${attempt + 1}/${policy.maxAttempts})`);
 
       // Call retry callback if provided
       if (onRetry) {
         try {
           await onRetry(attempt + 1, error, delay);
         } catch (err) {
-          console.error('[RETRY] Error in onRetry callback:', err.message);
+          logger.error('[RETRY] Error in onRetry callback:', err.message);
         }
       }
 
@@ -406,7 +407,7 @@ export async function executeWithRetry(fn, options = {}) {
         });
       }
     } catch (err) {
-      console.error('[RETRY] Failed to log incident:', err.message);
+      logger.error('[RETRY] Failed to log incident:', err.message);
     }
 
     // Mark task as blocked with error details
@@ -417,7 +418,7 @@ export async function executeWithRetry(fn, options = {}) {
         `Failed after ${attempt} retries: ${errorType} - ${lastError.message.slice(0, 200)}`
       );
     } catch (err) {
-      console.error('[RETRY] Failed to update task status:', err.message);
+      logger.error('[RETRY] Failed to update task status:', err.message);
     }
   }
 
@@ -426,7 +427,7 @@ export async function executeWithRetry(fn, options = {}) {
     try {
       await onFailure(lastError, attempt);
     } catch (err) {
-      console.error('[RETRY] Error in onFailure callback:', err.message);
+      logger.error('[RETRY] Error in onFailure callback:', err.message);
     }
   }
 

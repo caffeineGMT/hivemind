@@ -10,6 +10,7 @@ import { classifyError, executeWithRetry } from '../retry-manager.js';
 import { recordAgentCrash } from '../recovery-manager.js';
 import * as db from '../db.js';
 
+import logger from "./logger.js";
 /**
  * Execute function with automatic playbook recovery
  *
@@ -32,7 +33,7 @@ export async function executeWithPlaybookRecovery(fn, options = {}) {
       companyId,
       maxAttempts,
       onRetry: async (attempt, error, delay) => {
-        console.log(`[PLAYBOOK-INTEGRATION] Retry attempt ${attempt} after error: ${error.message}`);
+        logger.info(`[PLAYBOOK-INTEGRATION] Retry attempt ${attempt} after error: ${error.message}`);
 
         // Trigger playbook on first retry
         if (attempt === 1) {
@@ -49,7 +50,7 @@ export async function executeWithPlaybookRecovery(fn, options = {}) {
         }
       },
       onFailure: async (error, attempts) => {
-        console.error(`[PLAYBOOK-INTEGRATION] Final failure after ${attempts} attempts`);
+        logger.error(`[PLAYBOOK-INTEGRATION] Final failure after ${attempts} attempts`);
 
         // Trigger playbook on final failure
         const context = {
@@ -82,7 +83,7 @@ export async function handleAgentCrashWithPlaybook(options) {
     reason
   } = options;
 
-  console.log(`[PLAYBOOK-INTEGRATION] Agent crash detected: ${agentName || agentId}`);
+  logger.info(`[PLAYBOOK-INTEGRATION] Agent crash detected: ${agentName || agentId}`);
 
   // Record crash in recovery manager (this handles exponential backoff)
   const crashResult = recordAgentCrash({
@@ -134,7 +135,7 @@ export async function checkStuckTasks(companyId) {
   const results = [];
 
   for (const task of stuckTasks) {
-    console.log(`[PLAYBOOK-INTEGRATION] Found stuck task: ${task.title} (${task.stuck_minutes.toFixed(1)} minutes)`);
+    logger.info(`[PLAYBOOK-INTEGRATION] Found stuck task: ${task.title} (${task.stuck_minutes.toFixed(1)} minutes)`);
 
     const agent = task.assignee_id ? db.getAgent(task.assignee_id) : null;
 
@@ -195,7 +196,7 @@ export async function scanForFailures(companyId, lookbackMinutes = 5) {
     const playbook = matchPlaybook(context);
 
     if (playbook) {
-      console.log(`[PLAYBOOK-INTEGRATION] Found incident matching playbook: ${playbook.name}`);
+      logger.info(`[PLAYBOOK-INTEGRATION] Found incident matching playbook: ${playbook.name}`);
       results.push({
         incident_id: incident.id,
         incident_type: incident.incident_type,
@@ -216,7 +217,7 @@ export async function scanForFailures(companyId, lookbackMinutes = 5) {
  * Periodic health check that triggers playbooks for detected issues
  */
 export async function performHealthCheck(companyId) {
-  console.log(`[PLAYBOOK-INTEGRATION] Running health check for company ${companyId}`);
+  logger.info(`[PLAYBOOK-INTEGRATION] Running health check for company ${companyId}`);
 
   const results = {
     stuck_tasks: null,
@@ -231,9 +232,9 @@ export async function performHealthCheck(companyId) {
     // Scan for recent failures
     results.recent_failures = await scanForFailures(companyId, 5);
 
-    console.log(`[PLAYBOOK-INTEGRATION] Health check complete: ${results.stuck_tasks.playbooks_triggered} playbooks triggered`);
+    logger.info(`[PLAYBOOK-INTEGRATION] Health check complete: ${results.stuck_tasks.playbooks_triggered} playbooks triggered`);
   } catch (error) {
-    console.error(`[PLAYBOOK-INTEGRATION] Health check failed: ${error.message}`);
+    logger.error(`[PLAYBOOK-INTEGRATION] Health check failed: ${error.message}`);
     results.error = error.message;
   }
 

@@ -36,10 +36,10 @@ export function loadPlaybooks() {
     playbooks = config.playbooks.filter(p => p.enabled);
     globalSettings = config.global_settings || {};
 
-    console.log(`[PLAYBOOKS] Loaded ${playbooks.length} enabled playbooks`);
+    logger.info(`[PLAYBOOKS] Loaded ${playbooks.length} enabled playbooks`);
     return { playbooks, globalSettings };
   } catch (error) {
-    console.error('[PLAYBOOKS] Failed to load playbooks config:', error.message);
+    logger.error('[PLAYBOOKS] Failed to load playbooks config:', error.message);
     playbooks = [];
     globalSettings = {};
     return { playbooks: [], globalSettings: {} };
@@ -53,7 +53,7 @@ loadPlaybooks();
  * Reload playbooks from config (useful for hot-reloading)
  */
 export function reloadPlaybooks() {
-  console.log('[PLAYBOOKS] Reloading playbook configuration...');
+  logger.info('[PLAYBOOKS] Reloading playbook configuration...');
   return loadPlaybooks();
 }
 
@@ -161,7 +161,7 @@ async function executeAction(action, context) {
 
   switch (type) {
     case 'log_playbook_start':
-      console.log(`[PLAYBOOK] ${params.message || 'Playbook action started'}`);
+      logger.info(`[PLAYBOOK] ${params.message || 'Playbook action started'}`);
       structuredLog({
         level: 'info',
         source: 'playbook',
@@ -176,7 +176,7 @@ async function executeAction(action, context) {
     case 'retry_with_backoff':
       // This is handled externally by executeWithRetry wrapper
       // Just log that retry strategy is configured
-      console.log(`[PLAYBOOK] Retry strategy configured: max_attempts=${params.max_attempts}, base_delay=${params.base_delay_ms}ms`);
+      logger.info(`[PLAYBOOK] Retry strategy configured: max_attempts=${params.max_attempts}, base_delay=${params.base_delay_ms}ms`);
       return {
         retryConfig: {
           maxAttempts: params.max_attempts,
@@ -187,7 +187,7 @@ async function executeAction(action, context) {
       };
 
     case 'pause':
-      console.log(`[PLAYBOOK] Pausing for ${params.duration_ms}ms (reason: ${params.reason || 'playbook'})`);
+      logger.info(`[PLAYBOOK] Pausing for ${params.duration_ms}ms (reason: ${params.reason || 'playbook'})`);
       await sleep(params.duration_ms);
 
       db.logActivity({
@@ -200,12 +200,12 @@ async function executeAction(action, context) {
       break;
 
     case 'split_task':
-      console.log(`[PLAYBOOK] Splitting task into subtasks (strategy: ${params.strategy})`);
+      logger.info(`[PLAYBOOK] Splitting task into subtasks (strategy: ${params.strategy})`);
 
       // Get original task
       const task = taskId ? db.getTask(taskId) : null;
       if (!task) {
-        console.warn('[PLAYBOOK] Cannot split task - task not found');
+        logger.warn('[PLAYBOOK] Cannot split task - task not found');
         break;
       }
 
@@ -231,7 +231,7 @@ async function executeAction(action, context) {
           createdById: 'playbook-automation'
         });
 
-        console.log(`[PLAYBOOK] Created subtask: ${subtaskTitles[i]}`);
+        logger.info(`[PLAYBOOK] Created subtask: ${subtaskTitles[i]}`);
       }
 
       // Update original task status
@@ -249,7 +249,7 @@ async function executeAction(action, context) {
     case 'update_task_status':
       if (taskId) {
         db.updateTaskStatus(taskId, params.status, params.result);
-        console.log(`[PLAYBOOK] Updated task status to ${params.status}`);
+        logger.info(`[PLAYBOOK] Updated task status to ${params.status}`);
       }
       break;
 
@@ -263,7 +263,7 @@ async function executeAction(action, context) {
           description: params.description || 'Playbook automated recovery',
           recoveryAction: params.recovery_action || 'AUTO_RECOVERY'
         });
-        console.log(`[PLAYBOOK] Logged incident: ${params.incident_type}`);
+        logger.info(`[PLAYBOOK] Logged incident: ${params.incident_type}`);
       }
       break;
 
@@ -278,29 +278,29 @@ async function executeAction(action, context) {
       break;
 
     case 'checkpoint_restore':
-      console.log(`[PLAYBOOK] Checkpoint restore requested (implementation pending)`);
+      logger.info(`[PLAYBOOK] Checkpoint restore requested (implementation pending)`);
       // This would integrate with checkpoint system
       if (params.load_last_checkpoint && agentId && taskId) {
         const checkpoint = db.getLatestCheckpoint(agentId, taskId);
         if (checkpoint) {
-          console.log(`[PLAYBOOK] Found checkpoint at turn ${checkpoint.turn_number}`);
+          logger.info(`[PLAYBOOK] Found checkpoint at turn ${checkpoint.turn_number}`);
           return { checkpoint };
         }
       }
       break;
 
     case 'restart_agent':
-      console.log(`[PLAYBOOK] Agent restart requested (delegated to recovery manager)`);
+      logger.info(`[PLAYBOOK] Agent restart requested (delegated to recovery manager)`);
       // This would be handled by the recovery manager
       if (params.use_recovery_manager && agentId) {
         const canRetry = canRetryAgent(agentId);
-        console.log(`[PLAYBOOK] Agent ${agentName || agentId} can retry: ${canRetry}`);
+        logger.info(`[PLAYBOOK] Agent ${agentName || agentId} can retry: ${canRetry}`);
         return { canRetry };
       }
       break;
 
     case 'restart_task':
-      console.log(`[PLAYBOOK] Task restart requested`);
+      logger.info(`[PLAYBOOK] Task restart requested`);
       if (taskId && params.preserve_progress) {
         // Reset to in_progress from blocked/failed
         db.updateTaskStatus(taskId, 'in_progress', 'Restarted by playbook automation');
@@ -315,7 +315,7 @@ async function executeAction(action, context) {
       break;
 
     case 'notify_user':
-      console.log(`[PLAYBOOK] USER NOTIFICATION: ${params.message}`);
+      logger.info(`[PLAYBOOK] USER NOTIFICATION: ${params.message}`);
       structuredLog({
         level: params.severity || 'info',
         source: 'playbook',
@@ -328,7 +328,7 @@ async function executeAction(action, context) {
       break;
 
     default:
-      console.warn(`[PLAYBOOK] Unknown action type: ${type}`);
+      logger.warn(`[PLAYBOOK] Unknown action type: ${type}`);
   }
 
   return {};
@@ -341,7 +341,7 @@ export async function executePlaybook(playbook, context) {
   const { companyId, agentId, taskId } = context;
   const startTime = Date.now();
 
-  console.log(`[PLAYBOOKS] Executing playbook: ${playbook.name} (${playbook.id})`);
+  logger.info(`[PLAYBOOKS] Executing playbook: ${playbook.name} (${playbook.id})`);
 
   // Log playbook execution start
   db.logActivity({
@@ -377,13 +377,13 @@ export async function executePlaybook(playbook, context) {
     // Execute actions sequentially
     for (let i = 0; i < playbook.actions.length; i++) {
       const action = playbook.actions[i];
-      console.log(`[PLAYBOOK] Executing action ${i + 1}/${playbook.actions.length}: ${action.type}`);
+      logger.info(`[PLAYBOOK] Executing action ${i + 1}/${playbook.actions.length}: ${action.type}`);
 
       try {
         const result = await executeAction(action, context);
         results.push({ action: action.type, success: true, result });
       } catch (error) {
-        console.error(`[PLAYBOOK] Action failed: ${action.type} - ${error.message}`);
+        logger.error(`[PLAYBOOK] Action failed: ${action.type} - ${error.message}`);
         results.push({ action: action.type, success: false, error: error.message });
 
         // Continue with next action even if one fails (best effort)
@@ -429,7 +429,7 @@ export async function executePlaybook(playbook, context) {
       }
     });
 
-    console.log(`[PLAYBOOKS] Playbook ${playbook.name} completed in ${duration}ms (${successCount}/${results.length} actions succeeded)`);
+    logger.info(`[PLAYBOOKS] Playbook ${playbook.name} completed in ${duration}ms (${successCount}/${results.length} actions succeeded)`);
 
     return {
       success: true,
@@ -473,7 +473,7 @@ export async function executePlaybook(playbook, context) {
       }
     });
 
-    console.error(`[PLAYBOOKS] Playbook ${playbook.name} failed: ${error.message}`);
+    logger.error(`[PLAYBOOKS] Playbook ${playbook.name} failed: ${error.message}`);
 
     return {
       success: false,
@@ -496,11 +496,11 @@ export async function autoRecover(context) {
   const playbook = matchPlaybook(context);
 
   if (!playbook) {
-    console.log('[PLAYBOOKS] No matching playbook found for this failure');
+    logger.info('[PLAYBOOKS] No matching playbook found for this failure');
     return { matched: false, playbook: null, result: null };
   }
 
-  console.log(`[PLAYBOOKS] Matched playbook: ${playbook.name}`);
+  logger.info(`[PLAYBOOKS] Matched playbook: ${playbook.name}`);
 
   // Execute playbook
   const result = await executePlaybook(playbook, context);

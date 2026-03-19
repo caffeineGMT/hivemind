@@ -6,6 +6,7 @@ import { circuitBreaker } from "./circuit-breaker.js";
 import * as db from "./db.js";
 import { executeWithRetry, classifyError, getRetryPolicy } from "./retry-manager.js";
 
+import logger from "./logger.js";
 // Build env that replicates what the Meta wrapper sets up
 function buildClaudeEnv() {
   const env = { ...process.env };
@@ -271,13 +272,13 @@ export async function claudeSessionSync(agentId, prompt, opts = {}) {
       onRetry: async (attempt, error, delay) => {
         const { type: errorType } = classifyError(error);
         const policy = getRetryPolicy(errorType);
-        console.log(`[RETRY] Agent ${agentId} will retry in ${delay}ms (attempt ${attempt}/${policy.maxAttempts}, error: ${errorType})`);
+        logger.info(`[RETRY] Agent ${agentId} will retry in ${delay}ms (attempt ${attempt}/${policy.maxAttempts}, error: ${errorType})`);
       },
 
       // Callback on final failure
       onFailure: async (error, attempts) => {
         const { type: errorType } = classifyError(error);
-        console.error(`[RETRY] Agent ${agentId} exhausted all retries after ${attempts} attempts. Error type: ${errorType}`);
+        logger.error(`[RETRY] Agent ${agentId} exhausted all retries after ${attempts} attempts. Error type: ${errorType}`);
       }
     }
   );
